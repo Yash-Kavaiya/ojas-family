@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Ojas Family</string>
+    <string name="error_generic">Something went wrong</string>
+    <string name="action_retry">Try again</string>
 </resources>
