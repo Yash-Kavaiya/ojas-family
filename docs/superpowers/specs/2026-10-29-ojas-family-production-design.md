@@ -61,7 +61,7 @@ real payments, no mock data anywhere.
 - **App layers:** `ui` (Compose screens + ViewModels) → `domain` (use cases, level/permission rules
   shared with UI) → `data` (repositories over Firebase). One repository per area
   (Auth, Profile, Thought, Community, Activities, Content, Chat, Billing, Notifications).
-- **DI:** Hilt. **Navigation:** Navigation Compose with type-safe routes; bottom bar keeps the 5 tabs
+- **DI:** hand-written `AppContainer` (Hilt's Gradle plugin is a risk on AGP 9 built-in Kotlin; revisit later). **Navigation:** Navigation Compose with type-safe routes; bottom bar keeps the 5 tabs
   (Community, Spiritual, Home/Thought, Ask, Profile), Home is the start destination.
 - **State:** ViewModels expose `StateFlow<UiState>` with explicit Loading / Empty / Error / Content.
   Every list has a designed empty state and error retry. Firestore offline cache on.

@@ -24,12 +24,18 @@ jobs:
         with:
           gradle-version: "9.3.1"
 
-      # debug.keystore is gitignored; app/build.gradle.kts expects it at the repo root
-      - name: Create debug keystore
+      # debug.keystore is gitignored. Its SHA-1/SHA-256 are registered in Firebase (Google Sign-In,
+      # phone auth), so CI must sign with the same key: restore it from the DEBUG_KEYSTORE_B64 secret.
+      - name: Restore debug keystore
+        env:
+          DEBUG_KEYSTORE_B64: ${{ secrets.DEBUG_KEYSTORE_B64 }}
         run: |
-          keytool -genkeypair -v -keystore debug.keystore -storepass android \
-            -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 \
-            -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          if [ -n "$DEBUG_KEYSTORE_B64" ]; then
+            echo "$DEBUG_KEYSTORE_B64" | base64 -d > debug.keystore
+          else
+            echo "::warning::DEBUG_KEYSTORE_B64 not set; Google Sign-In will not work in this APK"
+            keytool -genkeypair -keystore debug.keystore -storepass android               -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048               -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
 
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
