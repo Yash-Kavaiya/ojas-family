@@ -56,3 +56,29 @@ jobs:
         with:
           name: unit-test-report
           path: app/build/reports/tests/
+
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: firebase
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # Firebase emulators run on the JVM
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install test dependencies
+        run: npm ci --prefix rules-test
+
+      - name: Security rules tests (emulator)
+        run: npx -y firebase-tools@latest emulators:exec --only firestore,storage --project demo-ojas "npm test --prefix rules-test"
