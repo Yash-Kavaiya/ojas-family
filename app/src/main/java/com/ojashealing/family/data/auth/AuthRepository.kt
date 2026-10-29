@@ -1,6 +1,7 @@
 package com.ojashealing.family.data.auth
 
 import android.app.Activity
+import android.content.Context
 import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
@@ -37,7 +38,7 @@ interface AuthRepository {
     suspend fun confirmPhoneCode(verification: PhoneVerification.CodeSent, code: String): Result<Unit>
     suspend fun signInWithEmail(email: String, password: String, create: Boolean): Result<Unit>
     suspend fun sendPasswordReset(email: String): Result<Unit>
-    suspend fun signOut(activity: Activity)
+    suspend fun signOut(context: Context)
 }
 
 class FirebaseAuthRepository(
@@ -115,9 +116,9 @@ class FirebaseAuthRepository(
         Unit
     }
 
-    override suspend fun signOut(activity: Activity) {
+    override suspend fun signOut(context: Context) {
         auth.signOut()
         // Without this, Credential Manager would silently pick the same Google account next time
-        runCatching { CredentialManager.create(activity).clearCredentialState(ClearCredentialStateRequest()) }
+        runCatching { CredentialManager.create(context).clearCredentialState(ClearCredentialStateRequest()) }
     }
 }

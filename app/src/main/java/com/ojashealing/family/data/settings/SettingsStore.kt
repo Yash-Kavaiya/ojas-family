@@ -15,16 +15,21 @@ val SupportedLanguages = listOf("en", "hi", "gu")
 
 private val Context.settingsDataStore by preferencesDataStore(name = "settings")
 
+interface ThemeSettings {
+    val themeMode: Flow<ThemeMode>
+    suspend fun setThemeMode(mode: ThemeMode)
+}
+
 // Device-local preferences. Anything other members or the server need lives in users/{uid} instead.
-class SettingsStore(private val context: Context) {
+class SettingsStore(private val context: Context) : ThemeSettings {
 
     private val themeKey = stringPreferencesKey("theme_mode")
 
-    val themeMode: Flow<ThemeMode> = context.settingsDataStore.data.map { prefs ->
+    override val themeMode: Flow<ThemeMode> = context.settingsDataStore.data.map { prefs ->
         prefs[themeKey]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.System
     }
 
-    suspend fun setThemeMode(mode: ThemeMode) {
+    override suspend fun setThemeMode(mode: ThemeMode) {
         context.settingsDataStore.edit { it[themeKey] = mode.name }
     }
 }

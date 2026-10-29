@@ -45,7 +45,7 @@ class MainViewModelTest {
         override suspend fun confirmPhoneCode(verification: PhoneVerification.CodeSent, code: String) = Result.success(Unit)
         override suspend fun signInWithEmail(email: String, password: String, create: Boolean) = Result.success(Unit)
         override suspend fun sendPasswordReset(email: String) = Result.success(Unit)
-        override suspend fun signOut(activity: Activity) {}
+        override suspend fun signOut(context: android.content.Context) {}
     }
 
     private class FakeUsers : UserRepository {
