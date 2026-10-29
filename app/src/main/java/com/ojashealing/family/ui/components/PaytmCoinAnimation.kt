@@ -45,12 +45,28 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.ojashealing.family.data.repository.OjasRepository
+import androidx.compose.ui.res.stringResource
+import com.ojashealing.family.R
 import com.ojashealing.family.ui.theme.*
 import kotlinx.coroutines.delay
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
+
+/** A Moksha Point award to animate. isMilestone shows the full burst; otherwise a small coin flies to the counter. */
+data class RewardEvent(
+    val amount: Int,
+    val reason: String,
+    val isMilestone: Boolean = false,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
+// pointEvents store a reason id written by Cloud Functions; unknown ids fall back to the id itself
+@Composable
+fun rewardReasonLabel(reason: String): String = when (reason) {
+    "daily" -> stringResource(R.string.reward_daily)
+    else -> reason
+}
 
 // Screen positions the small coin animation flies between, both in root coordinates
 class RewardAnchors {
@@ -60,7 +76,7 @@ class RewardAnchors {
 
 @Composable
 fun PaytmCoinOverlay(
-    rewardEvent: OjasRepository.RewardEvent?,
+    rewardEvent: RewardEvent?,
     anchors: RewardAnchors,
     onDismiss: () -> Unit
 ) {
@@ -110,7 +126,7 @@ fun PaytmCoinOverlay(
         ) {
             PaytmBurstEffect(
                 amount = rewardEvent.amount,
-                reason = rewardEvent.reason,
+                reason = rewardReasonLabel(rewardEvent.reason),
                 onDismiss = onDismiss
             )
         }
@@ -336,9 +352,8 @@ private fun PaytmBurstEffect(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "+$amount Moksha Point${if (amount > 1) "s" else ""}",
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
+                        text = stringResource(R.string.reward_points, amount),
+                        style = MaterialTheme.typography.titleLarge,
                         color = SacredGold
                     )
                 }
@@ -347,18 +362,9 @@ private fun PaytmBurstEffect(
 
                 Text(
                     text = reason,
-                    fontSize = 14.sp,
+                    style = MaterialTheme.typography.bodyLarge,
                     color = Color.White.copy(alpha = 0.9f),
                     textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = "Ojas Energy Aligned • Body Chakra Rising",
-                    fontSize = 11.sp,
-                    color = HealingCyan,
-                    fontWeight = FontWeight.Medium
                 )
             }
         }
@@ -367,7 +373,7 @@ private fun PaytmBurstEffect(
 
 @Composable
 private fun CoinFlyToCounter(
-    rewardEvent: OjasRepository.RewardEvent,
+    rewardEvent: RewardEvent,
     anchors: RewardAnchors,
     onDismiss: () -> Unit
 ) {

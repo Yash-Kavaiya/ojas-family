@@ -67,7 +67,12 @@
     <string name="profile_level">स्तर %1$d</string>
     <string name="profile_member_level">सदस्य %1$d</string>
     <string name="profile_days_active">%1$d दिन सक्रिय</string>
+    <string name="profile_days_label">सक्रिय दिन</string>
     <string name="reward_daily">दैनिक उपस्थिति</string>
+    <string name="reward_points">+%1$d मोक्ष पॉइंट</string>
+    <string name="profile_location_unset">स्थान नहीं दिया</string>
+    <string name="profile_goals_title">लक्ष्य</string>
+    <string name="profile_goals_empty">स्वामीजी के सुझाए लक्ष्य यहाँ दिखेंगे।</string>
     <string name="settings_title">सेटिंग्स</string>
     <string name="settings_appearance">रूप</string>
     <string name="settings_theme_system">सिस्टम</string>

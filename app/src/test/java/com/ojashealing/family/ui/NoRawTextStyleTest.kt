@@ -2,7 +2,6 @@ package com.ojashealing.family.ui
 
 import java.io.File
 import org.junit.Assert.assertTrue
-import org.junit.Ignore
 import org.junit.Test
 
 class NoRawTextStyleTest {
@@ -10,7 +9,6 @@ class NoRawTextStyleTest {
     // The coin glyph is drawn at a fixed size inside a fixed-size coin, not body text
     private val allowList = setOf("PaytmCoinAnimation.kt")
 
-    @Ignore("enabled in Task 8")
     @Test
     fun screensUseThemeTypography() {
         val root = File("src/main/java/com/ojashealing/family/ui")

@@ -68,7 +68,12 @@
     <string name="profile_level">Level %1$d</string>
     <string name="profile_member_level">Member %1$d</string>
     <string name="profile_days_active">%1$d days active</string>
+    <string name="profile_days_label">Days active</string>
     <string name="reward_daily">Daily presence</string>
+    <string name="reward_points">+%1$d Moksha Points</string>
+    <string name="profile_location_unset">Location not set</string>
+    <string name="profile_goals_title">Goals</string>
+    <string name="profile_goals_empty">Swamiji’s suggested goals will appear here.</string>
     <string name="settings_title">Settings</string>
     <string name="settings_appearance">Appearance</string>
     <string name="settings_theme_system">System</string>

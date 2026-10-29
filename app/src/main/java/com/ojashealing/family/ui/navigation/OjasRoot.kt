@@ -58,7 +58,7 @@ fun OjasRoot() {
             })
             ProfileSetupScreen(vm)
         }
-        StartDestination.Main -> MainShell()
+        StartDestination.Main -> MainShell(container)
     }
 }
 

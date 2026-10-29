@@ -67,7 +67,12 @@
     <string name="profile_level">સ્તર %1$d</string>
     <string name="profile_member_level">સભ્ય %1$d</string>
     <string name="profile_days_active">%1$d દિવસ સક્રિય</string>
+    <string name="profile_days_label">સક્રિય દિવસ</string>
     <string name="reward_daily">દૈનિક હાજરી</string>
+    <string name="reward_points">+%1$d મોક્ષ પોઈન્ટ</string>
+    <string name="profile_location_unset">સ્થાન આપ્યું નથી</string>
+    <string name="profile_goals_title">લક્ષ્ય</string>
+    <string name="profile_goals_empty">સ્વામીજીએ સૂચવેલા લક્ષ્ય અહીં દેખાશે.</string>
     <string name="settings_title">સેટિંગ્સ</string>
     <string name="settings_appearance">દેખાવ</string>
     <string name="settings_theme_system">સિસ્ટમ</string>
