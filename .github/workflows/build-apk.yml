@@ -24,12 +24,18 @@ jobs:
         with:
           gradle-version: "9.3.1"
 
-      # debug.keystore is gitignored; app/build.gradle.kts expects it at the repo root
-      - name: Create debug keystore
+      # debug.keystore is gitignored. Its SHA-1/SHA-256 are registered in Firebase (Google Sign-In,
+      # phone auth), so CI must sign with the same key: restore it from the DEBUG_KEYSTORE_B64 secret.
+      - name: Restore debug keystore
+        env:
+          DEBUG_KEYSTORE_B64: ${{ secrets.DEBUG_KEYSTORE_B64 }}
         run: |
-          keytool -genkeypair -v -keystore debug.keystore -storepass android \
-            -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 \
-            -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          if [ -n "$DEBUG_KEYSTORE_B64" ]; then
+            echo "$DEBUG_KEYSTORE_B64" | base64 -d > debug.keystore
+          else
+            echo "::warning::DEBUG_KEYSTORE_B64 not set; Google Sign-In will not work in this APK"
+            keytool -genkeypair -keystore debug.keystore -storepass android               -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048               -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
 
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
@@ -50,3 +56,37 @@ jobs:
         with:
           name: unit-test-report
           path: app/build/reports/tests/
+
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: firebase
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # Firebase emulators run on the JVM
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install test dependencies
+        run: |
+          npm ci --prefix rules-test
+          npm ci --prefix functions
+
+      - name: Build functions
+        run: npm run build --prefix functions
+
+      - name: Security rules tests (emulator)
+        run: npx -y firebase-tools@latest emulators:exec --only firestore,storage --project demo-ojas "npm test --prefix rules-test"
+
+      - name: Cloud Functions tests (emulator)
+        run: npx -y firebase-tools@latest emulators:exec --only firestore --project demo-ojas "npm test --prefix functions"

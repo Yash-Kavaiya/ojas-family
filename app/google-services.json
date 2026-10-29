@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "207605785922",
+    "project_id": "ojas-family-app",
+    "storage_bucket": "ojas-family-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:207605785922:android:8522e394925455162d94db",
+        "android_client_info": {
+          "package_name": "com.ojashealing.family"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "207605785922-9dt5m2q1slstn36kb885ukqgc8uhh8d0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ojashealing.family",
+            "certificate_hash": "995bbc97497e412356aaf5ab6d77525525ac1bb0"
+          }
+        },
+        {
+          "client_id": "207605785922-q75811oht9lj0nf4ehnuu90abvmeqq6b.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDMopIv1d1ccoRFvl7jK6E1G3Aqkwz-Gw4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "207605785922-q75811oht9lj0nf4ehnuu90abvmeqq6b.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
