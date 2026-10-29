@@ -60,7 +60,13 @@ class OjasRepository {
     val scheduledCalls: StateFlow<List<PersonalCallBooking>> = _scheduledCalls.asStateFlow()
 
     // Trigger for the Paytm coin burst animation: (amount, message, timestamp)
-    data class RewardEvent(val amount: Int, val reason: String, val timestamp: Long = System.currentTimeMillis())
+    // isMilestone = true shows the full-screen burst; false shows the small coin flying to the counter
+    data class RewardEvent(
+        val amount: Int,
+        val reason: String,
+        val isMilestone: Boolean = false,
+        val timestamp: Long = System.currentTimeMillis()
+    )
     private val _rewardEvent = MutableStateFlow<RewardEvent?>(null)
     val rewardEvent: StateFlow<RewardEvent?> = _rewardEvent.asStateFlow()
 
@@ -68,13 +74,23 @@ class OjasRepository {
         _rewardEvent.value = null
     }
 
-    fun triggerReward(amount: Int, reason: String) {
+    fun triggerReward(amount: Int, reason: String, isMilestone: Boolean = false) {
         _userProfile.update { current ->
             val newPoints = current.mokshaPoints + amount
             current.copy(mokshaPoints = newPoints)
         }
-        _rewardEvent.value = RewardEvent(amount, reason)
+        _rewardEvent.value = RewardEvent(amount, reason, isMilestone)
     }
+
+    // Post ids whose like has already earned a point, so unlike + re-like cannot farm points
+    private val rewardedLikeIds = mutableSetOf<String>()
+
+    // Grants the like point only once per post
+    private fun claimLikePoint(postId: String): Boolean = rewardedLikeIds.add(postId)
+
+    // Community posts carry relative dates; only posts from today earn like points
+    private fun isPostedToday(date: String): Boolean =
+        date == "Just now" || date.endsWith("minutes ago") || date.endsWith("hours ago")
 
     // Daily Open Login Reward (+1 Moksha Point per day on free app)
     fun checkDailyLoginReward(todayDateString: String = "2026-10-29") {
@@ -87,7 +103,7 @@ class OjasRepository {
                     streakDays = it.streakDays + 1
                 )
             }
-            _rewardEvent.value = RewardEvent(1, "Daily Spiritual Presence Reward")
+            _rewardEvent.value = RewardEvent(1, "Daily Spiritual Presence Reward", isMilestone = true)
         }
     }
 
@@ -103,7 +119,7 @@ class OjasRepository {
                 if (thought.id == thoughtId) {
                     val newIsLiked = !thought.isLiked
                     val newCount = if (newIsLiked) thought.likesCount + 1 else (thought.likesCount - 1).coerceAtLeast(0)
-                    if (newIsLiked && thought.dayOffset == 0) {
+                    if (newIsLiked && thought.dayOffset == 0 && claimLikePoint(thought.id)) {
                         pointEarned = true
                     }
                     thought.copy(isLiked = newIsLiked, likesCount = newCount)
@@ -155,7 +171,7 @@ class OjasRepository {
                 if (q.id == questionId) {
                     val newLiked = !q.isLiked
                     val count = if (newLiked) q.likesCount + 1 else (q.likesCount - 1).coerceAtLeast(0)
-                    if (newLiked) pointEarned = true
+                    if (newLiked && isPostedToday(q.date) && claimLikePoint(q.id)) pointEarned = true
                     q.copy(isLiked = newLiked, likesCount = count)
                 } else q
             }
@@ -252,7 +268,7 @@ class OjasRepository {
                 if (p.id == postId) {
                     val newLiked = !p.isLiked
                     val count = if (newLiked) p.likesCount + 1 else (p.likesCount - 1).coerceAtLeast(0)
-                    if (newLiked) pointEarned = true
+                    if (newLiked && isPostedToday(p.date) && claimLikePoint(p.id)) pointEarned = true
                     p.copy(isLiked = newLiked, likesCount = count)
                 } else p
             }
@@ -281,7 +297,7 @@ class OjasRepository {
             }
         }
         if (reward > 0) {
-            triggerReward(reward, "+$reward Moksha Points for Goal Realization! 🌟")
+            triggerReward(reward, "+$reward Moksha Points for Goal Realization! 🌟", isMilestone = true)
         }
     }
 
