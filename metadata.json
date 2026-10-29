@@ -1,0 +1,6 @@
+{
+  "name": "Ojas Family",
+  "description": "Spiritual playground applying Swami Anand Swaroop's spiritual understanding for joyful chakra energy alignment, daily practices, community Q&A, and Moksha points.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

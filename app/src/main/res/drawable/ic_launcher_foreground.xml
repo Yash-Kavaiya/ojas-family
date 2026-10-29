@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Radiant aura circle -->
+    <path
+        android:fillColor="#33FFD54F"
+        android:pathData="M54,54 m-24,0 a24,24 0 1,0 48,0 a24,24 0 1,0 -48,0" />
+
+    <!-- Radiant sun/chakra rays -->
+    <path
+        android:strokeColor="#FFC107"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:pathData="M54,28 L54,33 M54,75 L54,80 M28,54 L33,54 M75,54 L80,54 M35,35 L39,39 M69,69 L73,73 M73,35 L69,39 M39,69 L35,73" />
+
+    <!-- Sacred Golden Lotus Petals -->
+    <!-- Center petal -->
+    <path
+        android:pathData="M54,36 C50,44 48,52 54,64 C60,52 58,44 54,36 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="54"
+                android:startY="36"
+                android:endX="54"
+                android:endY="64"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FFF9C4" />
+                <item android:offset="0.5" android:color="#FFD54F" />
+                <item android:offset="1.0" android:color="#FF8F00" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Left inner petal -->
+    <path
+        android:pathData="M52,43 C44,48 41,56 47,65 C51,57 52,50 52,43 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="41"
+                android:startY="43"
+                android:endX="52"
+                android:endY="65"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FFE082" />
+                <item android:offset="1.0" android:color="#FF8F00" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Right inner petal -->
+    <path
+        android:pathData="M56,43 C64,48 67,56 61,65 C57,57 56,50 56,43 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="67"
+                android:startY="43"
+                android:endX="56"
+                android:endY="65"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FFE082" />
+                <item android:offset="1.0" android:color="#FF8F00" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Left outer petal -->
+    <path
+        android:pathData="M49,51 C38,55 35,63 43,68 C49,63 49,57 49,51 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="35"
+                android:startY="51"
+                android:endX="49"
+                android:endY="68"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FFCA28" />
+                <item android:offset="1.0" android:color="#E65100" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Right outer petal -->
+    <path
+        android:pathData="M59,51 C70,55 73,63 65,68 C59,63 59,57 59,51 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="73"
+                android:startY="51"
+                android:endX="59"
+                android:endY="68"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FFCA28" />
+                <item android:offset="1.0" android:color="#E65100" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Lotus base / pond curve -->
+    <path
+        android:pathData="M40,68 C47,72 61,72 68,68 C62,71 46,71 40,68 Z"
+        android:fillColor="#FFD54F" />
+
+    <!-- Glowing center bindu / jewel -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,55 m-2.5,0 a2.5,2.5 0 1,0 5,0 a2.5,2.5 0 1,0 -5,0" />
+</vector>
