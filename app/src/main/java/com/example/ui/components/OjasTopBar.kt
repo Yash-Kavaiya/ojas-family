@@ -13,7 +13,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import kotlinx.coroutines.delay
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -32,9 +42,27 @@ fun OjasTopBar(
     onUserLevelChange: (UserLevel) -> Unit,
     onPaidLevelChange: (PaidMemberLevel) -> Unit,
     onAdminToggle: (Boolean) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onCounterPositioned: (Offset) -> Unit = {}
 ) {
     var showLevelSimulator by remember { mutableStateOf(false) }
+
+    // Count up just as the flying coin lands, then bump the pill
+    val shownPoints by animateIntAsState(
+        targetValue = profile.mokshaPoints,
+        animationSpec = tween(durationMillis = 450, delayMillis = 550),
+        label = "mokshaCount"
+    )
+    val counterBump = remember { Animatable(1f) }
+    var lastPoints by remember { mutableIntStateOf(profile.mokshaPoints) }
+    LaunchedEffect(profile.mokshaPoints) {
+        if (profile.mokshaPoints > lastPoints) {
+            delay(550)
+            counterBump.animateTo(1.25f, tween(120))
+            counterBump.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+        }
+        lastPoints = profile.mokshaPoints
+    }
 
     Surface(
         color = MaterialTheme.colorScheme.surface,
@@ -102,6 +130,8 @@ fun OjasTopBar(
                         color = MaterialTheme.colorScheme.primaryContainer,
                         modifier = Modifier
                             .testTag("moksha_points_badge")
+                            .scale(counterBump.value)
+                            .onGloballyPositioned { onCounterPositioned(it.boundsInRoot().center) }
                             .clickable { showLevelSimulator = true }
                     ) {
                         Row(
@@ -116,7 +146,7 @@ fun OjasTopBar(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "${profile.mokshaPoints}",
+                                text = "$shownPoints",
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer

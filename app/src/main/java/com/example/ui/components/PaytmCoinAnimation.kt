@@ -34,6 +34,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.IntOffset
+import android.view.HapticFeedbackConstants
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.graphics.graphicsLayer
+import kotlin.math.roundToInt
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -47,12 +54,25 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
 
+// Screen positions the small coin animation flies between, both in root coordinates
+class RewardAnchors {
+    var lastTap by mutableStateOf<Offset?>(null)
+    var counterCenter by mutableStateOf<Offset?>(null)
+}
+
 @Composable
 fun PaytmCoinOverlay(
     rewardEvent: OjasRepository.RewardEvent?,
+    anchors: RewardAnchors,
     onDismiss: () -> Unit
 ) {
     if (rewardEvent == null) return
+
+    // Everyday likes and comments get the quick, non-blocking coin; milestones get the full burst
+    if (!rewardEvent.isMilestone) {
+        CoinFlyToCounter(rewardEvent = rewardEvent, anchors = anchors, onDismiss = onDismiss)
+        return
+    }
 
     val context = LocalContext.current
 
@@ -337,6 +357,84 @@ private fun PaytmBurstEffect(
                     fontWeight = FontWeight.Medium
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun CoinFlyToCounter(
+    rewardEvent: OjasRepository.RewardEvent,
+    anchors: RewardAnchors,
+    onDismiss: () -> Unit
+) {
+    val view = LocalView.current
+    val density = LocalDensity.current
+    val coinSizePx = with(density) { 28.dp.toPx() }
+
+    // Captured once per event so later taps do not bend the flight path mid-air
+    val start = remember(rewardEvent.timestamp) {
+        anchors.lastTap ?: Offset(view.width / 2f, view.height / 2f)
+    }
+    val end = remember(rewardEvent.timestamp) {
+        anchors.counterCenter ?: Offset(view.width - coinSizePx, coinSizePx * 2)
+    }
+
+    val pop = remember(rewardEvent.timestamp) { Animatable(0f) }
+    val flight = remember(rewardEvent.timestamp) { Animatable(0f) }
+
+    LaunchedEffect(rewardEvent.timestamp) {
+        view.performHapticFeedback(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) HapticFeedbackConstants.CONFIRM
+            else HapticFeedbackConstants.KEYBOARD_TAP
+        )
+        pop.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium))
+        flight.animateTo(1f, tween(520, easing = FastOutSlowInEasing))
+        onDismiss()
+    }
+
+    // Quadratic bezier with the control point lifted above both ends gives a Paytm-style arc
+    val t = flight.value
+    val control = Offset((start.x + end.x) / 2f, minOf(start.y, end.y) - coinSizePx * 4)
+    val x = (1 - t) * (1 - t) * start.x + 2 * (1 - t) * t * control.x + t * t * end.x
+    val y = (1 - t) * (1 - t) * start.y + 2 * (1 - t) * t * control.y + t * t * end.y
+    val coinScale = pop.value * (1f - 0.45f * t)
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        // "+1" label rises from the tap point and fades while the coin travels
+        Text(
+            text = "+${rewardEvent.amount}",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = SacredGold,
+            modifier = Modifier
+                .offset { IntOffset(start.x.roundToInt() - coinSizePx.roundToInt(), (start.y - coinSizePx * (1.6f + t)).roundToInt()) }
+                .graphicsLayer { alpha = (pop.value * (1f - t)).coerceIn(0f, 1f) }
+        )
+
+        Box(
+            modifier = Modifier
+                .offset { IntOffset((x - coinSizePx / 2).roundToInt(), (y - coinSizePx / 2).roundToInt()) }
+                .size(28.dp)
+                .graphicsLayer {
+                    scaleX = coinScale
+                    scaleY = coinScale
+                    rotationY = t * 360f
+                }
+                .shadow(6.dp, shape = CircleShape, spotColor = Color(0xFFFFD54F))
+                .clip(CircleShape)
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(Color(0xFFFFF9C4), Color(0xFFFFD54F), Color(0xFFFFA000))
+                    )
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "ॐ",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color(0xFF3E1F00)
+            )
         }
     }
 }
