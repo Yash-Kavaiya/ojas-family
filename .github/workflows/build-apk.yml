@@ -2,7 +2,7 @@ name: Build APK
 
 on:
   push:
-    branches: ["**"]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -14,10 +14,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21" # Robolectric needs JDK 21 for SDK 36
 
       # The repo has no gradlew script, so install the version pinned in gradle-wrapper.properties
       - uses: gradle/actions/setup-gradle@v4
