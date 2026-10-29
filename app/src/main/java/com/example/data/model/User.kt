@@ -61,14 +61,15 @@ data class UserProfile(
     val lastDailyLoginRewardDate: String = "",
     val notifications: NotificationSettings = NotificationSettings()
 ) {
+    // dob is "yyyy-MM-dd"; age drops by one until this year's birthday has passed. 0 when dob is unparsable.
     val age: Int
         get() {
-            return try {
-                val year = dob.split("-").firstOrNull()?.toIntOrNull() ?: 1997
-                2026 - year
-            } catch (e: Exception) {
-                28
-            }
+            val parts = dob.split("-").map { it.toIntOrNull() }
+            val (year, month, day) = if (parts.size == 3 && parts.all { it != null }) parts.map { it!! } else return 0
+            val today = java.util.Calendar.getInstance()
+            val birthdayPassed = (today.get(java.util.Calendar.MONTH) + 1 to today.get(java.util.Calendar.DAY_OF_MONTH))
+                .let { (m, d) -> m > month || (m == month && d >= day) }
+            return (today.get(java.util.Calendar.YEAR) - year - if (birthdayPassed) 0 else 1).coerceAtLeast(0)
         }
 
     fun canDoDailyPractices(): Boolean =

@@ -103,7 +103,6 @@ class MainActivity : ComponentActivity() {
                                 tonalElevation = 8.dp,
                                 modifier = Modifier
                                     .testTag("bottom_nav_bar")
-                                    .windowInsetsPadding(WindowInsets.navigationBars)
                             ) {
                                 // 1st Tab: Community
                                 NavigationBarItem(
@@ -207,6 +206,8 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(innerPadding)
+                                // Screens with their own Scaffold would otherwise add system-bar padding twice
+                                .consumeWindowInsets(innerPadding)
                         ) {
                             when (currentTab) {
                                 OjasTab.COMMUNITY -> CommunityScreen(

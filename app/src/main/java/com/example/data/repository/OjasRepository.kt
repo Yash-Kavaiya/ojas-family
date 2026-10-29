@@ -82,6 +82,9 @@ class OjasRepository {
         _rewardEvent.value = RewardEvent(amount, reason, isMilestone)
     }
 
+    private fun today(pattern: String): String =
+        java.text.SimpleDateFormat(pattern, java.util.Locale.ENGLISH).format(java.util.Date())
+
     // Post ids whose like has already earned a point, so unlike + re-like cannot farm points
     private val rewardedLikeIds = mutableSetOf<String>()
 
@@ -93,7 +96,7 @@ class OjasRepository {
         date == "Just now" || date.endsWith("minutes ago") || date.endsWith("hours ago")
 
     // Daily Open Login Reward (+1 Moksha Point per day on free app)
-    fun checkDailyLoginReward(todayDateString: String = "2026-10-29") {
+    fun checkDailyLoginReward(todayDateString: String = today("yyyy-MM-dd")) {
         val current = _userProfile.value
         if (current.lastDailyLoginRewardDate != todayDateString) {
             _userProfile.update {
@@ -291,7 +294,7 @@ class OjasRepository {
                         progressDays = g.targetDays,
                         proofNote = note ?: "Achieved with joyful devotion",
                         proofImageUrl = photoUrl,
-                        achievedDate = "29 Oct 2026"
+                        achievedDate = today("dd MMM yyyy")
                     )
                 } else g
             }

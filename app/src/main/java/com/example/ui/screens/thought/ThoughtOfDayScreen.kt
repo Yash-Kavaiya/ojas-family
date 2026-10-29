@@ -206,7 +206,7 @@ fun ThoughtOfDayScreen(
 
                                 Text(
                                     text = "Tap to view sacred art in full screen",
-                                    fontSize = 10.sp,
+                                    fontSize = 11.sp,
                                     color = Color.White.copy(alpha = 0.6f)
                                 )
                             }
@@ -303,7 +303,7 @@ fun ThoughtOfDayScreen(
                                 Column {
                                     Text(
                                         text = "Day Sadhana Mantra:",
-                                        fontSize = 10.sp,
+                                        fontSize = 11.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     Text(
@@ -316,7 +316,7 @@ fun ThoughtOfDayScreen(
                             }
 
                             Spacer(modifier = Modifier.height(16.dp))
-                            Divider(color = MaterialTheme.colorScheme.outlineVariant)
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                             Spacer(modifier = Modifier.height(12.dp))
 
                             // Like & Interaction row (With Paytm like animation)
@@ -354,7 +354,7 @@ fun ThoughtOfDayScreen(
                                                 "+1 Moksha Point on today's like! 🎉"
                                             else
                                                 "Archive post (points on today only)",
-                                            fontSize = 10.sp,
+                                            fontSize = 11.sp,
                                             color = if (currentThought.dayOffset == 0) SaffronPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
@@ -523,7 +523,7 @@ fun ThoughtOfDayScreen(
                                     )
                                     Text(
                                         text = comment.authorLevel,
-                                        fontSize = 10.sp,
+                                        fontSize = 11.sp,
                                         color = SaffronPrimary
                                     )
                                 }
@@ -531,7 +531,7 @@ fun ThoughtOfDayScreen(
 
                             Text(
                                 text = comment.date,
-                                fontSize = 10.sp,
+                                fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }

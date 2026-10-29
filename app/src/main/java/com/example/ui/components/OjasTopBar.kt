@@ -19,10 +19,10 @@ import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.boundsInRoot
-import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onPlaced
 import kotlinx.coroutines.delay
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -72,6 +72,7 @@ fun OjasTopBar(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.statusBars)
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
             Row(
@@ -113,7 +114,7 @@ fun OjasTopBar(
                         )
                         Text(
                             text = "Swami Anand Swaroop Spiritual Guidance",
-                            fontSize = 10.sp,
+                            fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -130,8 +131,11 @@ fun OjasTopBar(
                         color = MaterialTheme.colorScheme.primaryContainer,
                         modifier = Modifier
                             .testTag("moksha_points_badge")
-                            .scale(counterBump.value)
-                            .onGloballyPositioned { onCounterPositioned(it.boundsInRoot().center) }
+                            .graphicsLayer {
+                                scaleX = counterBump.value
+                                scaleY = counterBump.value
+                            }
+                            .onPlaced { onCounterPositioned(it.boundsInRoot().center) }
                             .clickable { showLevelSimulator = true }
                     ) {
                         Row(
@@ -154,7 +158,7 @@ fun OjasTopBar(
                             Spacer(modifier = Modifier.width(3.dp))
                             Text(
                                 text = "pts",
-                                fontSize = 10.sp,
+                                fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                             )
                         }
@@ -208,7 +212,7 @@ fun OjasTopBar(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
-                    Divider(color = MaterialTheme.colorScheme.outlineVariant)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                     // Free User Level Selector
                     Text(
@@ -251,7 +255,7 @@ fun OjasTopBar(
                         }
                     }
 
-                    Divider(color = MaterialTheme.colorScheme.outlineVariant)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                     // Paid Member Level Selector
                     Text(
@@ -294,7 +298,7 @@ fun OjasTopBar(
                         }
                     }
 
-                    Divider(color = MaterialTheme.colorScheme.outlineVariant)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                     // Admin Role Toggle
                     Row(

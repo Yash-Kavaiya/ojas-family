@@ -25,8 +25,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -174,7 +172,7 @@ private fun PaytmBurstEffect(
             Canvas(
                 modifier = Modifier
                     .fillMaxSize()
-                    .rotate(rayRotation)
+                    .graphicsLayer { rotationZ = rayRotation }
             ) {
                 val center = Offset(size.width / 2f, size.height / 2f)
                 val rayCount = 16
@@ -250,7 +248,10 @@ private fun PaytmBurstEffect(
             Box(
                 modifier = Modifier
                     .size(130.dp)
-                    .scale(coinScale.value)
+                    .graphicsLayer {
+                        scaleX = coinScale.value
+                        scaleY = coinScale.value
+                    }
                     .shadow(18.dp, shape = CircleShape, spotColor = Color(0xFFFFD54F))
                     .clip(CircleShape)
                     .background(
@@ -313,7 +314,10 @@ private fun PaytmBurstEffect(
                 containerColor = Color(0xFF22173F)
             ),
             elevation = CardDefaults.cardElevation(10.dp),
-            modifier = Modifier.scale(coinScale.value)
+            modifier = Modifier.graphicsLayer {
+                scaleX = coinScale.value
+                scaleY = coinScale.value
+            }
         ) {
             Column(
                 modifier = Modifier

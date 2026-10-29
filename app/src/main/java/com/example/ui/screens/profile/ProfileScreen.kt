@@ -169,7 +169,7 @@ fun ProfileScreen(
                                 ) {
                                     Text(
                                         text = userProfile.userLevel.title.take(15),
-                                        fontSize = 10.sp,
+                                        fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = Color.White,
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -178,7 +178,7 @@ fun ProfileScreen(
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = userProfile.paidLevel.title,
-                                    fontSize = 10.sp,
+                                    fontSize = 11.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = SacredGold
                                 )
@@ -205,7 +205,7 @@ fun ProfileScreen(
                                 Text("🔥", fontSize = 16.sp)
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Column {
-                                    Text("Sadhana Streak", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("Sadhana Streak", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Text("${userProfile.streakDays} Days", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
@@ -225,7 +225,7 @@ fun ProfileScreen(
                                 Text("📿", fontSize = 16.sp)
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Column {
-                                    Text("Days Active", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("Days Active", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Text("${userProfile.daysActive} Days", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
@@ -296,7 +296,7 @@ fun ProfileScreen(
                         ) {
                             Text(
                                 text = goal.category,
-                                fontSize = 10.sp,
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = if (goal.isAchieved) ChakraGreen else SaffronPrimary,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
@@ -411,7 +411,7 @@ fun ProfileScreen(
                         Switch(checked = isDarkTheme, onCheckedChange = onToggleTheme)
                     }
 
-                    Divider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
 
                     Row(
                         modifier = Modifier
@@ -526,7 +526,7 @@ private fun EditProfileModal(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text("Edit Profile", fontWeight = FontWeight.Bold, fontSize = 17.sp)
-                    IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+                    IconButton(onClick = onDismiss) {
                         Icon(Icons.Default.Close, contentDescription = "Close")
                     }
                 }
@@ -558,11 +558,11 @@ private fun EditProfileModal(
 
                 Text(
                     text = "*Only your calculated age is visible on public profile.",
-                    fontSize = 10.sp,
+                    fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                Divider(color = MaterialTheme.colorScheme.outlineVariant)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                 // Incremental Search Country Field
                 OutlinedCard(
@@ -577,7 +577,7 @@ private fun EditProfileModal(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Column {
-                            Text("Country (Incremental Search)", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Country (Incremental Search)", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(country, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                         }
                         Icon(Icons.Default.Search, contentDescription = null, tint = SaffronPrimary)
@@ -597,7 +597,7 @@ private fun EditProfileModal(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Column {
-                            Text("State (Filtered by $country)", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("State (Filtered by $country)", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(state, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                         }
                         Icon(Icons.Default.Search, contentDescription = null, tint = SaffronPrimary)
@@ -617,7 +617,7 @@ private fun EditProfileModal(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Column {
-                            Text("City or Village (Filtered by $state)", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("City or Village (Filtered by $state)", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(city, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                         }
                         Icon(Icons.Default.Search, contentDescription = null, tint = SaffronPrimary)
@@ -771,7 +771,7 @@ private fun SettingsDialog(
                     Switch(checked = isDarkTheme, onCheckedChange = onToggleTheme)
                 }
 
-                Divider(color = MaterialTheme.colorScheme.outlineVariant)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                 // Other user profile is visible only to admin and member level 3 rule
                 Card(
@@ -817,7 +817,7 @@ private fun SettingsDialog(
                     )
                 }
 
-                Divider(color = MaterialTheme.colorScheme.outlineVariant)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                 OutlinedButton(
                     onClick = onOpenNotifications,
@@ -882,7 +882,7 @@ private fun NotificationsSettingsDialog(
                             Text("All Notifications Master Switch", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                             Switch(checked = all, onCheckedChange = { all = it })
                         }
-                        Divider(modifier = Modifier.padding(vertical = 6.dp))
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
                     }
 
                     item {

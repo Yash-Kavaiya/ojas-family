@@ -18,7 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -122,7 +122,7 @@ fun SpiritualActivitiesScreen(
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
                                         text = name,
-                                        fontSize = 8.sp,
+                                        fontSize = 11.sp,
                                         color = Color.White.copy(alpha = 0.7f)
                                     )
                                 }
@@ -409,7 +409,7 @@ private fun MeditationPlayerModal(
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold
                     )
-                    IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+                    IconButton(onClick = onDismiss) {
                         Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
                     }
                 }
@@ -455,7 +455,11 @@ private fun MeditationPlayerModal(
                     Box(
                         modifier = Modifier
                             .size(170.dp)
-                            .scale(if (isPlaying) pulseScale else 1f)
+                            .graphicsLayer {
+                                val s = if (isPlaying) pulseScale else 1f
+                                scaleX = s
+                                scaleY = s
+                            }
                             .clip(CircleShape)
                             .background(
                                 Brush.radialGradient(
@@ -492,7 +496,7 @@ private fun MeditationPlayerModal(
                             if (activity.hasBoxBreathing) {
                                 Text(
                                     text = breathPhase.take(6),
-                                    fontSize = 10.sp,
+                                    fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White
                                 )
