@@ -67,7 +67,7 @@ fun CommunityScreen(
                         onClick = { selectedSubTab = 0 },
                         text = {
                             Text(
-                                "1.1 Q&A",
+                                "Q&A",
                                 fontWeight = if (selectedSubTab == 0) FontWeight.Bold else FontWeight.Normal,
                                 fontSize = 13.sp
                             )
@@ -79,7 +79,7 @@ fun CommunityScreen(
                         onClick = { selectedSubTab = 1 },
                         text = {
                             Text(
-                                "1.2 Daily Seva",
+                                "Daily Seva",
                                 fontWeight = if (selectedSubTab == 1) FontWeight.Bold else FontWeight.Normal,
                                 fontSize = 13.sp
                             )
@@ -91,7 +91,7 @@ fun CommunityScreen(
                         onClick = { selectedSubTab = 2 },
                         text = {
                             Text(
-                                "1.3 Notices",
+                                "Notices",
                                 fontWeight = if (selectedSubTab == 2) FontWeight.Bold else FontWeight.Normal,
                                 fontSize = 13.sp
                             )
@@ -322,7 +322,7 @@ private fun QuestionCard(
                         )
                         Text(
                             text = "${question.authorLevel} • ${question.date}",
-                            fontSize = 10.sp,
+                            fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -346,7 +346,7 @@ private fun QuestionCard(
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 "Swamiji Answered",
-                                fontSize = 10.sp,
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = SaffronPrimary
                             )
@@ -383,7 +383,7 @@ private fun QuestionCard(
                         ) {
                             Text(
                                 text = "#$tag",
-                                fontSize = 10.sp,
+                                fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
@@ -393,7 +393,7 @@ private fun QuestionCard(
             }
 
             Spacer(modifier = Modifier.height(12.dp))
-            Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             Spacer(modifier = Modifier.height(8.dp))
 
             // Action row: Like, Answers count
@@ -533,7 +533,7 @@ private fun QuestionCard(
                                         }
                                         Text(
                                             text = ans.date,
-                                            fontSize = 10.sp,
+                                            fontSize = 11.sp,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
@@ -646,7 +646,7 @@ private fun DailyActivitiesFeed(
                                 )
                                 Text(
                                     text = "${post.authorLevel} • ${post.date}",
-                                    fontSize = 10.sp,
+                                    fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
@@ -938,7 +938,7 @@ private fun AskQuestionDialog(
                         FilterChip(
                             selected = selectedTag == t,
                             onClick = { selectedTag = t },
-                            label = { Text(t, fontSize = 10.sp) }
+                            label = { Text(t, fontSize = 11.sp) }
                         )
                     }
                 }
@@ -1010,7 +1010,7 @@ private fun NewDailyActivityDialog(
                         FilterChip(
                             selected = category == c,
                             onClick = { category = c },
-                            label = { Text(c, fontSize = 10.sp) }
+                            label = { Text(c, fontSize = 11.sp) }
                         )
                     }
                 }

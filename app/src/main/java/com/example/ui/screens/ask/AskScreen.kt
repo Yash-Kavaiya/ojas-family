@@ -60,7 +60,7 @@ fun AskScreen(
                     onClick = { selectedSubTab = 0 },
                     text = {
                         Text(
-                            "4.1 Understanding",
+                            "Understanding",
                             fontWeight = if (selectedSubTab == 0) FontWeight.Bold else FontWeight.Normal,
                             fontSize = 12.sp
                         )
@@ -72,7 +72,7 @@ fun AskScreen(
                     onClick = { selectedSubTab = 1 },
                     text = {
                         Text(
-                            "4.2 Chat (Paid)",
+                            "Chat (Paid)",
                             fontWeight = if (selectedSubTab == 1) FontWeight.Bold else FontWeight.Normal,
                             fontSize = 12.sp
                         )
@@ -84,7 +84,7 @@ fun AskScreen(
                     onClick = { selectedSubTab = 2 },
                     text = {
                         Text(
-                            "4.3 Call (Paid)",
+                            "Call (Paid)",
                             fontWeight = if (selectedSubTab == 2) FontWeight.Bold else FontWeight.Normal,
                             fontSize = 12.sp
                         )
@@ -285,7 +285,7 @@ private fun PersonalChatTab(
                         Text(
                             text = if (isChatAllowed) "Active" else "Paid Tier",
                             color = if (isChatAllowed) ChakraGreen else SaffronPrimary,
-                            fontSize = 10.sp,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
@@ -295,7 +295,7 @@ private fun PersonalChatTab(
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "Tiers: 1-Week Chat (Single Payment + Level 2) | Monthly Chat (Monthly Payment + Level 2)",
-                    fontSize = 10.sp,
+                    fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -344,7 +344,7 @@ private fun PersonalChatTab(
                         Column(modifier = Modifier.padding(12.dp)) {
                             Text(
                                 text = msg.senderName,
-                                fontSize = 10.sp,
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = if (isMe) Color.White.copy(alpha = 0.8f) else SaffronDark
                             )
@@ -358,7 +358,7 @@ private fun PersonalChatTab(
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = msg.timestamp,
-                                fontSize = 9.sp,
+                                fontSize = 11.sp,
                                 color = if (isMe) Color.White.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.align(Alignment.End)
                             )
@@ -621,7 +621,7 @@ private fun TopicDetailDialog(
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
-                    IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+                    IconButton(onClick = onDismiss) {
                         Icon(Icons.Default.Close, contentDescription = "Close")
                     }
                 }
@@ -731,7 +731,7 @@ private fun BookCallDialog(
                         Spacer(modifier = Modifier.width(6.dp))
                         Column {
                             Text(name, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                            Text(subtitle, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(subtitle, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
