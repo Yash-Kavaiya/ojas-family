@@ -7,6 +7,8 @@ import { HttpsError, onCall, type CallableRequest } from "firebase-functions/v2/
 import { deleteAccountData, ensureUserDoc, setRoleFor } from "./auth";
 import { claimDailyOpenFor } from "./daily";
 import { addVideoFor, importPlaylistFor } from "./content";
+import { onAnswerWritten, onCommentWritten, onLikeChanged, onQuestionWritten } from "./social";
+import { onDocumentCreated, onDocumentDeleted, onDocumentWritten } from "firebase-functions/v2/firestore";
 
 initializeApp();
 const db = getFirestore();
@@ -59,3 +61,27 @@ export const importPlaylist = onCall({ timeoutSeconds: 120 }, async (req) => {
   requireUid(req);
   return importPlaylistFor(db, req.auth?.token, (req.data ?? {}) as { playlistId: string; section: string });
 });
+
+// ---- Social triggers: counters and points stay server-side ----
+
+export const thoughtLikeAdded = onDocumentCreated("thoughts/{thoughtId}/likes/{uid}", (e) =>
+  onLikeChanged(db, `thoughts/${e.params.thoughtId}`, e.params.uid, 1, new Date()));
+
+export const thoughtLikeRemoved = onDocumentDeleted("thoughts/{thoughtId}/likes/{uid}", (e) =>
+  onLikeChanged(db, `thoughts/${e.params.thoughtId}`, e.params.uid, -1, new Date()));
+
+export const questionLikeAdded = onDocumentCreated("questions/{questionId}/likes/{uid}", (e) =>
+  onLikeChanged(db, `questions/${e.params.questionId}`, e.params.uid, 1, new Date()));
+
+export const questionLikeRemoved = onDocumentDeleted("questions/{questionId}/likes/{uid}", (e) =>
+  onLikeChanged(db, `questions/${e.params.questionId}`, e.params.uid, -1, new Date()));
+
+export const thoughtCommentWritten = onDocumentWritten("thoughts/{thoughtId}/comments/{commentId}", (e) =>
+  onCommentWritten(db, `thoughts/${e.params.thoughtId}`, e.params.commentId,
+    e.data?.before.data(), e.data?.after.data(), new Date()));
+
+export const questionWritten = onDocumentWritten("questions/{questionId}", (e) =>
+  onQuestionWritten(db, e.params.questionId, e.data?.before.data(), e.data?.after.data(), new Date()));
+
+export const answerWritten = onDocumentWritten("questions/{questionId}/answers/{answerId}", (e) =>
+  onAnswerWritten(db, e.params.questionId, e.params.answerId, e.data?.before.data(), e.data?.after.data(), new Date()));
