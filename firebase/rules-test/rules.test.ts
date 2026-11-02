@@ -139,3 +139,34 @@ describe("storage", () => {
     await assertFails(uploadBytes(ref(storage, `users/${ALICE}/avatar.jpg`), image(10), { contentType: "application/pdf" }));
   });
 });
+
+describe("content", () => {
+  const video = { section: "quick_protection", videoId: "Pg54NjjSvzY", title: "Protection", minUserLevel: 1, minMemberLevel: 0, order: 0, published: true };
+
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "content", "yt_Pg54NjjSvzY"), video);
+    });
+  });
+
+  test("signed-in user can read content", async () => {
+    await assertSucceeds(getDoc(doc(asUser(ALICE), "content", "yt_Pg54NjjSvzY")));
+  });
+
+  test("unauthenticated cannot read content", async () => {
+    await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), "content", "yt_Pg54NjjSvzY")));
+  });
+
+  test("non-admin cannot write content", async () => {
+    await assertFails(setDoc(doc(asUser(ALICE), "content", "yt_abcdefghijk"), { ...video, videoId: "abcdefghijk" }));
+    await assertFails(updateDoc(doc(asUser(ALICE), "content", "yt_Pg54NjjSvzY"), { title: "Hacked" }));
+  });
+
+  test("admin can create content with valid fields", async () => {
+    await assertSucceeds(setDoc(doc(asUser("root", { role: "admin" }), "content", "yt_abcdefghijk"), { ...video, videoId: "abcdefghijk" }));
+  });
+
+  test("admin cannot create content with unknown section", async () => {
+    await assertFails(setDoc(doc(asUser("root", { role: "admin" }), "content", "yt_abcdefghijk"), { ...video, videoId: "abcdefghijk", section: "random" }));
+  });
+});

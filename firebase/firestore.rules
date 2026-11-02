@@ -67,6 +67,23 @@ service cloud.firestore {
       }
     }
 
+    function validContent(data) {
+      return data.section in ['blue_light', 'quick_protection', 'morning', 'night', 'yoga', 'other', 'understanding']
+        && data.videoId is string && data.videoId.matches('^[A-Za-z0-9_-]{11}$')
+        && data.title is string && data.title.size() <= 200
+        && data.get('minUserLevel', 1) is int
+        && data.get('minMemberLevel', 0) is int
+        && data.get('published', true) is bool;
+    }
+
+    // Ojas Healing videos: every member can browse; unlock levels are applied by the app,
+    // since the videos themselves are public on YouTube
+    match /content/{id} {
+      allow read: if signedIn();
+      allow create, update: if isAdmin() && validContent(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
     match /config/{docId} {
       allow read: if signedIn();
       allow write: if isAdmin();
