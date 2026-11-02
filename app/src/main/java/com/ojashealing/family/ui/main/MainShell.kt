@@ -27,7 +27,13 @@ import androidx.navigation.compose.rememberNavController
 import androidx.compose.ui.platform.LocalContext
 import com.ojashealing.family.data.settings.currentAppLanguage
 import com.ojashealing.family.data.settings.setAppLanguage
+import androidx.navigation.toRoute
 import com.ojashealing.family.di.AppContainer
+import com.ojashealing.family.domain.ContentItem
+import com.ojashealing.family.ui.content.ContentViewModel
+import com.ojashealing.family.ui.content.PracticeTab
+import com.ojashealing.family.ui.content.UnderstandingTab
+import com.ojashealing.family.ui.content.VideoPlayerScreen
 import com.ojashealing.family.ui.settings.SettingsProfile
 import com.ojashealing.family.ui.settings.SettingsScreen
 import com.ojashealing.family.ui.settings.SettingsViewModel
@@ -39,16 +45,15 @@ import com.ojashealing.family.ui.navigation.MainTab
 import com.ojashealing.family.ui.navigation.OjasBottomBar
 import com.ojashealing.family.ui.onboarding.ProfileSetupScreen
 import com.ojashealing.family.ui.onboarding.ProfileSetupViewModel
-import com.ojashealing.family.ui.screens.AskTab
 import com.ojashealing.family.ui.screens.CommunityTab
 import com.ojashealing.family.ui.screens.HomeTab
 import com.ojashealing.family.ui.screens.ProfileTab
-import com.ojashealing.family.ui.screens.SpiritualTab
 import kotlinx.serialization.Serializable
 
 @Serializable object TabsRoute
 @Serializable object EditProfileRoute
 @Serializable object SettingsRoute
+@Serializable data class VideoRoute(val videoId: String, val title: String)
 
 @Composable
 fun MainShell(container: AppContainer) {
@@ -56,9 +61,15 @@ fun MainShell(container: AppContainer) {
         initializer { MainViewModel(container.auth, container.users, container.points) }
     })
     val profile by vm.profile.collectAsStateWithLifecycle()
-    val reward by vm.reward.collectAsStateWithLifecycle()
-    val anchors = remember { RewardAnchors() }
     val nav = rememberNavController()
+    val reward by vm.reward.collectAsStateWithLifecycle()
+    val contentVm: ContentViewModel = viewModel(factory = viewModelFactory {
+        initializer { ContentViewModel(container.content.observe(), vm.profile.map { it?.viewer }) }
+    })
+    val practice by contentVm.practice.collectAsStateWithLifecycle()
+    val understanding by contentVm.understanding.collectAsStateWithLifecycle()
+    val play: (ContentItem) -> Unit = { nav.navigate(VideoRoute(it.videoId, it.title)) }
+    val anchors = remember { RewardAnchors() }
 
     LifecycleEventEffect(Lifecycle.Event.ON_START) { vm.onAppForeground() }
 
@@ -91,9 +102,9 @@ fun MainShell(container: AppContainer) {
                     ) {
                         when (tab) {
                             MainTab.Community -> CommunityTab()
-                            MainTab.Spiritual -> SpiritualTab()
+                            MainTab.Spiritual -> PracticeTab(practice, onPlay = play)
                             MainTab.Home -> HomeTab()
-                            MainTab.Ask -> AskTab()
+                            MainTab.Ask -> UnderstandingTab(understanding, onPlay = play)
                             MainTab.Profile -> ProfileTab(
                                 profile = profile,
                                 locations = container.locations,
@@ -103,6 +114,10 @@ fun MainShell(container: AppContainer) {
                         }
                     }
                 }
+            }
+            composable<VideoRoute> { entry ->
+                val route = entry.toRoute<VideoRoute>()
+                VideoPlayerScreen(route.videoId, route.title, onBack = { nav.popBackStack() })
             }
             composable<EditProfileRoute> {
                 val editVm: ProfileSetupViewModel = viewModel(factory = viewModelFactory {

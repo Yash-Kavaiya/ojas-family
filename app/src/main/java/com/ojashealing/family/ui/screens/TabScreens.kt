@@ -29,10 +29,4 @@ private fun UpcomingTab(@StringRes title: Int, icon: ImageVector, @StringRes emp
 fun CommunityTab() = UpcomingTab(R.string.tab_community, Icons.Outlined.Forum, R.string.empty_community_title, R.string.empty_community_body)
 
 @Composable
-fun SpiritualTab() = UpcomingTab(R.string.tab_spiritual, Icons.Outlined.SelfImprovement, R.string.empty_spiritual_title, R.string.empty_spiritual_body)
-
-@Composable
 fun HomeTab() = UpcomingTab(R.string.notif_thought, Icons.Outlined.WbSunny, R.string.empty_home_title, R.string.empty_home_body)
-
-@Composable
-fun AskTab() = UpcomingTab(R.string.tab_ask, Icons.Outlined.HelpCenter, R.string.empty_ask_title, R.string.empty_ask_body)
