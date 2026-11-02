@@ -6,6 +6,7 @@ import { setGlobalOptions } from "firebase-functions/v2";
 import { HttpsError, onCall, type CallableRequest } from "firebase-functions/v2/https";
 import { deleteAccountData, ensureUserDoc, setRoleFor } from "./auth";
 import { claimDailyOpenFor } from "./daily";
+import { addVideoFor, importPlaylistFor } from "./content";
 
 initializeApp();
 const db = getFirestore();
@@ -47,4 +48,14 @@ export const setRole = onCall(async (req) => {
   if (!uid || !role) throw new HttpsError("invalid-argument", "uid and role are required");
   await setRoleFor(db, req.auth?.token, uid, role, (target, claims) => getAuth().setCustomUserClaims(target, claims));
   return { ok: true };
+});
+
+export const addVideo = onCall(async (req) => {
+  requireUid(req);
+  return addVideoFor(db, req.auth?.token, (req.data ?? {}) as { url: string; section: string; title?: string });
+});
+
+export const importPlaylist = onCall({ timeoutSeconds: 120 }, async (req) => {
+  requireUid(req);
+  return importPlaylistFor(db, req.auth?.token, (req.data ?? {}) as { playlistId: string; section: string });
 });
