@@ -170,3 +170,87 @@ describe("content", () => {
     await assertFails(setDoc(doc(asUser("root", { role: "admin" }), "content", "yt_abcdefghijk"), { ...video, videoId: "abcdefghijk", section: "random" }));
   });
 });
+
+describe("social", () => {
+  const HOUR = 3600 * 1000;
+  const now = Date.now();
+  const ts = (ms: number) => new Date(ms);
+  const thought = (publishAtMs: number) => ({ title: "Thought", text: "Be present", publishAt: ts(publishAtMs), likeCount: 0, commentCount: 0 });
+  const comment = (uid: string, text: string, status: string, authorRole = "member") =>
+    ({ authorUid: uid, authorName: uid, authorPhoto: "", authorRole, text, status, createdAt: ts(now) });
+  const L3 = "carol";
+
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, "users", L3), { displayName: "Carol", userLevel: 3, memberLevel: 0, role: "member" });
+      await setDoc(doc(db, "thoughts", "today"), thought(now - HOUR));
+      await setDoc(doc(db, "thoughts", "old"), thought(now - 8 * 24 * HOUR));
+      await setDoc(doc(db, "thoughts", "future"), thought(now + 24 * HOUR));
+      await setDoc(doc(db, "thoughts", "today", "comments", "pending1"), comment(L3, "see https://x.com", "pending"));
+      await setDoc(doc(db, "questions", "q1"), { authorUid: L3, authorName: "Carol", authorPhoto: "", authorRole: "member", title: "Q", body: "B", status: "visible", createdAt: ts(now), likeCount: 0, answerCount: 0 });
+    });
+  });
+
+  test("member reads today's thought", async () => {
+    await assertSucceeds(getDoc(doc(asUser(ALICE), "thoughts", "today")));
+  });
+  test("member cannot read a thought older than 7 days", async () => {
+    await assertFails(getDoc(doc(asUser(ALICE), "thoughts", "old")));
+  });
+  test("member cannot read a scheduled future thought", async () => {
+    await assertFails(getDoc(doc(asUser(ALICE), "thoughts", "future")));
+  });
+  test("admin reads future thought and can schedule one", async () => {
+    const admin = asUser("root", { role: "admin" });
+    await assertSucceeds(getDoc(doc(admin, "thoughts", "future")));
+    await assertSucceeds(setDoc(doc(admin, "thoughts", "2099-01-01"), thought(now + 48 * HOUR)));
+    await assertFails(setDoc(doc(asUser(L3), "thoughts", "2099-01-02"), thought(now + 48 * HOUR)));
+  });
+  test("L1 cannot like", async () => {
+    await assertFails(setDoc(doc(asUser(ALICE), "thoughts", "today", "likes", ALICE), { createdAt: ts(now) }));
+  });
+  test("L2 can like with own uid only", async () => {
+    await assertSucceeds(setDoc(doc(asUser(BOB), "thoughts", "today", "likes", BOB), { createdAt: ts(now) }));
+    await assertFails(setDoc(doc(asUser(BOB), "thoughts", "today", "likes", ALICE), { createdAt: ts(now) }));
+  });
+  test("L2 cannot comment", async () => {
+    await assertFails(setDoc(doc(asUser(BOB), "thoughts", "today", "comments", "c1"), comment(BOB, "Jai", "visible")));
+  });
+  test("L3 can comment visible text", async () => {
+    await assertSucceeds(setDoc(doc(asUser(L3), "thoughts", "today", "comments", "c1"), comment(L3, "Jai Gurudev", "visible")));
+  });
+  test("comment containing a link must be pending", async () => {
+    await assertFails(setDoc(doc(asUser(L3), "thoughts", "today", "comments", "c2"), comment(L3, "go www.spam.com", "visible")));
+    await assertSucceeds(setDoc(doc(asUser(L3), "thoughts", "today", "comments", "c3"), comment(L3, "go www.spam.com", "pending")));
+  });
+  test("pending comment unreadable by other members, readable by author and admin", async () => {
+    await assertFails(getDoc(doc(asUser(BOB), "thoughts", "today", "comments", "pending1")));
+    await assertSucceeds(getDoc(doc(asUser(L3), "thoughts", "today", "comments", "pending1")));
+    await assertSucceeds(getDoc(doc(asUser("root", { role: "admin" }), "thoughts", "today", "comments", "pending1")));
+  });
+  test("L3 can ask a question; L2 cannot", async () => {
+    const q = { authorUid: L3, authorName: "Carol", authorPhoto: "", authorRole: "member", title: "How?", body: "...", status: "visible", createdAt: ts(now) };
+    await assertSucceeds(setDoc(doc(asUser(L3), "questions", "q2"), q));
+    await assertFails(setDoc(doc(asUser(BOB), "questions", "q3"), { ...q, authorUid: BOB }));
+  });
+  test("answer by member claiming authorRole swamiji is rejected", async () => {
+    await assertFails(setDoc(doc(asUser(L3), "questions", "q1", "answers", "a1"), comment(L3, "I am Swamiji", "visible", "swamiji")));
+    await assertSucceeds(setDoc(doc(asUser("sw", { role: "swamiji" }), "questions", "q1", "answers", "a2"), comment("sw", "Truth", "visible", "swamiji")));
+  });
+  test("non-admin cannot post announcement", async () => {
+    const a = { title: "Satsang", body: "Sunday", createdAt: ts(now) };
+    await assertFails(setDoc(doc(asUser(L3), "announcements", "a1"), a));
+    await assertSucceeds(setDoc(doc(asUser("root", { role: "admin" }), "announcements", "a1"), a));
+    await assertSucceeds(getDoc(doc(asUser(ALICE), "announcements", "a1")));
+  });
+  test("anyone signed in can report; only admin reads reports", async () => {
+    await assertSucceeds(setDoc(doc(asUser(ALICE), "reports", "r1"), { targetPath: "questions/q1", reason: "spam", reporterUid: ALICE, createdAt: ts(now) }));
+    await assertFails(getDoc(doc(asUser(ALICE), "reports", "r1")));
+    await assertSucceeds(getDoc(doc(asUser("root", { role: "admin" }), "reports", "r1")));
+  });
+  test("blocked list is owner-only", async () => {
+    await assertSucceeds(setDoc(doc(asUser(ALICE), "users", ALICE, "blocked", BOB), { at: ts(now) }));
+    await assertFails(setDoc(doc(asUser(BOB), "users", ALICE, "blocked", L3), { at: ts(now) }));
+  });
+});

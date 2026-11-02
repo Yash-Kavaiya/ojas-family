@@ -11,7 +11,7 @@ service cloud.firestore {
 
     // Roles come from a custom claim set by the setRole function
     function role() {
-      return signedIn() && request.auth.token.role is string ? request.auth.token.role : 'member';
+      return signedIn() ? request.auth.token.get('role', 'member') : 'member';
     }
 
     function isAdmin() {
@@ -82,6 +82,118 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create, update: if isAdmin() && validContent(request.resource.data);
       allow delete: if isAdmin();
+    }
+
+    // ---- Social (design §7.5, §7.6, §9) ----
+
+    function viewer() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function rank(field) {
+      return viewer().get(field, 0) is int ? viewer().get(field, 0) : 0;
+    }
+
+    // Like: User Level 2, or any paid member
+    function canLike() {
+      return signedIn() && (isStaff() || rank('userLevel') >= 2 || rank('memberLevel') >= 1);
+    }
+
+    // Comment, answer, ask: User Level 3, or Member Level 2
+    function canComment() {
+      return signedIn() && (isStaff() || rank('userLevel') >= 3 || rank('memberLevel') >= 2);
+    }
+
+    function hasLink(text) {
+      return text.matches('(?s).*(https?://|www[.]).*');
+    }
+
+    // Author snapshot must be the caller, with the caller's real role; links wait for approval
+    function validPost(data, maxLen) {
+      return data.authorUid == request.auth.uid
+        && data.authorRole == role()
+        && data.authorName is string && data.authorName.size() <= 80
+        && data.text is string && data.text.size() > 0 && data.text.size() <= maxLen
+        && data.status == (hasLink(data.text) ? 'pending' : 'visible');
+    }
+
+    function readablePost() {
+      return signedIn() && (resource.data.status == 'visible' || resource.data.authorUid == request.auth.uid || isAdmin());
+    }
+
+    function validLike(uid) {
+      return request.auth.uid == uid && request.resource.data.keys().hasOnly(['createdAt']);
+    }
+
+    match /thoughts/{thoughtId} {
+      // Members see today and the six days before; scheduled thoughts stay hidden until their day
+      allow read: if isAdmin() || (signedIn()
+        && resource.data.publishAt <= request.time
+        && resource.data.publishAt > request.time - duration.value(7, 'd'));
+      allow create, update: if isAdmin()
+        && request.resource.data.title is string && request.resource.data.title.size() <= 150
+        && request.resource.data.text is string && request.resource.data.text.size() <= 5000
+        && request.resource.data.publishAt is timestamp;
+      allow delete: if isAdmin();
+
+      match /likes/{uid} {
+        allow read: if signedIn();
+        allow create: if canLike() && validLike(uid);
+        allow delete: if signedIn() && request.auth.uid == uid;
+      }
+
+      match /comments/{commentId} {
+        allow read: if readablePost();
+        allow create: if canComment() && validPost(request.resource.data, 1000);
+        allow update: if isAdmin();
+        allow delete: if signedIn() && (resource.data.authorUid == request.auth.uid || isAdmin());
+      }
+    }
+
+    match /questions/{questionId} {
+      allow read: if readablePost();
+      allow create: if canComment()
+        && request.resource.data.authorUid == request.auth.uid
+        && request.resource.data.authorRole == role()
+        && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 150
+        && request.resource.data.body is string && request.resource.data.body.size() <= 2000
+        && request.resource.data.status == (hasLink(request.resource.data.title + ' ' + request.resource.data.body) ? 'pending' : 'visible');
+      allow update: if isAdmin();
+      allow delete: if signedIn() && (resource.data.authorUid == request.auth.uid || isAdmin());
+
+      match /likes/{uid} {
+        allow read: if signedIn();
+        allow create: if canLike() && validLike(uid);
+        allow delete: if signedIn() && request.auth.uid == uid;
+      }
+
+      match /answers/{answerId} {
+        allow read: if readablePost();
+        allow create: if canComment() && validPost(request.resource.data, 1000);
+        allow update: if isAdmin();
+        allow delete: if signedIn() && (resource.data.authorUid == request.auth.uid || isAdmin());
+      }
+    }
+
+    match /announcements/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /reports/{id} {
+      allow create: if signedIn() && request.resource.data.reporterUid == request.auth.uid
+        && request.resource.data.targetPath is string && request.resource.data.reason is string
+        && request.resource.data.reason.size() <= 500;
+      allow read, delete: if isAdmin();
+    }
+
+    match /users/{uid}/blocked/{otherUid} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
+    match /users/{uid}/counters/{day} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
     }
 
     match /config/{docId} {
