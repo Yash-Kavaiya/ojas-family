@@ -134,7 +134,11 @@ class SignInViewModel(private val auth: AuthRepository) : ViewModel() {
         _state.update { it.copy(busy = true, error = null, errorText = null) }
         viewModelScope.launch {
             block()
-                .onSuccess { value -> _state.update { it.copy(busy = false) }; onSuccess(value) }
+                .onSuccess { value ->
+                    // This ViewModel outlives the session: never leave a password or OTP behind for the next person
+                    _state.update { it.copy(busy = false, password = "", code = "") }
+                    onSuccess(value)
+                }
                 .onFailure { e ->
                     // Closing the Google account picker is a choice, not an error
                     if (e is GetCredentialCancellationException) _state.update { it.copy(busy = false) }

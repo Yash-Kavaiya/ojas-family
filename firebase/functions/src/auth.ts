@@ -36,6 +36,25 @@ export async function deleteUserData(db: Firestore, uid: string): Promise<void> 
   await db.recursiveDelete(db.doc(`users/${uid}`));
 }
 
+export interface AccountCleanup {
+  deleteFiles: (prefix: string) => Promise<unknown>;
+  deleteAuthUser: (uid: string) => Promise<void>;
+}
+
+/**
+ * Deletes everything we hold for a user. Storage cleanup is best-effort: a missing bucket or a file
+ * error must not leave a signed-in account with no profile behind.
+ */
+export async function deleteAccountData(db: Firestore, uid: string, cleanup: AccountCleanup): Promise<void> {
+  try {
+    await cleanup.deleteFiles(`users/${uid}/`);
+  } catch (e) {
+    console.warn(`Storage cleanup failed for ${uid}`, e);
+  }
+  await deleteUserData(db, uid);
+  await cleanup.deleteAuthUser(uid);
+}
+
 export async function setRoleFor(
   db: Firestore,
   callerToken: Record<string, unknown> | undefined,

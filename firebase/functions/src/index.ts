@@ -5,7 +5,7 @@ import { getStorage } from "firebase-admin/storage";
 import { setGlobalOptions } from "firebase-functions/v2";
 import { HttpsError, onCall, type CallableRequest } from "firebase-functions/v2/https";
 import * as functionsV1 from "firebase-functions/v1";
-import { deleteUserData, ensureUserDoc, setRoleFor } from "./auth";
+import { deleteAccountData, ensureUserDoc, setRoleFor } from "./auth";
 import { claimDailyOpenFor } from "./daily";
 
 initializeApp();
@@ -38,9 +38,10 @@ export const claimDailyOpen = onCall({ enforceAppCheck: enforceAppCheck }, async
 
 export const deleteAccount = onCall({ enforceAppCheck: enforceAppCheck }, async (req) => {
   const uid = requireUid(req);
-  await deleteUserData(db, uid);
-  await getStorage().bucket().deleteFiles({ prefix: `users/${uid}/` });
-  await getAuth().deleteUser(uid);
+  await deleteAccountData(db, uid, {
+    deleteFiles: (prefix) => getStorage().bucket().deleteFiles({ prefix }),
+    deleteAuthUser: (target) => getAuth().deleteUser(target),
+  });
   return { deleted: true };
 });
 

@@ -10,6 +10,12 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 
+/**
+ * Whether a profile snapshot can be trusted. An empty offline cache reports "no document" for a profile
+ * that exists on the server; treating that as "not set up" would send an existing user to profile setup.
+ */
+internal fun isDefinitive(exists: Boolean, fromCache: Boolean): Boolean = exists || !fromCache
+
 interface UserRepository {
     /** Emits null when the profile document does not exist (yet). */
     fun observe(uid: String): Flow<UserProfile?>
@@ -30,7 +36,9 @@ class FirestoreUserRepository(
                 close(error)
                 return@addSnapshotListener
             }
-            trySend(snap?.takeIf { it.exists() }?.toUserProfile())
+            if (snap != null && isDefinitive(snap.exists(), snap.metadata.isFromCache)) {
+                trySend(snap.takeIf { it.exists() }?.toUserProfile())
+            }
         }
         awaitClose { registration.remove() }
     }

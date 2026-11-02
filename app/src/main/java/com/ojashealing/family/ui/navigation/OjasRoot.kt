@@ -51,7 +51,9 @@ fun OjasRoot() {
         StartDestination.Language -> LanguageScreen(onChoose = onboarding::chooseLanguage)
         StartDestination.SignIn -> AuthFlow(container)
         StartDestination.ProfileSetup -> {
-            val vm: ProfileSetupViewModel = viewModel(factory = viewModelFactory {
+            // Keyed by user so a second account on the same phone never sees the first one's details
+            val uid = container.auth.currentUid.collectAsStateWithLifecycle().value
+            val vm: ProfileSetupViewModel = viewModel(key = "profile-setup-$uid", factory = viewModelFactory {
                 initializer {
                     ProfileSetupViewModel(container.auth, container.users, container.locations, Firebase.auth.currentUser?.displayName.orEmpty())
                 }
