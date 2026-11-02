@@ -7,6 +7,7 @@ import { HttpsError, onCall, type CallableRequest } from "firebase-functions/v2/
 import { deleteAccountData, ensureUserDoc, setRoleFor } from "./auth";
 import { claimDailyOpenFor } from "./daily";
 import { addVideoFor, importPlaylistFor } from "./content";
+import { onGoalProgressWritten } from "./goals";
 import { onAnswerWritten, onCommentWritten, onLikeChanged, onQuestionWritten } from "./social";
 import { onDocumentCreated, onDocumentDeleted, onDocumentWritten } from "firebase-functions/v2/firestore";
 
@@ -85,3 +86,6 @@ export const questionWritten = onDocumentWritten("questions/{questionId}", (e) =
 
 export const answerWritten = onDocumentWritten("questions/{questionId}/answers/{answerId}", (e) =>
   onAnswerWritten(db, e.params.questionId, e.params.answerId, e.data?.before.data(), e.data?.after.data(), new Date()));
+
+export const goalProgressWritten = onDocumentWritten("users/{uid}/goalProgress/{goalId}", (e) =>
+  onGoalProgressWritten(db, e.params.uid, e.params.goalId, e.data?.before.data(), e.data?.after.data()));
