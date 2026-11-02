@@ -30,6 +30,8 @@ import com.ojashealing.family.data.settings.setAppLanguage
 import androidx.navigation.toRoute
 import com.ojashealing.family.di.AppContainer
 import com.ojashealing.family.domain.ContentItem
+import com.ojashealing.family.ui.admin.AdminContentScreen
+import com.ojashealing.family.ui.admin.AdminContentViewModel
 import com.ojashealing.family.ui.content.ContentViewModel
 import com.ojashealing.family.ui.content.PracticeTab
 import com.ojashealing.family.ui.content.UnderstandingTab
@@ -53,6 +55,7 @@ import kotlinx.serialization.Serializable
 @Serializable object TabsRoute
 @Serializable object EditProfileRoute
 @Serializable object SettingsRoute
+@Serializable object AdminContentRoute
 @Serializable data class VideoRoute(val videoId: String, val title: String)
 
 @Composable
@@ -109,11 +112,18 @@ fun MainShell(container: AppContainer) {
                                 profile = profile,
                                 locations = container.locations,
                                 onEditProfile = { nav.navigate(EditProfileRoute) },
-                                onOpenSettings = { nav.navigate(SettingsRoute) }
+                                onOpenSettings = { nav.navigate(SettingsRoute) },
+                                onOpenAdmin = { nav.navigate(AdminContentRoute) }
                             )
                         }
                     }
                 }
+            }
+            composable<AdminContentRoute> {
+                val adminVm: AdminContentViewModel = viewModel(factory = viewModelFactory {
+                    initializer { AdminContentViewModel(container.content) }
+                })
+                AdminContentScreen(adminVm, onBack = { nav.popBackStack() })
             }
             composable<VideoRoute> { entry ->
                 val route = entry.toRoute<VideoRoute>()
