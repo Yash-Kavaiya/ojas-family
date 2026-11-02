@@ -48,7 +48,9 @@ import com.ojashealing.family.ui.navigation.OjasBottomBar
 import com.ojashealing.family.ui.onboarding.ProfileSetupScreen
 import com.ojashealing.family.ui.onboarding.ProfileSetupViewModel
 import com.ojashealing.family.ui.screens.CommunityTab
-import com.ojashealing.family.ui.screens.HomeTab
+import com.ojashealing.family.ui.thought.HomeScreen
+import com.ojashealing.family.ui.thought.ScheduleThoughtScreen
+import com.ojashealing.family.ui.thought.ThoughtViewModel
 import com.ojashealing.family.ui.screens.ProfileTab
 import kotlinx.serialization.Serializable
 
@@ -56,6 +58,7 @@ import kotlinx.serialization.Serializable
 @Serializable object EditProfileRoute
 @Serializable object SettingsRoute
 @Serializable object AdminContentRoute
+@Serializable object ScheduleThoughtRoute
 @Serializable data class VideoRoute(val videoId: String, val title: String)
 
 @Composable
@@ -71,6 +74,9 @@ fun MainShell(container: AppContainer) {
     })
     val practice by contentVm.practice.collectAsStateWithLifecycle()
     val understanding by contentVm.understanding.collectAsStateWithLifecycle()
+    val thoughtVm: ThoughtViewModel = viewModel(factory = viewModelFactory {
+        initializer { ThoughtViewModel(container.thoughts, vm.profile) }
+    })
     val play: (ContentItem) -> Unit = { nav.navigate(VideoRoute(it.videoId, it.title)) }
     val anchors = remember { RewardAnchors() }
 
@@ -106,7 +112,7 @@ fun MainShell(container: AppContainer) {
                         when (tab) {
                             MainTab.Community -> CommunityTab()
                             MainTab.Spiritual -> PracticeTab(practice, onPlay = play)
-                            MainTab.Home -> HomeTab()
+                            MainTab.Home -> HomeScreen(thoughtVm, onSchedule = { nav.navigate(ScheduleThoughtRoute) })
                             MainTab.Ask -> UnderstandingTab(understanding, onPlay = play)
                             MainTab.Profile -> ProfileTab(
                                 profile = profile,
@@ -119,6 +125,7 @@ fun MainShell(container: AppContainer) {
                     }
                 }
             }
+            composable<ScheduleThoughtRoute> { ScheduleThoughtScreen(thoughtVm, onDone = { nav.popBackStack() }) }
             composable<AdminContentRoute> {
                 val adminVm: AdminContentViewModel = viewModel(factory = viewModelFactory {
                     initializer { AdminContentViewModel(container.content) }
