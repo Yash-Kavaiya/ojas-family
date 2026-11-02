@@ -40,6 +40,7 @@ secretsGradlePlugin = "2.0.1"
 googleServices = "4.5.0"
 credentials = "1.5.0"
 appcompat = "1.7.1"
+youtubePlayer = "13.0.0"
 crashlyticsPlugin = "3.0.6"
 kotlinxSerializationJson = "1.9.0"
 googleid = "1.1.1"
@@ -105,6 +106,7 @@ firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics
 firebase-appcheck-playintegrity = { group = "com.google.firebase", name = "firebase-appcheck-playintegrity" }
 kotlinx-coroutines-play-services = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-play-services", version.ref = "kotlinxCoroutinesCore" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
+youtube-player = { group = "com.pierfrancescosoffritti.androidyoutubeplayer", name = "core", version.ref = "youtubePlayer" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 
 

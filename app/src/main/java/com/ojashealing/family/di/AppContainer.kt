@@ -8,6 +8,8 @@ import com.google.firebase.functions.functions
 import com.google.firebase.storage.storage
 import com.ojashealing.family.R
 import com.ojashealing.family.data.auth.AuthRepository
+import com.ojashealing.family.data.content.ContentRepository
+import com.ojashealing.family.data.content.FirestoreContentRepository
 import com.ojashealing.family.data.auth.FirebaseAuthRepository
 import com.ojashealing.family.data.location.LocationRepository
 import com.ojashealing.family.data.points.FirebasePointsRepository
@@ -27,5 +29,6 @@ class AppContainer(context: Context) {
     val users: UserRepository = FirestoreUserRepository(Firebase.firestore, Firebase.storage)
     val points: PointsRepository = FirebasePointsRepository(Firebase.firestore, functions)
     val settings = SettingsStore(app)
+    val content: ContentRepository = FirestoreContentRepository(Firebase.firestore, functions)
     val locations = LocationRepository { name -> app.assets.open(name).bufferedReader().use { it.readText() } }
 }
