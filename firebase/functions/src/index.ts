@@ -4,7 +4,6 @@ import { getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 import { setGlobalOptions } from "firebase-functions/v2";
 import { HttpsError, onCall, type CallableRequest } from "firebase-functions/v2/https";
-import * as functionsV1 from "firebase-functions/v1";
 import { deleteAccountData, ensureUserDoc, setRoleFor } from "./auth";
 import { claimDailyOpenFor } from "./daily";
 
@@ -23,11 +22,8 @@ function requireUid(req: CallableRequest): string {
   return req.auth.uid;
 }
 
-// v1 trigger: v2 has no plain "user created" event without Identity Platform blocking functions
-export const onUserCreate = functionsV1
-  .region(REGION)
-  .auth.user()
-  .onCreate((user) => ensureUserDoc(db, user.uid));
+// No auth "user created" trigger: that needs a 1st-gen function. Server fields are filled by ensureUserDoc
+// from claimDailyOpen, which every signed-in session calls, and clients may create their own profile fields.
 
 export const claimDailyOpen = onCall({ enforceAppCheck: enforceAppCheck }, async (req) => {
   const uid = requireUid(req);
