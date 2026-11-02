@@ -32,6 +32,9 @@ import com.ojashealing.family.di.AppContainer
 import com.ojashealing.family.domain.ContentItem
 import com.ojashealing.family.ui.admin.AdminContentScreen
 import com.ojashealing.family.ui.admin.AdminContentViewModel
+import com.ojashealing.family.ui.admin.ModerationScreen
+import com.ojashealing.family.ui.admin.ModerationViewModel
+import com.ojashealing.family.ui.admin.asActions
 import com.ojashealing.family.ui.content.ContentViewModel
 import com.ojashealing.family.ui.content.PracticeTab
 import com.ojashealing.family.ui.content.UnderstandingTab
@@ -67,6 +70,7 @@ import kotlinx.serialization.Serializable
 @Serializable data class QuestionRoute(val id: String)
 @Serializable object AskRoute
 @Serializable object AnnounceRoute
+@Serializable object ModerationRoute
 @Serializable data class VideoRoute(val videoId: String, val title: String)
 
 @Composable
@@ -135,7 +139,8 @@ fun MainShell(container: AppContainer) {
                                 locations = container.locations,
                                 onEditProfile = { nav.navigate(EditProfileRoute) },
                                 onOpenSettings = { nav.navigate(SettingsRoute) },
-                                onOpenAdmin = { nav.navigate(AdminContentRoute) }
+                                onOpenAdmin = { nav.navigate(AdminContentRoute) },
+                                onOpenModeration = { nav.navigate(ModerationRoute) }
                             )
                         }
                     }
@@ -163,6 +168,12 @@ fun MainShell(container: AppContainer) {
                 )
             }
             composable<ScheduleThoughtRoute> { ScheduleThoughtScreen(thoughtVm, onDone = { nav.popBackStack() }) }
+            composable<ModerationRoute> {
+                val moderationVm: ModerationViewModel = viewModel(factory = viewModelFactory {
+                    initializer { ModerationViewModel(container.moderation.asActions()) }
+                })
+                ModerationScreen(moderationVm, onBack = { nav.popBackStack() })
+            }
             composable<AdminContentRoute> {
                 val adminVm: AdminContentViewModel = viewModel(factory = viewModelFactory {
                     initializer { AdminContentViewModel(container.content) }

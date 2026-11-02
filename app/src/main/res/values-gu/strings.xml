@@ -136,6 +136,13 @@
     <string name="community_empty_qa">હજી કોઈ પ્રશ્ન નથી</string>
     <string name="community_empty_notices">હજી કોઈ જાહેરાત નથી</string>
     <string name="action_more">વધુ વિકલ્પો</string>
+    <string name="moderation_title">મોડરેશન</string>
+    <string name="moderation_pending">મંજૂરી માટે</string>
+    <string name="moderation_reports">રિપોર્ટ</string>
+    <string name="moderation_empty">જોવા માટે કંઈ નથી</string>
+    <string name="moderation_approve">મંજૂર કરો</string>
+    <string name="moderation_remove_post">પોસ્ટ દૂર કરો</string>
+    <string name="moderation_dismiss">રદ કરો</string>
     <string name="settings_title">સેટિંગ્સ</string>
     <string name="settings_appearance">દેખાવ</string>
     <string name="settings_theme_system">સિસ્ટમ</string>

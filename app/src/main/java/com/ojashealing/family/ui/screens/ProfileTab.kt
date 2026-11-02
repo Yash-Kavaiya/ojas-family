@@ -18,6 +18,7 @@ import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.VideoLibrary
+import androidx.compose.material.icons.outlined.Shield
 import com.ojashealing.family.ui.admin.showAdminEntry
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Icon
@@ -51,7 +52,8 @@ fun ProfileTab(
     locations: LocationRepository,
     onEditProfile: () -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenAdmin: () -> Unit = {}
+    onOpenAdmin: () -> Unit = {},
+    onOpenModeration: () -> Unit = {}
 ) {
     if (profile == null) {
         LoadingState()
@@ -77,6 +79,10 @@ fun ProfileTab(
                 OutlinedButton(onClick = onOpenAdmin, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Outlined.VideoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
                     Text(stringResource(R.string.admin_title), modifier = Modifier.padding(start = Spacing.s))
+                }
+                OutlinedButton(onClick = onOpenModeration, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Outlined.Shield, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Text(stringResource(R.string.moderation_title), modifier = Modifier.padding(start = Spacing.s))
                 }
             }
             OjasCard {

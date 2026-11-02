@@ -137,6 +137,13 @@
     <string name="community_empty_qa">No questions yet</string>
     <string name="community_empty_notices">No announcements yet</string>
     <string name="action_more">More options</string>
+    <string name="moderation_title">Moderation</string>
+    <string name="moderation_pending">Waiting for approval</string>
+    <string name="moderation_reports">Reports</string>
+    <string name="moderation_empty">Nothing to review</string>
+    <string name="moderation_approve">Approve</string>
+    <string name="moderation_remove_post">Remove post</string>
+    <string name="moderation_dismiss">Dismiss</string>
     <string name="settings_title">Settings</string>
     <string name="settings_appearance">Appearance</string>
     <string name="settings_theme_system">System</string>
