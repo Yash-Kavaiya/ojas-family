@@ -196,6 +196,30 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ---- Goals (design §7.8) ----
+
+    match /goals/{goalId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    // Members submit a photo; only admins approve or reject. Progress is private to its owner.
+    match /users/{uid}/goalProgress/{goalId} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create, update: if (signedIn() && request.auth.uid == uid
+          && request.resource.data.status == 'submitted'
+          && request.resource.data.keys().hasOnly(['status', 'photoUrl', 'note', 'submittedAt'])
+          && request.resource.data.photoUrl is string
+          && request.resource.data.note is string && request.resource.data.note.size() <= 500
+          && (resource == null || resource.data.status != 'approved'))
+        || (isAdmin() && request.resource.data.status in ['approved', 'rejected']);
+      allow delete: if false;
+    }
+
+    match /{path=**}/goalProgress/{goalId} {
+      allow read: if isAdmin();
+    }
+
     // Admin moderation queue reads pending posts across every thread
     match /{path=**}/comments/{commentId} {
       allow read: if isAdmin();
