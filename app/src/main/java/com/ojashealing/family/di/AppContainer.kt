@@ -15,6 +15,9 @@ import com.ojashealing.family.data.location.LocationRepository
 import com.ojashealing.family.data.points.FirebasePointsRepository
 import com.ojashealing.family.data.points.PointsRepository
 import com.ojashealing.family.data.settings.SettingsStore
+import com.ojashealing.family.data.social.CommunityRepository
+import com.ojashealing.family.data.social.ModerationRepository
+import com.ojashealing.family.data.social.ThoughtRepository
 import com.ojashealing.family.data.user.FirestoreUserRepository
 import com.ojashealing.family.data.user.UserRepository
 
@@ -30,5 +33,8 @@ class AppContainer(context: Context) {
     val points: PointsRepository = FirebasePointsRepository(Firebase.firestore, functions)
     val settings = SettingsStore(app)
     val content: ContentRepository = FirestoreContentRepository(Firebase.firestore, functions)
+    val thoughts = ThoughtRepository(Firebase.firestore)
+    val community = CommunityRepository(Firebase.firestore)
+    val moderation = ModerationRepository(Firebase.firestore)
     val locations = LocationRepository { name -> app.assets.open(name).bufferedReader().use { it.readText() } }
 }

@@ -254,3 +254,12 @@ describe("social", () => {
     await assertFails(setDoc(doc(asUser(BOB), "users", ALICE, "blocked", L3), { at: ts(now) }));
   });
 });
+
+describe("moderation queries", () => {
+  test("admin can query pending comments across threads; members cannot", async () => {
+    const { collectionGroup, getDocs, query, where } = await import("firebase/firestore");
+    const pending = (db: ReturnType<typeof asUser>) => getDocs(query(collectionGroup(db, "comments"), where("status", "==", "pending")));
+    await assertSucceeds(pending(asUser("root", { role: "admin" })));
+    await assertFails(pending(asUser(ALICE)));
+  });
+});

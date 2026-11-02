@@ -196,6 +196,14 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Admin moderation queue reads pending posts across every thread
+    match /{path=**}/comments/{commentId} {
+      allow read: if isAdmin();
+    }
+    match /{path=**}/answers/{answerId} {
+      allow read: if isAdmin();
+    }
+
     match /config/{docId} {
       allow read: if signedIn();
       allow write: if isAdmin();
