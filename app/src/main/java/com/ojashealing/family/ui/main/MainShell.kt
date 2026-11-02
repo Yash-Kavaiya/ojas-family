@@ -47,7 +47,12 @@ import com.ojashealing.family.ui.navigation.MainTab
 import com.ojashealing.family.ui.navigation.OjasBottomBar
 import com.ojashealing.family.ui.onboarding.ProfileSetupScreen
 import com.ojashealing.family.ui.onboarding.ProfileSetupViewModel
-import com.ojashealing.family.ui.screens.CommunityTab
+import androidx.compose.ui.res.stringResource
+import com.ojashealing.family.R
+import com.ojashealing.family.ui.community.CommunityScreen
+import com.ojashealing.family.ui.community.CommunityViewModel
+import com.ojashealing.family.ui.community.ComposePostScreen
+import com.ojashealing.family.ui.community.QuestionDetailScreen
 import com.ojashealing.family.ui.thought.HomeScreen
 import com.ojashealing.family.ui.thought.ScheduleThoughtScreen
 import com.ojashealing.family.ui.thought.ThoughtViewModel
@@ -59,6 +64,9 @@ import kotlinx.serialization.Serializable
 @Serializable object SettingsRoute
 @Serializable object AdminContentRoute
 @Serializable object ScheduleThoughtRoute
+@Serializable data class QuestionRoute(val id: String)
+@Serializable object AskRoute
+@Serializable object AnnounceRoute
 @Serializable data class VideoRoute(val videoId: String, val title: String)
 
 @Composable
@@ -76,6 +84,9 @@ fun MainShell(container: AppContainer) {
     val understanding by contentVm.understanding.collectAsStateWithLifecycle()
     val thoughtVm: ThoughtViewModel = viewModel(factory = viewModelFactory {
         initializer { ThoughtViewModel(container.thoughts, vm.profile) }
+    })
+    val communityVm: CommunityViewModel = viewModel(factory = viewModelFactory {
+        initializer { CommunityViewModel(container.community, vm.profile) }
     })
     val play: (ContentItem) -> Unit = { nav.navigate(VideoRoute(it.videoId, it.title)) }
     val anchors = remember { RewardAnchors() }
@@ -110,7 +121,12 @@ fun MainShell(container: AppContainer) {
                             .consumeWindowInsets(padding)
                     ) {
                         when (tab) {
-                            MainTab.Community -> CommunityTab()
+                            MainTab.Community -> CommunityScreen(
+                                communityVm,
+                                onOpenQuestion = { nav.navigate(QuestionRoute(it)) },
+                                onAsk = { nav.navigate(AskRoute) },
+                                onAnnounce = { nav.navigate(AnnounceRoute) }
+                            )
                             MainTab.Spiritual -> PracticeTab(practice, onPlay = play)
                             MainTab.Home -> HomeScreen(thoughtVm, onSchedule = { nav.navigate(ScheduleThoughtRoute) })
                             MainTab.Ask -> UnderstandingTab(understanding, onPlay = play)
@@ -124,6 +140,27 @@ fun MainShell(container: AppContainer) {
                         }
                     }
                 }
+            }
+            composable<QuestionRoute> { entry ->
+                QuestionDetailScreen(communityVm, entry.toRoute<QuestionRoute>().id, onBack = { nav.popBackStack() })
+            }
+            composable<AskRoute> {
+                ComposePostScreen(
+                    title = stringResource(R.string.community_ask),
+                    firstLabel = stringResource(R.string.community_question_title),
+                    secondLabel = stringResource(R.string.community_question_body),
+                    onBack = { nav.popBackStack() },
+                    onSubmit = { t, b, done -> communityVm.ask(t, b, done) }
+                )
+            }
+            composable<AnnounceRoute> {
+                ComposePostScreen(
+                    title = stringResource(R.string.community_post_notice),
+                    firstLabel = stringResource(R.string.field_title),
+                    secondLabel = stringResource(R.string.field_message),
+                    onBack = { nav.popBackStack() },
+                    onSubmit = { t, b, done -> communityVm.announce(t, b, done) }
+                )
             }
             composable<ScheduleThoughtRoute> { ScheduleThoughtScreen(thoughtVm, onDone = { nav.popBackStack() }) }
             composable<AdminContentRoute> {
