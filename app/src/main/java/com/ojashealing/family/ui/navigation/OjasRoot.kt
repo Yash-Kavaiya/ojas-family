@@ -1,6 +1,7 @@
 package com.ojashealing.family.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -9,6 +10,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
@@ -69,6 +71,9 @@ private fun AuthFlow(container: AppContainer) {
     val nav = rememberNavController()
     // One ViewModel for the three sign-in screens so the typed phone/email survives going back
     val vm: SignInViewModel = viewModel(factory = viewModelFactory { initializer { SignInViewModel(container.auth) } })
+    // A message from one sign-in screen must not greet the person on the next, whichever way they navigated
+    val destination = nav.currentBackStackEntryAsState().value?.destination?.route
+    LaunchedEffect(destination) { vm.clearError() }
     NavHost(navController = nav, startDestination = SignInRoute) {
         composable<SignInRoute> { SignInScreen(vm, onPhone = { nav.navigate(PhoneRoute) }, onEmail = { nav.navigate(EmailRoute) }) }
         composable<PhoneRoute> { PhoneSignInScreen(vm, onBack = { nav.popBackStack() }) }
