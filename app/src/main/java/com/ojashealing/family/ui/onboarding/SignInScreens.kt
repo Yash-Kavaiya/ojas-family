@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Email
@@ -20,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,13 +34,32 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ojashealing.family.BuildConfig
 import com.ojashealing.family.R
+import com.ojashealing.family.data.auth.signingSha1
 import com.ojashealing.family.ui.theme.SacredGold
 import com.ojashealing.family.ui.theme.SaffronPrimary
 import com.ojashealing.family.ui.theme.Spacing
 
 @Composable
 private fun SignInUiState.message(): String? = error?.let { stringResource(it) } ?: errorText
+
+/**
+ * Debug builds only: when sign-in failed because of app setup, show the exception and this APK's SHA-1,
+ * which is almost always the fingerprint missing from the Firebase console.
+ */
+@Composable
+private fun DebugConfigHint(state: SignInUiState) {
+    if (!BuildConfig.DEBUG || !state.configProblem) return
+    val context = LocalContext.current
+    val sha1 = remember { signingSha1(context) } ?: return
+    Text(
+        text = stringResource(R.string.signin_debug_signing, sha1) + (state.debugDetail?.let { "\n$it" } ?: ""),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.fillMaxWidth().testTag("signin_debug_hint")
+    )
+}
 
 @Composable
 fun SignInScreen(vm: SignInViewModel, onPhone: () -> Unit, onEmail: () -> Unit) {
@@ -49,6 +70,7 @@ fun SignInScreen(vm: SignInViewModel, onPhone: () -> Unit, onEmail: () -> Unit) 
         subtitle = stringResource(R.string.signin_subtitle),
         bottom = {
             ErrorText(state.message())
+            DebugConfigHint(state)
             PrimaryButton(stringResource(R.string.signin_google), onClick = { vm.signInWithGoogle(activity) }, busy = state.busy)
             OutlinedButton(onClick = onPhone, modifier = Modifier.fillMaxWidth().height(52.dp).testTag("signin_phone")) {
                 Icon(Icons.Outlined.PhoneAndroid, contentDescription = null)
@@ -87,16 +109,19 @@ fun PhoneSignInScreen(vm: SignInViewModel, onBack: () -> Unit) {
             onBack = onBack,
             bottom = { PrimaryButton(stringResource(R.string.phone_send_code), onClick = { vm.sendCode(activity) }, busy = state.busy) }
         ) {
+            val message = state.message()
             OutlinedTextField(
                 value = state.phone,
                 onValueChange = vm::onPhoneChange,
                 label = { Text(stringResource(R.string.field_phone)) },
                 singleLine = true,
-                isError = state.error != null,
-                supportingText = state.message()?.let { { Text(it) } },
+                isError = message != null,
+                supportingText = { Text(message ?: stringResource(R.string.phone_hint)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { vm.sendCode(activity) }),
                 modifier = Modifier.fillMaxWidth().testTag("phone_input")
             )
+            DebugConfigHint(state)
         }
     } else {
         OnboardingLayout(
@@ -110,16 +135,19 @@ fun PhoneSignInScreen(vm: SignInViewModel, onBack: () -> Unit) {
                 }
             }
         ) {
+            val message = state.message()
             OutlinedTextField(
                 value = state.code,
                 onValueChange = vm::onCodeChange,
                 label = { Text(stringResource(R.string.field_otp)) },
                 singleLine = true,
-                isError = state.error != null,
-                supportingText = state.message()?.let { { Text(it) } },
+                isError = message != null,
+                supportingText = message?.let { { Text(it) } },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { vm.verifyCode() }),
                 modifier = Modifier.fillMaxWidth().testTag("otp_input")
             )
+            DebugConfigHint(state)
         }
     }
 }
@@ -147,8 +175,9 @@ fun EmailSignInScreen(vm: SignInViewModel, onBack: () -> Unit) {
             onValueChange = vm::onEmailChange,
             label = { Text(stringResource(R.string.field_email)) },
             singleLine = true,
+            isError = state.error == R.string.error_email_invalid,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().testTag("email_input")
         )
         OutlinedTextField(
             value = state.password,
@@ -159,8 +188,10 @@ fun EmailSignInScreen(vm: SignInViewModel, onBack: () -> Unit) {
             isError = state.message() != null,
             supportingText = state.message()?.let { { Text(it) } },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-            modifier = Modifier.fillMaxWidth()
+            keyboardActions = KeyboardActions(onDone = { vm.submitEmail() }),
+            modifier = Modifier.fillMaxWidth().testTag("password_input")
         )
+        DebugConfigHint(state)
         if (!state.createAccount) {
             TextButton(onClick = vm::sendPasswordReset, enabled = !state.busy) {
                 Text(stringResource(R.string.signin_forgot_password))

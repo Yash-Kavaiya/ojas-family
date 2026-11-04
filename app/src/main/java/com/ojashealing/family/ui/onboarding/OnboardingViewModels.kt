@@ -2,13 +2,12 @@ package com.ojashealing.family.ui.onboarding
 
 import android.app.Activity
 import android.net.Uri
+import android.util.Log
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import com.google.firebase.FirebaseNetworkException
-import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
-import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.ojashealing.family.R
 import com.ojashealing.family.data.auth.AuthRepository
 import com.ojashealing.family.data.auth.PhoneVerification
@@ -70,7 +69,11 @@ data class SignInUiState(
     val busy: Boolean = false,
     @StringRes val error: Int? = null,
     val errorText: String? = null,
-    val phone: String = "+91",
+    /** The failure looks like app setup (signing key, provider, App Check), not the person's input. */
+    val configProblem: Boolean = false,
+    /** Raw exception message, shown only in debug builds next to [configProblem] errors. */
+    val debugDetail: String? = null,
+    val phone: String = DEFAULT_DIAL_CODE + " ",
     val verification: PhoneVerification.CodeSent? = null,
     val code: String = "",
     val email: String = "",
@@ -84,29 +87,37 @@ class SignInViewModel(private val auth: AuthRepository) : ViewModel() {
     private val _state = MutableStateFlow(SignInUiState())
     val state: StateFlow<SignInUiState> = _state.asStateFlow()
 
-    fun onPhoneChange(value: String) = _state.update { it.copy(phone = value.filter { c -> c.isDigit() || c == '+' }, error = null) }
-    fun onCodeChange(value: String) = _state.update { it.copy(code = value.filter(Char::isDigit).take(6), error = null) }
-    fun onEmailChange(value: String) = _state.update { it.copy(email = value, error = null, errorText = null) }
-    fun onPasswordChange(value: String) = _state.update { it.copy(password = value, error = null, errorText = null) }
-    fun toggleCreateAccount() = _state.update { it.copy(createAccount = !it.createAccount, error = null, errorText = null) }
-    fun backToPhoneEntry() = _state.update { it.copy(verification = null, code = "", error = null) }
+    // Spaces, dashes and brackets are allowed while typing; normalizePhone cleans them before sending
+    fun onPhoneChange(value: String) = _state.update {
+        it.copy(phone = value.filter { c -> c.isDigit() || c in "+ -()" }.take(24)).cleared()
+    }
+    fun onCodeChange(value: String) = _state.update { it.copy(code = value.filter(Char::isDigit).take(6)).cleared() }
+    fun onEmailChange(value: String) = _state.update { it.copy(email = value, resetSentTo = null).cleared() }
+    fun onPasswordChange(value: String) = _state.update { it.copy(password = value).cleared() }
+    fun toggleCreateAccount() = _state.update { it.copy(createAccount = !it.createAccount).cleared() }
+    fun backToPhoneEntry() = _state.update { it.copy(verification = null, code = "").cleared() }
 
-    fun signInWithGoogle(activity: Activity) = run { auth.signInWithGoogle(activity) }
+    fun signInWithGoogle(activity: Activity) = run(AuthStage.Google) { auth.signInWithGoogle(activity) }
 
     fun sendCode(activity: Activity) {
-        val phone = _state.value.phone
+        val phone = normalizePhone(_state.value.phone)
         if (!isValidE164(phone)) {
             _state.update { it.copy(error = R.string.error_phone_invalid) }
             return
         }
-        run(onSuccess = { result -> (result as? PhoneVerification.CodeSent)?.let { v -> _state.update { it.copy(verification = v) } } }) {
+        // Show the number exactly as it was sent, so the person can spot a wrong digit
+        _state.update { it.copy(phone = phone) }
+        run(AuthStage.PhoneSend, onSuccess = { result ->
+            (result as? PhoneVerification.CodeSent)?.let { v -> _state.update { it.copy(verification = v) } }
+        }) {
             auth.startPhoneSignIn(activity, phone, _state.value.verification?.resendToken)
         }
     }
 
     fun verifyCode() {
         val v = _state.value.verification ?: return
-        run { auth.confirmPhoneCode(v, _state.value.code) }
+        if (_state.value.code.length != 6) return
+        run(AuthStage.PhoneVerify) { auth.confirmPhoneCode(v, _state.value.code) }
     }
 
     fun submitEmail() {
@@ -114,8 +125,12 @@ class SignInViewModel(private val auth: AuthRepository) : ViewModel() {
         when {
             !android.util.Patterns.EMAIL_ADDRESS.matcher(s.email.trim()).matches() ->
                 _state.update { it.copy(error = R.string.error_email_invalid) }
-            s.password.length < 8 -> _state.update { it.copy(error = R.string.error_password_short) }
-            else -> run { auth.signInWithEmail(s.email, s.password, s.createAccount) }
+            s.password.isEmpty() -> _state.update { it.copy(error = R.string.error_required) }
+            // Length only applies to new passwords; an older account may have a shorter one
+            s.createAccount && s.password.length < 8 -> _state.update { it.copy(error = R.string.error_password_short) }
+            else -> run(if (s.createAccount) AuthStage.EmailCreate else AuthStage.EmailSignIn) {
+                auth.signInWithEmail(s.email, s.password, s.createAccount)
+            }
         }
     }
 
@@ -125,13 +140,15 @@ class SignInViewModel(private val auth: AuthRepository) : ViewModel() {
             _state.update { it.copy(error = R.string.error_email_invalid) }
             return
         }
-        run(onSuccess = { _state.update { it.copy(resetSentTo = email) } }) { auth.sendPasswordReset(email) }
+        run(AuthStage.PasswordReset, onSuccess = { _state.update { it.copy(resetSentTo = email) } }) { auth.sendPasswordReset(email) }
     }
 
+    private fun SignInUiState.cleared() = copy(error = null, errorText = null, configProblem = false, debugDetail = null)
+
     // Runs an auth call with a busy flag and maps failures to a message; success navigates via auth state
-    private fun <T> run(onSuccess: (T) -> Unit = {}, block: suspend () -> Result<T>) {
+    private fun <T> run(stage: AuthStage, onSuccess: (T) -> Unit = {}, block: suspend () -> Result<T>) {
         if (_state.value.busy) return
-        _state.update { it.copy(busy = true, error = null, errorText = null) }
+        _state.update { it.copy(busy = true).cleared() }
         viewModelScope.launch {
             block()
                 .onSuccess { value ->
@@ -141,18 +158,26 @@ class SignInViewModel(private val auth: AuthRepository) : ViewModel() {
                 }
                 .onFailure { e ->
                     // Closing the Google account picker is a choice, not an error
-                    if (e is GetCredentialCancellationException) _state.update { it.copy(busy = false) }
-                    else _state.update { it.copy(busy = false, error = errorFor(e), errorText = if (errorFor(e) == null) e.localizedMessage else null) }
+                    if (e is GetCredentialCancellationException) {
+                        _state.update { it.copy(busy = false) }
+                        return@onFailure
+                    }
+                    Log.w(TAG, "Sign-in failed at $stage", e)
+                    val mapped = authErrorFor(e, stage)
+                    _state.update {
+                        it.copy(
+                            busy = false,
+                            error = mapped.message,
+                            configProblem = mapped.configProblem,
+                            debugDetail = listOfNotNull(e::class.simpleName, e.localizedMessage).joinToString(": ")
+                        )
+                    }
                 }
         }
     }
 
-    @StringRes
-    private fun errorFor(e: Throwable): Int? = when (e) {
-        is FirebaseNetworkException -> R.string.error_offline
-        is FirebaseAuthInvalidCredentialsException -> if (_state.value.verification != null) R.string.error_otp_invalid else R.string.error_generic
-        is FirebaseAuthUserCollisionException -> null // Firebase's own message names the conflicting provider
-        else -> R.string.error_generic
+    private companion object {
+        const val TAG = "OjasSignIn"
     }
 }
 

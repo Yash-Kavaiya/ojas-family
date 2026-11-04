@@ -53,4 +53,21 @@ class OnboardingViewModelTest {
         assertFalse(isValidE164("9876543210"))
         assertFalse(isValidE164("+91 98765"))
     }
+
+    // What people actually type into the phone field
+    @Test fun phoneNormalizedToE164() {
+        val india = "+919876543210"
+        listOf(
+            "9876543210", "98765 43210", "98765-43210", "09876543210", "+91 98765 43210", "+91 (0) 98765 43210",
+            "+91 09876543210", "919876543210", "0091 98765 43210", "+91 9876543210 ", "+91 "+"9876543210"
+        ).forEach { assertEquals(it, india, normalizePhone(it)) }
+        assertEquals("+14155552671", normalizePhone("+1 (415) 555-2671"))
+        assertEquals("+447911123456", normalizePhone("+44 7911 123456"))
+    }
+
+    @Test fun incompletePhoneStaysInvalid() {
+        assertFalse(isValidE164(normalizePhone("+91 ")))
+        assertFalse(isValidE164(normalizePhone("98765")))
+        assertFalse(isValidE164(normalizePhone("")))
+    }
 }

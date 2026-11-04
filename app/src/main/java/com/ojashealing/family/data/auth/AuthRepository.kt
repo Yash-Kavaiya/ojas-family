@@ -71,6 +71,9 @@ class FirebaseAuthRepository(
             val callbacks = object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
                 override fun onVerificationCompleted(credential: PhoneAuthCredential) {
                     if (cont.isActive) cont.resume(Result.success<Any>(credential))
+                    // Android often reads the SMS after onCodeSent, while the OTP screen is already showing:
+                    // sign in with it directly; the auth-state listener then moves on to the app
+                    else auth.signInWithCredential(credential)
                 }
 
                 override fun onVerificationFailed(e: FirebaseException) {
