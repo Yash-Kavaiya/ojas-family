@@ -26,6 +26,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -43,7 +44,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ojashealing.family.BuildConfig
 import com.ojashealing.family.R
+import com.ojashealing.family.data.auth.signingSha1
 import com.ojashealing.family.ui.theme.SacredGold
 import com.ojashealing.family.ui.theme.SaffronPrimary
 import com.ojashealing.family.ui.theme.Spacing
@@ -55,6 +58,34 @@ private fun AuthError?.text(): String? = this?.let { e ->
     else stringResource(e.message)
 }
 
+// Codes that mean Firebase did not recognise this APK, not a mistake by the person signing in
+private val SIGNING_CODES = setOf(
+    "ERROR_APP_NOT_AUTHORIZED", "ERROR_MISSING_CLIENT_IDENTIFIER", "ERROR_INVALID_APP_CREDENTIAL",
+    "ERROR_MISSING_APP_CREDENTIAL", "ERROR_INVALID_CERT_HASH"
+)
+
+/**
+ * Debug builds only. Google Sign-In and phone OTP fail when the APK's signing key is not registered in
+ * Firebase, and every CI build without DEBUG_KEYSTORE_B64 uses a throwaway key. Showing the fingerprint
+ * here turns "it doesn't work" into "add this SHA-1 in the Firebase console".
+ */
+@Composable
+private fun DebugSigningHint(error: AuthError?) {
+    if (!BuildConfig.DEBUG || error == null) return
+    val code = error.code.orEmpty()
+    // Credential Manager failures (Google) arrive as their exception class name, e.g. NoCredentialException
+    if (code !in SIGNING_CODES && "Credential" !in code) return
+    val context = LocalContext.current
+    val sha1 = remember { signingSha1(context) } ?: return
+    Text(
+        text = "Debug build signed with SHA-1 $sha1. If Firebase doesn't list this fingerprint " +
+            "(Project settings → Your apps), Google and phone sign-in fail.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.fillMaxWidth().testTag("signin_debug_hint")
+    )
+}
+
 @Composable
 fun SignInScreen(vm: SignInViewModel, onPhone: () -> Unit, onEmail: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
@@ -64,6 +95,7 @@ fun SignInScreen(vm: SignInViewModel, onPhone: () -> Unit, onEmail: () -> Unit) 
         subtitle = stringResource(R.string.signin_subtitle),
         bottom = {
             ErrorText(state.error.text())
+            DebugSigningHint(state.error)
             PrimaryButton(stringResource(R.string.signin_google), onClick = { vm.signInWithGoogle(activity) }, busy = state.busy)
             OutlinedButton(onClick = onPhone, modifier = Modifier.fillMaxWidth().height(52.dp).testTag("signin_phone")) {
                 Icon(Icons.Outlined.PhoneAndroid, contentDescription = null)
@@ -114,6 +146,7 @@ fun PhoneSignInScreen(vm: SignInViewModel, onBack: () -> Unit) {
                 keyboardActions = KeyboardActions(onSend = { vm.sendCode(activity) }),
                 modifier = Modifier.fillMaxWidth().testTag("phone_input")
             )
+            DebugSigningHint(error)
         }
     } else {
         // System back on the OTP step returns to the number, like the toolbar arrow
@@ -141,6 +174,7 @@ fun PhoneSignInScreen(vm: SignInViewModel, onBack: () -> Unit) {
                 keyboardActions = KeyboardActions(onDone = { vm.verifyCode() }),
                 modifier = Modifier.fillMaxWidth().testTag("otp_input")
             )
+            DebugSigningHint(error)
         }
     }
 }

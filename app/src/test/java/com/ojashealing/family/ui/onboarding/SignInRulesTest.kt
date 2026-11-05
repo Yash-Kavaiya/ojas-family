@@ -12,7 +12,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+// Robolectric: Firebase exception constructors call Android framework code (stubs throw on the plain JVM)
+@RunWith(RobolectricTestRunner::class)
 class SignInRulesTest {
 
     // What people actually type into the field, which starts as "+91"

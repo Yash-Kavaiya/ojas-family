@@ -32,6 +32,13 @@ Add **both SHA-1 and SHA-256** of each key under Project settings → Your apps 
 | Upload key (`my-upload-key.jks`, used for APKs installed outside Play) | `keytool -list -v -keystore my-upload-key.jks -alias upload` |
 | Debug key (already added) | `keytool -list -v -keystore debug.keystore -alias androiddebugkey -storepass android` |
 
+**APKs built by CI** are signed with `debug.keystore` restored from the `DEBUG_KEYSTORE_B64` repo secret.
+If that secret is missing, CI signs with a throwaway key, so Google and phone sign-in fail in that APK. The
+"Check signing fingerprint against Firebase" step in each run's summary prints the APK's SHA-1/SHA-256 and
+says whether it matches `google-services.json`. Fix it by adding the secret
+(`base64 -w0 debug.keystore`, the keystore whose SHA-1 is registered). Debug builds also show the APK's
+SHA-1 under the error when sign-in fails for this reason.
+
 Then download the new `google-services.json` and replace `app/google-services.json`, so Google
 sign-in gets an OAuth client for the release key.
 

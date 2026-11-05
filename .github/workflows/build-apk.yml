@@ -33,8 +33,32 @@ jobs:
           if [ -n "$DEBUG_KEYSTORE_B64" ]; then
             echo "$DEBUG_KEYSTORE_B64" | base64 -d > debug.keystore
           else
-            echo "::warning::DEBUG_KEYSTORE_B64 not set; Google Sign-In will not work in this APK"
+            echo "::warning::DEBUG_KEYSTORE_B64 not set; signing with a throwaway key, so Google Sign-In and phone OTP will not work in this APK"
             keytool -genkeypair -keystore debug.keystore -storepass android               -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048               -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+      # Google Sign-In and phone OTP only work when the APK's signing fingerprint is registered in
+      # Firebase. Print it, and say plainly whether it matches the SHA-1 in google-services.json.
+      - name: Check signing fingerprint against Firebase
+        run: |
+          SHA1=$(keytool -list -v -keystore debug.keystore -storepass android -alias androiddebugkey | awk '/SHA1:/ {print $2}')
+          SHA256=$(keytool -list -v -keystore debug.keystore -storepass android -alias androiddebugkey | awk '/SHA256:/ {print $2}')
+          REGISTERED=$(grep -o '"certificate_hash": *"[0-9a-fA-F]*"' app/google-services.json | grep -o '[0-9a-fA-F]\{40\}' | tr 'a-f' 'A-F' || true)
+          PLAIN=$(echo "$SHA1" | tr -d ':')
+          {
+            echo "### APK signing fingerprints"
+            echo "- SHA-1: \`$SHA1\`"
+            echo "- SHA-256: \`$SHA256\`"
+            if echo "$REGISTERED" | grep -qx "$PLAIN"; then
+              echo "- ✅ SHA-1 matches app/google-services.json: Google Sign-In and phone OTP can work"
+            else
+              echo "- ❌ SHA-1 is NOT in app/google-services.json: Google Sign-In and phone OTP will fail in this APK."
+              echo "  Set the DEBUG_KEYSTORE_B64 secret to the keystore that is registered, or add both fingerprints above in"
+              echo "  Firebase console → Project settings → Your apps → com.ojashealing.family, then download google-services.json again."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          if ! echo "$REGISTERED" | grep -qx "$PLAIN"; then
+            echo "::warning::APK signing SHA-1 $SHA1 is not registered in Firebase; Google Sign-In and phone OTP will fail in this APK"
           fi
 
       - name: Build debug APK
