@@ -175,6 +175,12 @@ real payments, no mock data anywhere.
 | Chat/Call "user level 2" vs "Member level 2" | Any user at Level 2+ can buy a weekly pack; monthly plans need Member Level 2 (chat) / 3 (anytime call), per spec. |
 | Like points on community posts | Only on items published today (IST), once per item. |
 | Paid user stops paying | Falls back to their free User Level; paid month count pauses (not reset) — resumes on renewal. |
+| Level 3 "500 points in 3 months" unreachable at Level 2 (~2 points/day) | **Owner, 2026-11-07:** 90 days + 200 points. |
+| Level 4 "1,00,000 points in a year" above the ~27,700/year maximum | **Owner, 2026-11-07:** 365 days + 10,000 points. |
+| Who sees Daily Activities | **Owner, 2026-11-07:** every paid member (Member Level 1+) views, likes and replies; Member Level 3 posts. |
+| Images in comments/answers/questions | Paid members and staff; every post with a picture or link waits for admin approval. |
+| Other member profiles (Member Level 3) | Read from `publicProfiles/{uid}` (birth month only, never the full date of birth); a hidden profile is staff-only. |
+| Audio for morning/night practices | **Owner, 2026-11-07:** YouTube videos from @OjasHealing; members tap "I did today's practice" to log the day. |
 
 ## 10. Delivery phases
 
@@ -197,8 +203,9 @@ Each phase ends with a signed APK from CI and a working build on a device.
 1. **Package name:** proposed `com.ojashealing.family`. OK?
 2. **Play Console:** is there a Google Play developer account for Ojas Healing? Needed for Billing (phase 5).
 3. **Admins:** which Google accounts are admins / Swamiji / senior members?
-4. **Call provider (phase 6):** Agora (paid per minute, easiest) vs self-hosted WebRTC (cheaper, more work).
-5. **Morning/night audio:** will Swamiji's team provide audio files, or should these sessions be YouTube-only?
+4. **Call provider (phase 6):** ~~Agora vs WebRTC~~ **Owner, 2026-11-07: free WebRTC** (audio, peer to peer, Firestore
+   signalling; optional TURN relay in `config/turn`).
+5. **Morning/night audio:** ~~audio files or YouTube~~ **Owner, 2026-11-07: YouTube only**.
 
 ## 12. Left to the builder
 
