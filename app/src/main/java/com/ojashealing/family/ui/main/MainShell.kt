@@ -140,15 +140,23 @@ import kotlinx.serialization.Serializable
 @Serializable data class DailyPostRoute(val id: String)
 @Serializable object ComposeDailyRoute
 @Serializable data class PlansRoute(val access: String = "")
-@Serializable data class ChatRoute(val memberUid: String = "")
+@Serializable data class ChatRoute(val memberUid: String = "", val channel: String = "swamiji")
 @Serializable object InboxRoute
 @Serializable data class CallRoute(
     val callId: String = "",
     val calleeUid: String = "",
     val memberUid: String = "",
     val staffUid: String = "",
-    val peerName: String = ""
+    val peerName: String = "",
+    val video: Boolean = false,
+    val channel: String = "swamiji",
+    val requestId: String = ""
 )
+@Serializable object CallHistoryRoute
+@Serializable object MyCallsRoute
+@Serializable object StaffRequestsRoute
+@Serializable data class ScheduleCallRoute(val channel: String)
+@Serializable data class CallRequestRoute(val id: String)
 @Serializable data class MemberProfileRoute(val uid: String)
 @Serializable object MembersRoute
 @Serializable object PointsHistoryRoute
@@ -280,7 +288,7 @@ fun MainShell(container: AppContainer) {
         container.calls.observeIncoming(uid).catch { }.collect { calls ->
             val call = calls.firstOrNull() ?: return@collect
             val onCall = nav.currentBackStackEntry?.destination?.route?.contains("CallRoute") == true
-            if (!onCall) nav.navigate(CallRoute(callId = call.id))
+            if (!onCall) nav.navigate(CallRoute(callId = call.id, video = call.video))
         }
     }
 
@@ -297,12 +305,26 @@ fun MainShell(container: AppContainer) {
         practiceMessage?.let { Toast.makeText(context, it, Toast.LENGTH_SHORT).show(); practiceVm.clearMessage() }
     }
 
-    val callSwamiji: () -> Unit = callSwamiji@{
-        val me = p ?: return@callSwamiji
-        val staff = myThread?.assigneeUid?.takeIf { it.isNotEmpty() } ?: staffContact?.swamijiUid
+    val adminTeamName = stringResource(R.string.chat_tab_admin)
+    /** A member calls Swamiji (or the assigned senior member) or the Admin team's call receiver. */
+    val callStaff: (com.ojashealing.family.data.chat.ChatChannel, Boolean, String) -> Unit = callStaff@{ channel, video, requestId ->
+        val me = p ?: return@callStaff
+        val admin = channel == com.ojashealing.family.data.chat.ChatChannel.Admin
+        val staff = if (admin) staffContact?.supportUid?.takeIf { it.isNotEmpty() }
+        else myThread?.assigneeUid?.takeIf { it.isNotEmpty() } ?: staffContact?.swamijiUid?.takeIf { it.isNotEmpty() }
+        val name = if (admin) staffContact?.supportName?.ifEmpty { null } ?: adminTeamName
+        else myThread?.assigneeName?.ifEmpty { null } ?: swamijiName
         if (staff == null) Toast.makeText(context, noSwamiji, Toast.LENGTH_LONG).show()
-        else nav.navigate(CallRoute(calleeUid = staff, memberUid = me.uid, staffUid = staff, peerName = myThread?.assigneeName?.ifEmpty { null } ?: swamijiName))
+        else nav.navigate(CallRoute(calleeUid = staff, memberUid = me.uid, staffUid = staff, peerName = name, video = video, channel = channel.id, requestId = requestId))
     }
+    /** Staff call a member back (from a chat, the history or a booked call). */
+    val callMember: (String, String, Boolean, String, String) -> Unit = callMember@{ memberUid, name, video, channel, requestId ->
+        val me = p ?: return@callMember
+        nav.navigate(CallRoute(calleeUid = memberUid, memberUid = memberUid, staffUid = me.uid, peerName = name, video = video, channel = channel, requestId = requestId))
+    }
+    val callsVm: com.ojashealing.family.ui.ask.CallsViewModel = viewModel(factory = viewModelFactory {
+        initializer { com.ojashealing.family.ui.ask.CallsViewModel(container.callRequests, container.calls, vm.profile) }
+    })
     val openPlans: (PaidAccess?) -> Unit = { nav.navigate(PlansRoute(it?.id.orEmpty())) }
     val openProfile: ((String) -> Unit)? = p?.takeIf { Permissions.canViewOtherProfiles(it.viewer) }?.let { { uid: String -> nav.navigate(MemberProfileRoute(uid)) } }
 
@@ -373,11 +395,15 @@ fun MainShell(container: AppContainer) {
                                 entitlements = entitlements,
                                 understanding = understanding,
                                 onPlay = play,
-                                onOpenChat = { nav.navigate(ChatRoute()) },
-                                onCallSwamiji = callSwamiji,
+                                onOpenChat = { nav.navigate(ChatRoute(channel = it.id)) },
+                                onCall = { channel, video -> callStaff(channel, video, "") },
                                 onPlans = { openPlans(it) },
                                 onInbox = { nav.navigate(InboxRoute) },
-                                onOpenAi = { nav.navigate(SwamijiAiRoute) }
+                                onOpenAi = { nav.navigate(SwamijiAiRoute) },
+                                onSchedule = { nav.navigate(ScheduleCallRoute(it.id)) },
+                                onHistory = { nav.navigate(CallHistoryRoute) },
+                                onMyCalls = { nav.navigate(MyCallsRoute) },
+                                adminCallsReady = staffContact?.supportUid?.isNotEmpty() == true
                             )
                             MainTab.Profile -> ProfileTab(
                                 profile = profile,
@@ -457,27 +483,84 @@ fun MainShell(container: AppContainer) {
                 PlansScreen(paidVm, onBack = { nav.popBackStack() }, only = only)
             }
             composable<ChatRoute> { entry ->
-                val memberUid = entry.toRoute<ChatRoute>().memberUid.ifEmpty { null }
-                val chatVm: ChatViewModel = viewModel(key = "chat-${memberUid.orEmpty()}", factory = viewModelFactory {
-                    initializer { ChatViewModel(container.chat, vm.profile, entitlementsFlow, memberUid) }
+                val route = entry.toRoute<ChatRoute>()
+                val memberUid = route.memberUid.ifEmpty { null }
+                val channel = com.ojashealing.family.data.chat.ChatChannel.fromId(route.channel)
+                val chatVm: ChatViewModel = viewModel(key = "chat-${channel.id}-${memberUid.orEmpty()}", factory = viewModelFactory {
+                    initializer { ChatViewModel(container.chat, vm.profile, entitlementsFlow, memberUid, channel, container.images::uploadChatFile) }
                 })
-                val staffCall: ((String) -> Unit)? = p?.takeIf { Permissions.isChatStaff(it.viewer) }?.let { me ->
-                    { member: String ->
-                        val name = chatVm.ui.value?.thread?.memberName.orEmpty()
-                        nav.navigate(CallRoute(calleeUid = member, memberUid = member, staffUid = me.uid, peerName = name))
+                val me = p
+                val iAmStaff = me != null && Permissions.isChatStaff(me.viewer) && memberUid != null && memberUid != me.uid
+                val calls: ((String, Boolean) -> Unit)? = when {
+                    me == null -> null
+                    iAmStaff -> { member, video -> callMember(member, chatVm.ui.value?.thread?.memberName.orEmpty(), video, channel.id, "") }
+                    else -> {
+                        val audioOk = Permissions.canAudioCall(me.viewer, entitlements[PaidAccess.Call]?.canCall() == true)
+                        val videoOk = Permissions.canVideoCall(me.viewer)
+                        val ready = channel == com.ojashealing.family.data.chat.ChatChannel.Swamiji || staffContact?.supportUid?.isNotEmpty() == true
+                        if (!ready) null else { _, video -> if (if (video) videoOk else audioOk) callStaff(channel, video, "") else openPlans(PaidAccess.Membership) }
                     }
                 }
-                ChatScreen(chatVm, onBack = { nav.popBackStack() }, onRenew = { openPlans(PaidAccess.Chat) }, onCall = staffCall)
+                ChatScreen(
+                    chatVm, onBack = { nav.popBackStack() }, onRenew = { openPlans(PaidAccess.Membership) }, onCall = calls,
+                    onSchedule = if (iAmStaff) null else ({ nav.navigate(ScheduleCallRoute(channel.id)) })
+                )
             }
             composable<InboxRoute> {
                 val inboxVm: InboxViewModel = viewModel(factory = viewModelFactory { initializer { InboxViewModel(container.chat, vm.profile) } })
-                InboxScreen(inboxVm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(ChatRoute(it)) })
+                InboxScreen(
+                    inboxVm, onBack = { nav.popBackStack() },
+                    onOpen = { member, channel -> nav.navigate(ChatRoute(member, channel.id)) },
+                    onRequests = { nav.navigate(StaffRequestsRoute) },
+                    onHistory = { nav.navigate(CallHistoryRoute) }
+                )
+            }
+            composable<CallHistoryRoute> {
+                com.ojashealing.family.ui.ask.CallHistoryScreen(callsVm, onBack = { nav.popBackStack() }, onCallBack = { c ->
+                    val me = p ?: return@CallHistoryScreen
+                    if (Permissions.isChatStaff(me.viewer) && c.memberUid != me.uid) {
+                        callMember(c.memberUid, if (c.callerUid == me.uid) c.calleeName else c.callerName, c.video, c.channel, "")
+                    } else {
+                        val ch = com.ojashealing.family.data.chat.ChatChannel.fromId(c.channel)
+                        val ok = if (c.video) Permissions.canVideoCall(me.viewer) else Permissions.canAudioCall(me.viewer, entitlements[PaidAccess.Call]?.canCall() == true)
+                        if (ok) callStaff(ch, c.video, "") else openPlans(PaidAccess.Membership)
+                    }
+                })
+            }
+            composable<MyCallsRoute> {
+                com.ojashealing.family.ui.ask.MyCallsScreen(callsVm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(CallRequestRoute(it)) })
+            }
+            composable<StaffRequestsRoute> {
+                com.ojashealing.family.ui.ask.MyCallsScreen(callsVm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(CallRequestRoute(it)) }, staffView = true)
+            }
+            composable<ScheduleCallRoute> { entry ->
+                val me = p ?: return@composable
+                com.ojashealing.family.ui.ask.ScheduleCallScreen(
+                    callsVm,
+                    channel = entry.toRoute<ScheduleCallRoute>().channel,
+                    canAudio = Permissions.canAudioCall(me.viewer, entitlements[PaidAccess.Call]?.canCall() == true),
+                    canVideo = Permissions.canVideoCall(me.viewer),
+                    onBack = { nav.popBackStack() },
+                    onMyCalls = { nav.popBackStack(); nav.navigate(MyCallsRoute) }
+                )
+            }
+            composable<CallRequestRoute> { entry ->
+                com.ojashealing.family.ui.ask.CallRequestScreen(callsVm, entry.toRoute<CallRequestRoute>().id, onBack = { nav.popBackStack() }) { r, iAmStaff ->
+                    if (iAmStaff) callMember(r.memberUid, r.memberName, r.video, r.channel, r.id)
+                    else callStaff(com.ojashealing.family.data.chat.ChatChannel.fromId(r.channel), r.video, r.id)
+                }
             }
             composable<CallRoute> { entry ->
                 val r = entry.toRoute<CallRoute>()
                 val me = p ?: return@composable
-                val start = if (r.callId.isNotEmpty()) CallStart.Incoming(r.callId)
-                else CallStart.Outgoing(r.calleeUid, r.memberUid, r.staffUid, r.peerName)
+                val start = if (r.callId.isNotEmpty()) CallStart.Incoming(r.callId, r.video)
+                else CallStart.Outgoing(
+                    r.calleeUid, r.memberUid, r.staffUid, r.peerName,
+                    com.ojashealing.family.data.call.CallOptions(
+                        video = r.video, channel = r.channel, requestId = r.requestId,
+                        callerName = me.displayName, calleeName = r.peerName
+                    )
+                )
                 val app = context.applicationContext
                 val callVm: CallViewModel = viewModel(factory = viewModelFactory {
                     initializer {
@@ -578,6 +661,8 @@ private fun openTarget(
         "questions" -> { selectTab(MainTab.Community); selectCommunityTab(0); nav.navigate(QuestionRoute(id)) }
         "dailyPosts" -> { selectTab(MainTab.Community); selectCommunityTab(1); nav.navigate(DailyPostRoute(id)) }
         "chats" -> nav.navigate(ChatRoute(if (id == myUid) "" else id))
+        "adminChats" -> nav.navigate(ChatRoute(if (id == myUid) "" else id, "admin"))
+        "callRequests" -> if (id.isNotEmpty()) nav.navigate(CallRequestRoute(id))
         // The ringing-call listener may already have opened it
         "calls" -> if (nav.currentBackStackEntry?.destination?.route?.contains("CallRoute") != true) nav.navigate(CallRoute(callId = id))
         "thoughts" -> { selectTab(MainTab.Home); if (id.isNotEmpty()) nav.navigate(ThoughtRoute(id)) }

@@ -94,7 +94,7 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 window.addEventListener("hashchange", route);
-const PAGES = { dashboard, members, thoughts, content, moderation, announcements, admins, settings };
+const PAGES = { dashboard, members, thoughts, content, moderation, announcements, calls, admins, settings };
 function route() {
   if (!auth.currentUser) return;
   const [page, arg] = (location.hash.slice(1) || "dashboard").split("/");
@@ -437,6 +437,70 @@ async function announcements() {
   };
   $$(".a-del").forEach((b) => (b.onclick = () => confirm("Delete this announcement?") &&
     run(b, () => deleteDoc(doc(db, "announcements", b.closest("[data-id]").dataset.id)), "Deleted").then(announcements)));
+}
+
+// ---------- calls: requests, schedule, history, Admin-team call receiver ----------
+const IST_FMT = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+const ist = (ts) => (ts?.toDate ? IST_FMT.format(ts.toDate()) : "");
+const secs = (n) => (n > 0 ? `${Math.floor(n / 60)}:${String(n % 60).padStart(2, "0")}` : "");
+
+/** "2026-11-07T16:30" typed in India time -> Date. */
+function istInput(v) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(v || "");
+  if (!m) return null;
+  return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) - 330 * 60 * 1000);
+}
+
+async function calls() {
+  const [reqSnap, callSnap, staffDoc, adminsSnap] = await Promise.all([
+    getDocs(query(collection(db, "callRequests"), orderBy("at", "desc"), limit(100))),
+    getDocs(query(collection(db, "calls"), orderBy("createdAt", "desc"), limit(100))),
+    getDoc(doc(db, "config", "staff")),
+    getDocs(query(collection(db, "users"), where("role", "==", "admin"))),
+  ]);
+  const staff = staffDoc.data() || {};
+  const now = Date.now();
+  const reqs = reqSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const open = reqs.filter((r) => ["pending", "proposed", "confirmed"].includes(r.status));
+  const upcoming = open.filter((r) => r.status === "confirmed" && r.at?.toMillis() > now - 3600e3).sort((a, b) => a.at.toMillis() - b.at.toMillis());
+  const row = (r) => `<tr data-id="${r.id}"><td>${esc(ist(r.status === "proposed" ? r.proposedAt : r.at))}</td><td>${esc(r.memberName || r.memberUid)}</td>
+    <td>${r.channel === "admin" ? "Admin team" : "Swamiji"}</td><td>${r.video ? "Video" : "Audio"}</td><td>${esc(r.note || "")}</td><td><b>${esc(r.status)}</b></td>
+    <td class="row">${r.status === "pending" ? `<button class="primary c-ok">Confirm</button><input type="datetime-local" class="c-when" title="India time">
+      <button class="c-prop">Propose</button><button class="link danger c-no">Decline</button>` : r.status === "confirmed" ? '<button class="link danger c-cancel">Cancel</button>' : ""}</td></tr>`;
+  view().innerHTML = `
+    <h1>Calls</h1>
+    <div class="card stack"><h3>Admin team call receiver</h3>
+      <p class="muted">Members' audio and video calls to the Admin team ring this admin. Admin-team chat goes to every admin.</p>
+      <div class="row"><select id="c-support"><option value="">Nobody (Admin-team calls hidden in the app)</option>
+        ${adminsSnap.docs.map((d) => `<option value="${d.id}" ${staff.supportUid === d.id ? "selected" : ""}>${esc(d.get("displayName") || d.id)}</option>`).join("")}</select>
+      <button class="primary" id="c-save">Save</button></div></div>
+    <div class="card stack" style="margin-top:12px"><h3>Upcoming confirmed calls</h3>
+      ${upcoming.length ? `<ul>${upcoming.map((r) => `<li><b>${esc(ist(r.at))}</b> · ${esc(r.memberName || "")} · ${r.channel === "admin" ? "Admin team" : "Swamiji"} · ${r.video ? "Video" : "Audio"}</li>`).join("")}</ul>` : '<p class="muted">None.</p>'}
+      <p class="muted">Both sides get a reminder 15 minutes before and when the call starts. Start the call from the app (Ask → Inbox → Call requests).</p></div>
+    <h2>Requests</h2>
+    <div class="card"><table><thead><tr><th>When (IST)</th><th>Member</th><th>With</th><th>Kind</th><th>Note</th><th>Status</th><th></th></tr></thead>
+      <tbody>${reqs.map(row).join("") || '<tr><td colspan="7" class="muted">No requests yet.</td></tr>'}</tbody></table></div>
+    <h2>Call history</h2>
+    <div class="card"><table><thead><tr><th>When</th><th>Caller</th><th>Called</th><th>Kind</th><th>Result</th><th>Length</th></tr></thead>
+      <tbody>${callSnap.docs.map((d) => { const c = d.data(); const result = c.seconds > 0 ? "Talked" : c.status === "declined" ? "Declined" : c.status === "ringing" || c.status === "active" ? "In progress" : "Missed";
+        return `<tr><td>${esc(fmt(c.createdAt))}</td><td>${esc(c.callerName || c.callerUid)}</td><td>${esc(c.calleeName || c.calleeUid)}</td><td>${c.video ? "Video" : "Audio"}</td><td>${result}</td><td>${secs(c.seconds || 0)}</td></tr>`; }).join("")
+        || '<tr><td colspan="6" class="muted">No calls yet.</td></tr>'}</tbody></table></div>`;
+
+  const me = auth.currentUser;
+  const answer = (id, data, msg) => run(null, () => updateDoc(doc(db, "callRequests", id), { staffUid: me.uid, staffName: me.displayName || "Admin", ...data }), msg).then(calls);
+  $("#c-save").onclick = (e) => {
+    const sel = $("#c-support");
+    const name = sel.value ? sel.options[sel.selectedIndex].text : "";
+    run(e.target, () => setDoc(doc(db, "config", "staff"), { supportUid: sel.value, supportName: name }, { merge: true }), "Saved");
+  };
+  $$(".c-ok").forEach((b) => (b.onclick = () => answer(b.closest("tr").dataset.id, { status: "confirmed" }, "Confirmed")));
+  $$(".c-no").forEach((b) => (b.onclick = () => confirm("Decline this request?") && answer(b.closest("tr").dataset.id, { status: "declined" }, "Declined")));
+  $$(".c-cancel").forEach((b) => (b.onclick = () => confirm("Cancel this confirmed call?") && answer(b.closest("tr").dataset.id, { status: "cancelled" }, "Cancelled")));
+  $$(".c-prop").forEach((b) => (b.onclick = () => {
+    const when = istInput(b.closest("tr").querySelector(".c-when").value);
+    if (!when || when.getTime() < Date.now()) return toast("Pick a future date and time first", true);
+    answer(b.closest("tr").dataset.id, { status: "proposed", proposedAt: Timestamp.fromDate(when) }, "New time sent");
+  }));
 }
 
 // ---------- admins ----------

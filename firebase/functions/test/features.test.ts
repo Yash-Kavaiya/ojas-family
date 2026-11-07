@@ -254,3 +254,62 @@ describe("admin website helpers", () => {
     await expect(givePointsFor(db, { role: "member" }, { uids: ["m1"], amount: 5 })).rejects.toThrow(/Admins/);
   });
 });
+
+describe("admin team chat, call log and scheduled calls", () => {
+  test("an Admin-team message notifies every admin and shows a file preview", async () => {
+    const { m, sent } = fakeMessenger();
+    await db.doc("users/a1").set({ role: "admin", fcmTokens: ["tA1"] });
+    await db.doc("users/a2").set({ role: "admin", fcmTokens: ["tA2"] });
+    await db.doc("users/sw").set({ role: "swamiji", fcmTokens: ["tSw"] });
+    await onChatMessage(db, m, "m1", { senderUid: "m1", text: "", attachment: { mime: "application/pdf", name: "report.pdf" } }, "admin");
+    expect(sent.map((s) => s.to).sort()).toEqual(["tA1", "tA2"]);
+    expect((await db.doc("adminChats/m1").get()).get("lastMessage")).toBe("📄 report.pdf");
+  });
+
+  test("Member Level 2 calls without using a pack; the end writes a call log", async () => {
+    await db.doc("users/m1").set({ memberLevel: 2 }, { merge: true });
+    await db.doc("users/m1/entitlements/call").set({ expiresAt: Timestamp.fromMillis(NOW.getTime() + DAY), credits: 3 });
+    await db.doc("calls/c9").set({ memberUid: "m1", callerUid: "m1", channel: "admin", video: true, status: "active" });
+    await onCallUpdated(db, "c9", { status: "ringing" }, { status: "active", memberUid: "m1" });
+    expect((await db.doc("users/m1/entitlements/call").get()).get("credits")).toBe(3);
+    await db.doc("calls/c9").set({ status: "ended", startedAt: Timestamp.fromMillis(1000), endedAt: Timestamp.fromMillis(61_000) }, { merge: true });
+    await onCallUpdated(db, "c9", { status: "active" }, { status: "ended", memberUid: "m1" });
+    const logs = await db.collection("adminChats/m1/messages").get();
+    expect(logs.size).toBe(1);
+    expect(logs.docs[0].get("seconds")).toBe(60);
+    expect(logs.docs[0].get("video")).toBe(true);
+    await onCallUpdated(db, "c9", { status: "active" }, { status: "ended", memberUid: "m1", logged: true });
+    expect((await db.collection("adminChats/m1/messages").get()).size).toBe(1);
+  });
+
+  test("a request pushes staff; confirming pushes the member", async () => {
+    const { onCallRequestWritten } = await import("../src/schedule");
+    const { m, sent } = fakeMessenger();
+    await db.doc("users/sw").set({ role: "swamiji", fcmTokens: ["tSw"] });
+    await db.doc("users/m1").set({ fcmTokens: ["tM1"] }, { merge: true });
+    const req = { memberUid: "m1", memberName: "M", channel: "swamiji", video: false, at: Timestamp.fromMillis(NOW.getTime() + DAY), status: "pending" };
+    await onCallRequestWritten(db, m, "r1", undefined, req);
+    expect(sent.map((s) => s.to)).toEqual(["tSw"]);
+    await onCallRequestWritten(db, m, "r1", req, { ...req, status: "confirmed", staffName: "Swamiji" });
+    expect(sent[1]).toMatchObject({ to: "tM1", data: { type: "callRequest_confirmed" } });
+  });
+
+  test("reminders go once 15 minutes before and once at the start", async () => {
+    const { reminderDue, sendCallReminders } = await import("../src/schedule");
+    expect(reminderDue(20 * 60_000, 0, false, false)).toBeNull();
+    expect(reminderDue(14 * 60_000, 0, false, false)).toBe("soon");
+    expect(reminderDue(14 * 60_000, 0, true, false)).toBeNull();
+    expect(reminderDue(30_000, 0, true, false)).toBe("now");
+    expect(reminderDue(-10 * 60_000, 0, true, false)).toBeNull();
+
+    const { m, sent } = fakeMessenger();
+    await db.doc("users/m1").set({ fcmTokens: ["tM1"] }, { merge: true });
+    await db.doc("users/sw").set({ role: "swamiji", fcmTokens: ["tSw"] });
+    await db.doc("callRequests/r2").set({ memberUid: "m1", channel: "swamiji", status: "confirmed", staffUid: "sw", at: Timestamp.fromMillis(NOW.getTime() + 10 * 60_000) });
+    expect(await sendCallReminders(db, m, NOW)).toBe(1);
+    expect(await sendCallReminders(db, m, NOW)).toBe(0);
+    expect(sent.map((s) => s.to).sort()).toEqual(["tM1", "tSw"]);
+    expect(await sendCallReminders(db, m, new Date(NOW.getTime() + 10 * 60_000))).toBe(1);
+    expect((await db.doc("callRequests/r2").get()).get("remindedStart")).toBe(true);
+  });
+});

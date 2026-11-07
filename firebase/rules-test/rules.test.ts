@@ -321,3 +321,15 @@ describe("goals", () => {
     await assertFails(q(asUser(ALICE)));
   });
 });
+
+describe("chat files in storage", () => {
+  const bytes = (n: number) => new Uint8Array(n);
+  test("the member uploads a PDF to their own chat; others cannot; 21 MB is too big", async () => {
+    const mine = env.authenticatedContext(ALICE).storage();
+    const other = env.authenticatedContext(BOB).storage();
+    await assertSucceeds(uploadBytes(ref(mine, `chats/${ALICE}/a.pdf`), bytes(1024), { contentType: "application/pdf" }));
+    await assertFails(uploadBytes(ref(other, `chats/${ALICE}/b.pdf`), bytes(1024), { contentType: "application/pdf" }));
+    await assertFails(uploadBytes(ref(mine, `adminChats/${ALICE}/big.mp3`), bytes(21 * 1024 * 1024), { contentType: "audio/mpeg" }));
+    await assertFails(uploadBytes(ref(mine, `chats/${ALICE}/x.zip`), bytes(10), { contentType: "application/zip" }));
+  });
+});

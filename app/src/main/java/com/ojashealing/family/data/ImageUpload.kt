@@ -77,6 +77,27 @@ class PostImages(
         return ref.downloadUrl.await().toString()
     }
 
+    /**
+     * A photo, PDF or audio file for a chat (storage.rules: the member and staff, 20 MB).
+     * Photos are shrunk; other files go up as they are. Returns (url, name, mime, size).
+     */
+    suspend fun uploadChatFile(collection: String, memberUid: String, file: Uri): com.ojashealing.family.data.chat.Attachment {
+        val type = resolver.getType(file) ?: "application/octet-stream"
+        val name = resolver.query(file, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME, android.provider.OpenableColumns.SIZE), null, null, null)
+            ?.use { c -> if (c.moveToFirst()) c.getString(0) to c.getLong(1) else null }
+        val id = UUID.randomUUID().toString()
+        if (type.startsWith("image/")) {
+            val bytes = resolver.shrunkJpeg(file, 1600)
+            val ref = storage.reference.child("$collection/$memberUid/$id.jpg")
+            ref.putBytes(bytes, StorageMetadata.Builder().setContentType("image/jpeg").build()).await()
+            return com.ojashealing.family.data.chat.Attachment(ref.downloadUrl.await().toString(), name?.first ?: "photo.jpg", "image/jpeg", bytes.size.toLong())
+        }
+        val ext = name?.first?.substringAfterLast('.', "")?.take(5)?.ifEmpty { null } ?: type.substringAfter('/').take(5)
+        val ref = storage.reference.child("$collection/$memberUid/$id.$ext")
+        ref.putFile(file, StorageMetadata.Builder().setContentType(type).build()).await()
+        return com.ojashealing.family.data.chat.Attachment(ref.downloadUrl.await().toString(), name?.first ?: "file.$ext", type, name?.second ?: 0L)
+    }
+
     private suspend fun put(path: String, photo: Uri): String {
         val ref = storage.reference.child(path)
         val meta = StorageMetadata.Builder().setContentType("image/jpeg").build()

@@ -28,7 +28,39 @@ data class Call(
     val staffUid: String,
     val status: CallStatus,
     val offer: Sdp?,
-    val answer: Sdp?
+    val answer: Sdp?,
+    val video: Boolean = false,
+    val channel: String = "swamiji",
+    val createdAt: Long = 0L,
+    /** Seconds the call was connected, set by the server when it ends (0 = never connected). */
+    val seconds: Int = 0,
+    val callerName: String = "",
+    val calleeName: String = ""
+)
+
+/** What a call-history row says: missed, declined or how long it lasted. */
+fun callOutcome(c: Call): String = when {
+    c.seconds > 0 -> "ended"
+    c.status == CallStatus.Declined -> "declined"
+    c.status == CallStatus.Ringing || c.status == CallStatus.Active -> "ongoing"
+    else -> "missed"
+}
+
+/** "4:05" for 245 seconds, "1:02:03" past an hour. */
+fun callDuration(seconds: Int): String {
+    val h = seconds / 3600
+    val m = (seconds % 3600) / 60
+    val s = seconds % 60
+    return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
+}
+
+/** Extra details on a new call: video or audio, which conversation, and the booking it belongs to. */
+data class CallOptions(
+    val video: Boolean = false,
+    val channel: String = "swamiji",
+    val requestId: String = "",
+    val callerName: String = "",
+    val calleeName: String = ""
 )
 
 data class IceCandidateData(val from: String, val sdpMid: String, val sdpMLineIndex: Int, val candidate: String)
@@ -52,8 +84,29 @@ class CallRepository(private val db: FirebaseFirestore) {
         staffUid = d.getString("staffUid").orEmpty(),
         status = CallStatus.fromId(d.getString("status")),
         offer = sdp(d.get("offer")),
-        answer = sdp(d.get("answer"))
+        answer = sdp(d.get("answer")),
+        video = d.getBoolean("video") == true,
+        channel = d.getString("channel") ?: "swamiji",
+        createdAt = d.getTimestamp("createdAt")?.toDate()?.time ?: 0L,
+        seconds = d.getLong("seconds")?.toInt() ?: 0,
+        callerName = d.getString("callerName").orEmpty(),
+        calleeName = d.getString("calleeName").orEmpty()
     )
+
+    /**
+     * Call history, newest first: a member sees their own calls, staff the calls they took part in,
+     * admins every call (firestore.rules allows exactly these).
+     */
+    fun observeHistory(uid: String, isMember: Boolean, isAdmin: Boolean): Flow<List<Call>> = callbackFlow {
+        val base = db.collection("calls")
+        val q = when {
+            isAdmin -> base.orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            isMember -> base.whereEqualTo("memberUid", uid).orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            else -> base.whereEqualTo("staffUid", uid).orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+        }
+        val reg = q.limit(200).addSnapshotListener { snap, _ -> if (snap != null) trySend(snap.documents.map(::call)) }
+        awaitClose { reg.remove() }
+    }
 
     fun observe(callId: String): Flow<Call?> = callbackFlow {
         val reg = db.document("calls/$callId").addSnapshotListener { s, _ -> trySend(s?.takeIf { it.exists() }?.let(::call)) }
@@ -67,14 +120,21 @@ class CallRepository(private val db: FirebaseFirestore) {
         awaitClose { reg.remove() }
     }
 
-    suspend fun create(callerUid: String, calleeUid: String, memberUid: String, staffUid: String, offer: Sdp): Result<String> = runCatching {
+    suspend fun create(
+        callerUid: String, calleeUid: String, memberUid: String, staffUid: String, offer: Sdp,
+        options: CallOptions = CallOptions()
+    ): Result<String> = runCatching {
         val ref = db.collection("calls").document()
         ref.set(
-            mapOf(
-                "callerUid" to callerUid, "calleeUid" to calleeUid, "memberUid" to memberUid, "staffUid" to staffUid,
-                "status" to CallStatus.Ringing.id, "offer" to mapOf("type" to offer.type, "sdp" to offer.sdp),
-                "createdAt" to FieldValue.serverTimestamp()
-            )
+            buildMap<String, Any> {
+                put("callerUid", callerUid); put("calleeUid", calleeUid); put("memberUid", memberUid); put("staffUid", staffUid)
+                put("status", CallStatus.Ringing.id); put("offer", mapOf("type" to offer.type, "sdp" to offer.sdp))
+                put("createdAt", FieldValue.serverTimestamp())
+                put("video", options.video); put("channel", options.channel)
+                if (options.requestId.isNotEmpty()) put("requestId", options.requestId)
+                if (options.callerName.isNotEmpty()) put("callerName", options.callerName.take(80))
+                if (options.calleeName.isNotEmpty()) put("calleeName", options.calleeName.take(80))
+            }
         ).await()
         ref.id
     }

@@ -343,6 +343,34 @@ service cloud.firestore {
       return exists(path) && get(path).data.expiresAt > request.time;
     }
 
+    // Access by member level (owner 2026-11-07): Level 1 chat, Level 2 audio calls, Level 3 video calls.
+    // memberLevel is 0 while membership is inactive, so a level means "paying now". Packs still work.
+    function canChatNow() {
+      return isStaff() || rank('memberLevel') >= 1 || hasEntitlement('chat');
+    }
+
+    function canAudioNow() {
+      return isStaff() || rank('memberLevel') >= 2 || canCall();
+    }
+
+    function canVideoNow() {
+      return isStaff() || rank('memberLevel') >= 3;
+    }
+
+    // A chat message: text and/or one photo, PDF or audio file
+    function validMessage(d) {
+      return d.keys().hasOnly(['senderUid', 'text', 'attachment', 'createdAt'])
+        && d.senderUid == request.auth.uid
+        && d.text is string && d.text.size() <= 2000
+        && (d.text.size() > 0 || 'attachment' in d)
+        && (!('attachment' in d) || (d.attachment is map
+          && d.attachment.keys().hasOnly(['url', 'name', 'mime', 'size'])
+          && d.attachment.url is string && d.attachment.url.matches('https://.*') && d.attachment.url.size() < 1500
+          && d.attachment.name is string && d.attachment.name.size() <= 200
+          && d.attachment.mime is string
+          && (d.attachment.mime.matches('image/.*') || d.attachment.mime == 'application/pdf' || d.attachment.mime.matches('audio/.*'))));
+    }
+
     // Swamiji and admins see every chat; a senior member only the chats Swamiji assigned to them
     function canStaffChat(memberUid) {
       return role() in ['admin', 'swamiji']
@@ -355,7 +383,7 @@ service cloud.firestore {
         request.auth.uid == memberUid
         || role() in ['admin', 'swamiji']
         || (role() == 'senior_member' && resource.data.get('assigneeUid', '') == request.auth.uid));
-      allow create: if signedIn() && request.auth.uid == memberUid && hasEntitlement('chat')
+      allow create: if signedIn() && request.auth.uid == memberUid && canChatNow()
         && request.resource.data.keys().hasOnly(['memberUid', 'memberName', 'memberPhoto', 'createdAt'])
         && request.resource.data.memberUid == memberUid;
       allow update: if signedIn() && (
@@ -368,14 +396,64 @@ service cloud.firestore {
 
       match /messages/{messageId} {
         allow read: if signedIn() && (request.auth.uid == memberUid || canStaffChat(memberUid));
-        allow create: if signedIn()
-          && request.resource.data.keys().hasOnly(['senderUid', 'text', 'createdAt'])
-          && request.resource.data.senderUid == request.auth.uid
-          && request.resource.data.text is string && request.resource.data.text.size() > 0
-          && request.resource.data.text.size() <= 2000
-          && ((request.auth.uid == memberUid && hasEntitlement('chat')) || canStaffChat(memberUid));
+        allow create: if signedIn() && validMessage(request.resource.data)
+          && ((request.auth.uid == memberUid && canChatNow()) || canStaffChat(memberUid));
         allow update, delete: if false;
       }
+    }
+
+    // ---- The member's conversation with the Admin team: the member and every admin ----
+
+    match /adminChats/{memberUid} {
+      allow read: if signedIn() && (request.auth.uid == memberUid || isAdmin());
+      allow create: if signedIn() && request.auth.uid == memberUid && canChatNow()
+        && request.resource.data.keys().hasOnly(['memberUid', 'memberName', 'memberPhoto', 'createdAt'])
+        && request.resource.data.memberUid == memberUid;
+      allow update: if signedIn() && (
+        (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['unreadByStaff']))
+        || (request.auth.uid == memberUid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['unreadByMember', 'memberName', 'memberPhoto'])));
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if signedIn() && (request.auth.uid == memberUid || isAdmin());
+        allow create: if signedIn() && validMessage(request.resource.data)
+          && ((request.auth.uid == memberUid && canChatNow()) || isAdmin());
+        allow update, delete: if false;
+      }
+    }
+
+    // ---- Scheduled calls: the member requests a time, staff confirm, decline or propose another ----
+
+    function staffForChannel(channel, memberUid) {
+      return (channel == 'admin' && isAdmin()) || (channel == 'swamiji' && canStaffChat(memberUid));
+    }
+
+    match /callRequests/{id} {
+      allow read: if signedIn() && (resource.data.memberUid == request.auth.uid
+        || staffForChannel(resource.data.channel, resource.data.memberUid) || isAdmin());
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['memberUid', 'memberName', 'memberPhoto', 'channel', 'video', 'at', 'note', 'status', 'createdAt'])
+        && request.resource.data.memberUid == request.auth.uid
+        && request.resource.data.channel in ['swamiji', 'admin']
+        && request.resource.data.video is bool
+        && request.resource.data.at is timestamp && request.resource.data.at > request.time
+        && request.resource.data.note is string && request.resource.data.note.size() <= 500
+        && request.resource.data.status == 'pending'
+        && (request.resource.data.video ? canVideoNow() : canAudioNow());
+      allow update: if signedIn() && (
+        // Staff: confirm, decline or propose a new time
+        (staffForChannel(resource.data.channel, resource.data.memberUid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'proposedAt', 'staffUid', 'staffName', 'at'])
+          && request.resource.data.status in ['confirmed', 'declined', 'proposed', 'cancelled']
+          && (request.resource.data.status != 'proposed' || request.resource.data.proposedAt is timestamp))
+        // Member: cancel, or accept a proposed time
+        || (resource.data.memberUid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'at'])
+          && (request.resource.data.status == 'cancelled'
+            || (resource.data.status == 'proposed' && request.resource.data.status == 'confirmed'
+              && request.resource.data.at == resource.data.proposedAt))));
+      allow delete: if false;
     }
 
     // ---- Personal call (spec 4.3): WebRTC signalling between the two participants ----
@@ -396,16 +474,22 @@ service cloud.firestore {
     }
 
     match /calls/{callId} {
-      allow read: if inCall(resource.data);
+      // History: the member, the staff member on the call, and admins
+      allow read: if inCall(resource.data) || (signedIn() && (resource.data.memberUid == request.auth.uid
+        || resource.data.staffUid == request.auth.uid || isAdmin()));
       allow create: if signedIn()
-        && request.resource.data.keys().hasOnly(['callerUid', 'calleeUid', 'memberUid', 'staffUid', 'status', 'offer', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['callerUid', 'calleeUid', 'memberUid', 'staffUid', 'status', 'offer', 'createdAt',
+             'video', 'channel', 'requestId', 'callerName', 'calleeName'])
         && request.resource.data.callerUid == request.auth.uid
         && request.resource.data.status == 'ringing'
+        && request.resource.data.get('video', false) is bool
+        && request.resource.data.get('channel', 'swamiji') in ['swamiji', 'admin']
         && ((isStaff() && request.resource.data.staffUid == request.auth.uid
               && request.resource.data.memberUid == request.resource.data.calleeUid)
           || (request.resource.data.memberUid == request.auth.uid
               && request.resource.data.staffUid == request.resource.data.calleeUid
-              && isStaffUid(request.resource.data.calleeUid) && canCall()));
+              && isStaffUid(request.resource.data.calleeUid)
+              && (request.resource.data.get('video', false) ? canVideoNow() : canAudioNow())));
       allow update: if inCall(resource.data)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'answer', 'endedAt'])
         && request.resource.data.status in ['ringing', 'active', 'ended', 'declined', 'missed'];

@@ -104,11 +104,19 @@ class OjasMessagingService : FirebaseMessagingService() {
             "daily" -> Triple(Channels.COMMUNITY, getString(R.string.push_daily, who), text)
             "dailyReply" -> Triple(Channels.COMMUNITY, getString(R.string.push_daily_reply, who), text)
             "chat" -> Triple(Channels.CHAT, getString(R.string.push_chat, who), text)
-            "call" -> Triple(Channels.CALL, getString(R.string.push_call, who), getString(R.string.call_tap_to_answer))
+            "call" -> Triple(Channels.CALL, getString(if (d["video"] == "1") R.string.push_video_call else R.string.push_call, who), getString(R.string.call_tap_to_answer))
+            // Scheduled calls: body is the time ("7 Nov, 4:30 pm"), title the other person
+            "callRequest" -> Triple(Channels.CHAT, getString(R.string.push_call_request, who), text)
+            "callRequest_confirmed" -> Triple(Channels.CHAT, getString(R.string.push_call_confirmed), text)
+            "callRequest_proposed" -> Triple(Channels.CHAT, getString(R.string.push_call_proposed), text)
+            "callRequest_declined" -> Triple(Channels.CHAT, getString(R.string.push_call_declined), text)
+            "callRequest_cancelled" -> Triple(Channels.CHAT, getString(R.string.push_call_cancelled, who), text)
+            "callReminder_soon" -> Triple(Channels.CALL, getString(R.string.push_call_soon, who.ifEmpty { getString(R.string.role_swamiji) }), text)
+            "callReminder_now" -> Triple(Channels.CALL, getString(R.string.push_call_now), getString(R.string.push_call_now_body, text))
             else -> return
         }
         val target = d["target"]
-        showNotification(this, (target ?: d["type"]).hashCode(), channel, title, body, target, urgent = d["type"] == "call")
+        showNotification(this, (target ?: d["type"]).hashCode(), channel, title, body, target, urgent = d["type"] == "call" || d["type"] == "callReminder_now")
     }
 }
 

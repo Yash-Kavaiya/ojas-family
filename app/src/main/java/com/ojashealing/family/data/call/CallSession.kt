@@ -24,13 +24,22 @@ import org.webrtc.RtpReceiver
 import org.webrtc.SdpObserver
 import org.webrtc.SessionDescription
 import org.webrtc.audio.JavaAudioDeviceModule
+import org.webrtc.Camera2Enumerator
+import org.webrtc.CameraVideoCapturer
+import org.webrtc.DefaultVideoDecoderFactory
+import org.webrtc.DefaultVideoEncoderFactory
+import org.webrtc.EglBase
+import org.webrtc.SurfaceTextureHelper
+import org.webrtc.VideoCapturer
+import org.webrtc.VideoSource
+import org.webrtc.VideoTrack
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 enum class Connection { Connecting, Connected, Reconnecting, Failed, Closed }
 
 /**
- * One audio call between a member and Swamiji / a senior member, peer to peer over WebRTC.
+ * One audio or video call between a member and Swamiji / a senior member, peer to peer over WebRTC.
  * Offer, answer and ICE candidates travel through Firestore (CallRepository); audio never touches a server
  * unless a TURN relay is configured.
  */
@@ -51,10 +60,28 @@ class CallSession(context: Context, private val repo: CallRepository, private va
     var callId: String? = null
         private set
 
+    // ---- Video (only for video calls) ----
+    /** Set before the call starts: true for a video call. */
+    var video: Boolean = false
+    /** Shared GL context for the camera and both video views. */
+    val egl: EglBase by lazy { EglBase.create() }
+    private var capturer: VideoCapturer? = null
+    private var textureHelper: SurfaceTextureHelper? = null
+    private var videoSource: VideoSource? = null
+    private val _localVideo = MutableStateFlow<VideoTrack?>(null)
+    val localVideo: StateFlow<VideoTrack?> = _localVideo.asStateFlow()
+    private val _remoteVideo = MutableStateFlow<VideoTrack?>(null)
+    val remoteVideo: StateFlow<VideoTrack?> = _remoteVideo.asStateFlow()
+
     private suspend fun setUp() {
         PeerConnectionFactory.initialize(PeerConnectionFactory.InitializationOptions.builder(app).createInitializationOptions())
         val adm = JavaAudioDeviceModule.builder(app).setUseHardwareAcousticEchoCanceler(true).setUseHardwareNoiseSuppressor(true).createAudioDeviceModule()
-        val f = PeerConnectionFactory.builder().setAudioDeviceModule(adm).createPeerConnectionFactory()
+        val builder = PeerConnectionFactory.builder().setAudioDeviceModule(adm)
+        if (video) {
+            builder.setVideoEncoderFactory(DefaultVideoEncoderFactory(egl.eglBaseContext, true, true))
+                .setVideoDecoderFactory(DefaultVideoDecoderFactory(egl.eglBaseContext))
+        }
+        val f = builder.createPeerConnectionFactory()
         factory = f
 
         val ice = mutableListOf(PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer())
@@ -87,16 +114,42 @@ class CallSession(context: Context, private val repo: CallRepository, private va
             override fun onRemoveStream(s: MediaStream) {}
             override fun onDataChannel(d: org.webrtc.DataChannel) {}
             override fun onRenegotiationNeeded() {}
-            override fun onAddTrack(r: RtpReceiver, s: Array<out MediaStream>) {}
+            override fun onAddTrack(r: RtpReceiver, s: Array<out MediaStream>) {
+                (r.track() as? VideoTrack)?.let { t -> scope.launch { _remoteVideo.value = t } }
+            }
         }) ?: error("Could not start the call")
 
         val source = f.createAudioSource(MediaConstraints())
         micTrack = f.createAudioTrack("mic", source).also { pc!!.addTrack(it, listOf("ojas")) }
+        if (video) startCamera(f)
 
         audio.mode = AudioManager.MODE_IN_COMMUNICATION
     }
 
     private val pendingLocal = mutableListOf<IceCandidate>()
+
+    /** Front camera at 640x480, 24 fps: clear enough for a face, light on mobile data. */
+    private fun startCamera(f: PeerConnectionFactory) {
+        val e = Camera2Enumerator(app)
+        val name = e.deviceNames.firstOrNull { e.isFrontFacing(it) } ?: e.deviceNames.firstOrNull() ?: return
+        val cap = e.createCapturer(name, null) ?: return
+        val helper = SurfaceTextureHelper.create("ojasCamera", egl.eglBaseContext)
+        val src = f.createVideoSource(false)
+        cap.initialize(helper, app, src.capturerObserver)
+        cap.startCapture(640, 480, 24)
+        val track = f.createVideoTrack("cam", src)
+        pc!!.addTrack(track, listOf("ojas"))
+        capturer = cap; textureHelper = helper; videoSource = src
+        _localVideo.value = track
+    }
+
+    fun setCamera(on: Boolean) {
+        _localVideo.value?.setEnabled(on)
+    }
+
+    fun switchCamera() {
+        (capturer as? CameraVideoCapturer)?.switchCamera(null)
+    }
 
     private fun send(id: String, c: IceCandidate) {
         scope.launch { repo.addCandidate(id, IceCandidateData(myUid, c.sdpMid.orEmpty(), c.sdpMLineIndex, c.sdp)) }
@@ -121,11 +174,12 @@ class CallSession(context: Context, private val repo: CallRepository, private va
     }
 
     /** Rings [calleeUid]; returns the call id once the call document exists. */
-    suspend fun call(calleeUid: String, memberUid: String, staffUid: String): Result<String> = runCatching {
+    suspend fun call(calleeUid: String, memberUid: String, staffUid: String, options: CallOptions = CallOptions()): Result<String> = runCatching {
+        video = options.video
         setUp()
-        val offer = pc!!.awaitCreate(offer = true)
+        val offer = pc!!.awaitCreate(offer = true, video = video)
         pc!!.awaitSet(offer, local = true)
-        val id = repo.create(myUid, calleeUid, memberUid, staffUid, Sdp("offer", offer.description)).getOrThrow()
+        val id = repo.create(myUid, calleeUid, memberUid, staffUid, Sdp("offer", offer.description), options).getOrThrow()
         listen(id)
         scope.launch {
             val answered = repo.observe(id).filterNotNull().first { it.answer != null || it.status.isOver }
@@ -137,10 +191,11 @@ class CallSession(context: Context, private val repo: CallRepository, private va
     /** Answers an incoming call. */
     suspend fun answer(call: Call): Result<Unit> = runCatching {
         val offer = call.offer ?: error("Call has no offer")
+        video = call.video
         setUp()
         listen(call.id)
         setRemote(offer)
-        val answer = pc!!.awaitCreate(offer = false)
+        val answer = pc!!.awaitCreate(offer = false, video = video)
         pc!!.awaitSet(answer, local = true)
         repo.answer(call.id, Sdp("answer", answer.description)).getOrThrow()
     }
@@ -156,6 +211,13 @@ class CallSession(context: Context, private val repo: CallRepository, private va
 
     fun close() {
         candidates?.remove()
+        runCatching { capturer?.stopCapture() }
+        runCatching { capturer?.dispose() }
+        runCatching { videoSource?.dispose() }
+        runCatching { textureHelper?.dispose() }
+        capturer = null; videoSource = null; textureHelper = null
+        _localVideo.value = null
+        _remoteVideo.value = null
         runCatching { pc?.close() }
         runCatching { pc?.dispose() }
         runCatching { factory?.dispose() }
@@ -165,18 +227,22 @@ class CallSession(context: Context, private val repo: CallRepository, private va
         audio.isSpeakerphoneOn = false
         audio.mode = AudioManager.MODE_NORMAL
         _connection.value = Connection.Closed
+        if (video) runCatching { egl.release() }
         scope.cancel()
     }
 }
 
-private suspend fun PeerConnection.awaitCreate(offer: Boolean): SessionDescription = suspendCancellableCoroutine { cont ->
+private suspend fun PeerConnection.awaitCreate(offer: Boolean, video: Boolean = false): SessionDescription = suspendCancellableCoroutine { cont ->
     val observer = object : SdpObserver {
         override fun onCreateSuccess(sdp: SessionDescription) { if (cont.isActive) cont.resume(sdp) }
         override fun onCreateFailure(error: String?) { if (cont.isActive) cont.resumeWithException(IllegalStateException(error)) }
         override fun onSetSuccess() {}
         override fun onSetFailure(error: String?) {}
     }
-    val constraints = MediaConstraints().apply { mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true")) }
+    val constraints = MediaConstraints().apply {
+        mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
+        mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", if (video) "true" else "false"))
+    }
     if (offer) createOffer(observer, constraints) else createAnswer(observer, constraints)
 }
 

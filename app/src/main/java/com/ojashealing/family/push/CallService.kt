@@ -39,16 +39,20 @@ class CallService : Service() {
             .setContentIntent(open)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .build()
-        val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0
+        // Video calls also keep the camera: Android needs the camera type for that while the app is in the background
+        val video = intent?.getBooleanExtra("video", false) == true
+        val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE or (if (video) ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA else 0)
+        } else 0
         ServiceCompat.startForeground(this, 9100, n, type)
         return START_NOT_STICKY
     }
 
     companion object {
-        fun start(context: Context, callId: String, name: String) {
+        fun start(context: Context, callId: String, name: String, video: Boolean = false) {
             runCatching {
                 ContextCompat.startForegroundService(
-                    context, Intent(context, CallService::class.java).putExtra(EXTRA_TARGET, "calls/$callId").putExtra("name", name)
+                    context, Intent(context, CallService::class.java).putExtra(EXTRA_TARGET, "calls/$callId").putExtra("name", name).putExtra("video", video)
                 )
             }
         }

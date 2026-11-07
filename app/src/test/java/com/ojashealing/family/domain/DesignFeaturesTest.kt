@@ -110,4 +110,48 @@ class DesignFeaturesTest {
         assertEquals(1000f, r.right, 0.01f)
         assertEquals(750f, r.bottom, 0.01f)
     }
+
+    private fun v(m: MemberLevel, r: Role = Role.Member) = Viewer(UserLevel.L1, m, r)
+
+    @Test
+    fun chatAndCallsOpenByMemberLevel() {
+        assertEquals(false, Permissions.canChat(v(MemberLevel.None), chatPack = false))
+        assertEquals(true, Permissions.canChat(v(MemberLevel.None), chatPack = true))
+        assertEquals(true, Permissions.canChat(v(MemberLevel.M1), chatPack = false))
+        assertEquals(false, Permissions.canAudioCall(v(MemberLevel.M1), callPack = false))
+        assertEquals(true, Permissions.canAudioCall(v(MemberLevel.M1), callPack = true))
+        assertEquals(true, Permissions.canAudioCall(v(MemberLevel.M2), callPack = false))
+        assertEquals(false, Permissions.canVideoCall(v(MemberLevel.M2)))
+        assertEquals(true, Permissions.canVideoCall(v(MemberLevel.M3)))
+        assertEquals(true, Permissions.canVideoCall(v(MemberLevel.None, Role.Admin)))
+    }
+
+    @Test
+    fun bookableSlotsAreEveryHalfHourInIndiaTime() {
+        val slots = com.ojashealing.family.data.call.daySlots()
+        assertEquals(6 to 0, slots.first())
+        assertEquals(21 to 30, slots.last())
+        assertEquals(32, slots.size)
+        // The date picker's UTC midnight for 2026-11-07, at 16:30 IST = 11:00 UTC
+        val utcMidnight = 1_794_009_600_000L - 1_794_009_600_000L % 86_400_000L
+        val at = com.ojashealing.family.data.call.pickedDateAt(utcMidnight, 16, 30)
+        assertEquals(utcMidnight + 11 * 3_600_000L, at)
+    }
+
+    @Test
+    fun joinOpensTenMinutesBeforeAConfirmedCall() {
+        val r = com.ojashealing.family.data.call.CallRequest("r", "m", "M", "", "swamiji", false, 1_000_000_000L, "",
+            com.ojashealing.family.data.call.RequestStatus.Confirmed, 0, "", "")
+        assertEquals(false, com.ojashealing.family.data.call.canJoinNow(r, r.at - 11 * 60_000))
+        assertEquals(true, com.ojashealing.family.data.call.canJoinNow(r, r.at - 9 * 60_000))
+        assertEquals(false, com.ojashealing.family.data.call.canJoinNow(r.copy(status = com.ojashealing.family.data.call.RequestStatus.Pending), r.at))
+    }
+
+    @Test
+    fun callHistoryWording() {
+        assertEquals("4:05", com.ojashealing.family.data.call.callDuration(245))
+        assertEquals("1:02:03", com.ojashealing.family.data.call.callDuration(3723))
+        assertEquals("3.4 MB", com.ojashealing.family.ui.ask.fileSize(3_565_158))
+        assertEquals("820 KB", com.ojashealing.family.ui.ask.fileSize(840_000))
+    }
 }

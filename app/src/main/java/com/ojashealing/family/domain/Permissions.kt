@@ -29,6 +29,17 @@ object Permissions {
 
     fun canPostDailyActivity(v: Viewer): Boolean = isStaff(v) || v.memberLevel >= MemberLevel.M3
 
+    // ---- Chat and calls by member level (owner 2026-11-07); packs still work for non-members ----
+
+    /** Chat with files: Member Level 1, or a chat pack. */
+    fun canChat(v: Viewer, chatPack: Boolean): Boolean = isStaff(v) || v.memberLevel >= MemberLevel.M1 || chatPack
+
+    /** Audio calls: Member Level 2, or a call pack with calls left. */
+    fun canAudioCall(v: Viewer, callPack: Boolean): Boolean = isStaff(v) || v.memberLevel >= MemberLevel.M2 || callPack
+
+    /** Video calls: Member Level 3. */
+    fun canVideoCall(v: Viewer): Boolean = isStaff(v) || v.memberLevel >= MemberLevel.M3
+
     /** Hiding your profile opens at User Level 3; staff can always. firestore.rules checks the same. */
     fun canHideProfile(v: Viewer): Boolean = v.role != Role.Member || v.userLevel.rank >= 3
 

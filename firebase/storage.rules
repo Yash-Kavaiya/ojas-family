@@ -20,6 +20,28 @@ service firebase.storage {
           || (request.resource.size < 5 * 1024 * 1024 && request.resource.contentType.matches('image/.*')));
     }
 
+    // Chat files: photos, PDFs and audio up to 20 MB, for the member and staff
+    function chatFile() {
+      return request.resource == null
+        || (request.resource.size < 20 * 1024 * 1024
+          && (request.resource.contentType.matches('image/.*') || request.resource.contentType == 'application/pdf'
+            || request.resource.contentType.matches('audio/.*')));
+    }
+
+    function staffRole() {
+      return request.auth != null && request.auth.token.get('role', 'member') in ['admin', 'swamiji', 'senior_member'];
+    }
+
+    match /chats/{memberUid}/{file} {
+      allow read: if request.auth != null && (request.auth.uid == memberUid || staffRole());
+      allow write: if request.auth != null && (request.auth.uid == memberUid || staffRole()) && chatFile();
+    }
+
+    match /adminChats/{memberUid}/{file} {
+      allow read: if request.auth != null && (request.auth.uid == memberUid || request.auth.token.get('role', 'member') == 'admin');
+      allow write: if request.auth != null && (request.auth.uid == memberUid || request.auth.token.get('role', 'member') == 'admin') && chatFile();
+    }
+
     // Announcement picture, audio or video: admins upload, every signed-in member views and plays
     match /announcements/{file} {
       allow read: if request.auth != null;

@@ -17,6 +17,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Call
+import androidx.compose.material.icons.outlined.EventNote
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.SelfImprovement
+import androidx.compose.material.icons.outlined.SupportAgent
+import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.material.icons.outlined.Chat
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material3.Button
@@ -58,11 +63,15 @@ fun AskTab(
     entitlements: Entitlements,
     understanding: List<Pair<ContentItem, Access>>?,
     onPlay: (ContentItem) -> Unit,
-    onOpenChat: () -> Unit,
-    onCallSwamiji: () -> Unit,
+    onOpenChat: (com.ojashealing.family.data.chat.ChatChannel) -> Unit,
+    onCall: (com.ojashealing.family.data.chat.ChatChannel, video: Boolean) -> Unit,
     onPlans: (PaidAccess) -> Unit,
     onInbox: () -> Unit,
-    onOpenAi: () -> Unit = {}
+    onOpenAi: () -> Unit = {},
+    onSchedule: (com.ojashealing.family.data.chat.ChatChannel) -> Unit = {},
+    onHistory: () -> Unit = {},
+    onMyCalls: () -> Unit = {},
+    adminCallsReady: Boolean = false
 ) {
     var locked by remember { mutableStateOf<Access.Locked?>(null) }
     val p = profile ?: return LoadingState()
@@ -77,24 +86,42 @@ fun AskTab(
                         Button(onClick = onInbox) { Text(stringResource(R.string.ask_staff_inbox)) }
                     }
                 } else {
-                    val chat = entitlements[PaidAccess.Chat]?.takeIf { it.isActive() }
-                    PersonalCard(Icons.Outlined.Chat, stringResource(R.string.ask_chat), stringResource(R.string.ask_chat_desc),
-                        chat?.let { stringResource(R.string.plan_active, formatDate(it.expiresAt)) }) {
-                        // Past chats stay readable after a pack ends
-                        if (chat != null) Button(onClick = onOpenChat) { Text(stringResource(R.string.ask_open_chat)) }
-                        else Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-                            Button(onClick = { onPlans(PaidAccess.Chat) }) { Text(stringResource(R.string.ask_see_plans)) }
-                            OutlinedButton(onClick = onOpenChat) { Text(stringResource(R.string.ask_open_chat)) }
-                        }
+                    val chatOk = Permissions.canChat(p.viewer, entitlements.active(PaidAccess.Chat))
+                    val audioOk = Permissions.canAudioCall(p.viewer, entitlements[PaidAccess.Call]?.canCall() == true)
+                    val videoOk = Permissions.canVideoCall(p.viewer)
+                    LevelStrip(p.viewer.memberLevel.rank)
+                    ContactCard(
+                        title = stringResource(R.string.role_swamiji),
+                        subtitle = stringResource(R.string.ask_contact_swamiji_desc),
+                        icon = Icons.Outlined.SelfImprovement,
+                        chatOk = chatOk, audioOk = audioOk, videoOk = videoOk, callsReady = true,
+                        onChat = { if (chatOk) onOpenChat(com.ojashealing.family.data.chat.ChatChannel.Swamiji) else onPlans(PaidAccess.Membership) },
+                        onAudio = { if (audioOk) onCall(com.ojashealing.family.data.chat.ChatChannel.Swamiji, false) else onPlans(PaidAccess.Membership) },
+                        onVideo = { if (videoOk) onCall(com.ojashealing.family.data.chat.ChatChannel.Swamiji, true) else onPlans(PaidAccess.Membership) },
+                        onSchedule = { if (audioOk || videoOk) onSchedule(com.ojashealing.family.data.chat.ChatChannel.Swamiji) else onPlans(PaidAccess.Membership) }
+                    )
+                    ContactCard(
+                        title = stringResource(R.string.chat_tab_admin),
+                        subtitle = stringResource(R.string.ask_contact_admin_desc),
+                        icon = Icons.Outlined.SupportAgent,
+                        chatOk = chatOk, audioOk = audioOk, videoOk = videoOk, callsReady = adminCallsReady,
+                        onChat = { if (chatOk) onOpenChat(com.ojashealing.family.data.chat.ChatChannel.Admin) else onPlans(PaidAccess.Membership) },
+                        onAudio = { if (audioOk) onCall(com.ojashealing.family.data.chat.ChatChannel.Admin, false) else onPlans(PaidAccess.Membership) },
+                        onVideo = { if (videoOk) onCall(com.ojashealing.family.data.chat.ChatChannel.Admin, true) else onPlans(PaidAccess.Membership) },
+                        onSchedule = { if (audioOk || videoOk) onSchedule(com.ojashealing.family.data.chat.ChatChannel.Admin) else onPlans(PaidAccess.Membership) }
+                    )
+                    entitlements[PaidAccess.Call]?.takeIf { it.isActive() && it.credits != null && p.viewer.memberLevel.rank < 2 }?.let { c ->
+                        Text(stringResource(R.string.ask_calls_left, c.credits ?: 0), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    val call = entitlements[PaidAccess.Call]?.takeIf { it.isActive() }
-                    val callLine = call?.let { c ->
-                        listOfNotNull(stringResource(R.string.plan_active, formatDate(c.expiresAt)), c.credits?.let { stringResource(R.string.ask_calls_left, it) })
-                            .joinToString(" · ")
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
+                    OutlinedButton(onClick = onHistory, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Outlined.History, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Text(stringResource(R.string.calls_history), modifier = Modifier.padding(start = Spacing.xs), maxLines = 1)
                     }
-                    PersonalCard(Icons.Outlined.Call, stringResource(R.string.ask_call), stringResource(R.string.ask_call_desc), callLine) {
-                        if (call?.canCall() == true) Button(onClick = onCallSwamiji) { Text(stringResource(R.string.ask_call_now)) }
-                        else Button(onClick = { onPlans(PaidAccess.Call) }) { Text(stringResource(R.string.ask_see_plans)) }
+                    if (!staff) OutlinedButton(onClick = onMyCalls, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Outlined.EventNote, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Text(stringResource(R.string.calls_my_calls), modifier = Modifier.padding(start = Spacing.xs), maxLines = 1)
                     }
                 }
             }
@@ -168,5 +195,75 @@ private fun SwamijiAiCard(onOpen: () -> Unit, modifier: Modifier = Modifier) {
             Text(stringResource(R.string.ai_card_desc), style = MaterialTheme.typography.bodyMedium, color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.95f))
         }
         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = androidx.compose.ui.graphics.Color.White)
+    }
+}
+
+/** "Level 1: chat · Level 2: + audio · Level 3: + video", with the member's level highlighted. */
+@Composable
+private fun LevelStrip(level: Int) {
+    val items = listOf(
+        1 to stringResource(R.string.ask_level_chat),
+        2 to stringResource(R.string.ask_level_audio),
+        3 to stringResource(R.string.ask_level_video)
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+        items.forEach { (n, label) ->
+            val on = level >= n
+            Column(
+                Modifier.weight(1f).clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
+                    .background(if (on) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant)
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(stringResource(R.string.badge_member_level, n), style = MaterialTheme.typography.labelSmall,
+                    color = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    color = if (on) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+/** Swamiji or the Admin team: chat, audio call, video call and schedule, each locked until the level allows it. */
+@Composable
+private fun ContactCard(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    chatOk: Boolean,
+    audioOk: Boolean,
+    videoOk: Boolean,
+    callsReady: Boolean,
+    onChat: () -> Unit,
+    onAudio: () -> Unit,
+    onVideo: () -> Unit,
+    onSchedule: () -> Unit
+) {
+    OjasCard {
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.m), verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.foundation.layout.Box(
+                Modifier.size(44.dp).clip(androidx.compose.foundation.shape.CircleShape)
+                    .background(androidx.compose.ui.graphics.Brush.linearGradient(com.ojashealing.family.ui.theme.OjasGradients.saffron)),
+                contentAlignment = Alignment.Center
+            ) { Icon(icon, contentDescription = null, tint = androidx.compose.ui.graphics.Color.White) }
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        Row(Modifier.fillMaxWidth()) {
+            ContactAction(Icons.Outlined.Chat, stringResource(R.string.ask_chat_short), chatOk, onChat, Modifier.weight(1f))
+            if (callsReady) {
+                ContactAction(Icons.Outlined.Call, stringResource(R.string.calls_audio_short), audioOk, onAudio, Modifier.weight(1f))
+                ContactAction(Icons.Outlined.Videocam, stringResource(R.string.calls_video_short), videoOk, onVideo, Modifier.weight(1f))
+                ContactAction(Icons.Outlined.EventNote, stringResource(R.string.calls_schedule_short), audioOk || videoOk, onSchedule, Modifier.weight(1f))
+            }
+        }
+        if (!chatOk || !audioOk || !videoOk) {
+            Text(
+                stringResource(if (!chatOk) R.string.chat_locked_level else if (!audioOk) R.string.calls_audio_locked else R.string.calls_video_locked),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }

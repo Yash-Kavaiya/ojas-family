@@ -18,6 +18,7 @@ import { adminGrantFor, countPaidDay, onSubscriptionNotice, verifyPurchaseFor } 
 import { playApi } from "./playApi";
 import { refreshAuthorSnapshots, syncPublicProfile } from "./profiles";
 import { onCallCreated, onCallUpdated, onChatMessage } from "./chat";
+import { onCallRequestWritten, sendCallReminders } from "./schedule";
 import {
   onAnnouncementCountChanged, onAnnouncementCreated, onAnswerNotify, onDailyLikeChanged, onDailyPostWritten, onDailyReplyWritten,
   onQuestionNotify, onThoughtCommentNotify, onThoughtOfDay,
@@ -237,7 +238,19 @@ export const paidDayTick = onSchedule({ schedule: "5 0 * * *", timeZone: "Asia/K
 export const chatMessageCreated = onDocumentCreated("chats/{memberUid}/messages/{id}", (e) =>
   onChatMessage(db, messenger, e.params.memberUid, e.data?.data()));
 
+export const adminChatMessageCreated = onDocumentCreated("adminChats/{memberUid}/messages/{id}", (e) =>
+  onChatMessage(db, messenger, e.params.memberUid, e.data?.data(), "admin"));
+
 export const callCreated = onDocumentCreated("calls/{id}", (e) => onCallCreated(db, messenger, e.params.id, e.data?.data()));
+
+// ---- Scheduled calls: request, confirm, reminders ----
+
+export const callRequestWritten = onDocumentWritten("callRequests/{id}", (e) =>
+  onCallRequestWritten(db, messenger, e.params.id, e.data?.before.data(), e.data?.after.data()));
+
+export const callReminders = onSchedule({ schedule: "every 5 minutes", timeZone: "Asia/Kolkata" }, async () => {
+  await sendCallReminders(db, messenger, new Date());
+});
 
 export const callUpdated = onDocumentUpdated("calls/{id}", (e) =>
   onCallUpdated(db, e.params.id, e.data?.before.data(), e.data?.after.data()));
