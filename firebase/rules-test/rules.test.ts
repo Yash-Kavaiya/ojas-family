@@ -66,19 +66,25 @@ describe("users", () => {
     await assertFails(getDoc(doc(asUser(BOB), "users", ALICE)));
   });
 
-  test("M3 member can read when hideProfile is false", async () => {
+  test("M3 member cannot read the private profile (date of birth) but can read the public one", async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       await updateDoc(doc(ctx.firestore(), "users", BOB), { memberLevel: 3 });
-    });
-    await assertSucceeds(getDoc(doc(asUser(BOB), "users", ALICE)));
-  });
-
-  test("user cannot read another user's doc when target hideProfile is true", async () => {
-    await env.withSecurityRulesDisabled(async (ctx) => {
-      await updateDoc(doc(ctx.firestore(), "users", BOB), { memberLevel: 3 });
-      await updateDoc(doc(ctx.firestore(), "users", ALICE), { hideProfile: true });
+      await setDoc(doc(ctx.firestore(), "publicProfiles", ALICE), { displayName: "Alice", hidden: false });
     });
     await assertFails(getDoc(doc(asUser(BOB), "users", ALICE)));
+    await assertSucceeds(getDoc(doc(asUser(BOB), "publicProfiles", ALICE)));
+  });
+
+  test("hidden public profile: M3 cannot read it, staff can, lower levels never", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await updateDoc(doc(ctx.firestore(), "users", BOB), { memberLevel: 3 });
+      await setDoc(doc(ctx.firestore(), "publicProfiles", ALICE), { displayName: "Alice", hidden: true });
+      await setDoc(doc(ctx.firestore(), "publicProfiles", BOB), { displayName: "Bob", hidden: false });
+    });
+    await assertFails(getDoc(doc(asUser(BOB), "publicProfiles", ALICE)));
+    await assertSucceeds(getDoc(doc(asUser("sw", { role: "swamiji" }), "publicProfiles", ALICE)));
+    await assertFails(getDoc(doc(asUser(ALICE), "publicProfiles", BOB)));
+    await assertFails(setDoc(doc(asUser(ALICE), "publicProfiles", ALICE), { displayName: "x" }));
   });
 
   test("admin can read any profile, even hidden", async () => {

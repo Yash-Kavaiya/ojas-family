@@ -15,8 +15,8 @@ export interface LevelConfig {
 // Spec defaults; admins tune them in Firestore config/levels without an app release
 export const DEFAULT_LEVELS: LevelConfig = {
   l2: { days: 7, points: 7 },
-  l3: { days: 90, points: 500 },
-  l4: { days: 365, points: 100000 },
+  l3: { days: 90, points: 200 }, // owner decision 2026-11-07 (was 500: unreachable for a Level 2 user)
+  l4: { days: 365, points: 10000 }, // owner decision 2026-11-07 (1,00,000 exceeded the ~27,700/year maximum)
   dailyCaps: { like: 50, comment: 20, question: 5 },
 };
 

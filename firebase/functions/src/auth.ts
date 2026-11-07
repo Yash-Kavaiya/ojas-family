@@ -34,6 +34,8 @@ export async function ensureUserDoc(db: Firestore, uid: string): Promise<void> {
 // Removes the profile and every subcollection (pointEvents, later entitlements, practiceLog, ...)
 export async function deleteUserData(db: Firestore, uid: string): Promise<void> {
   await db.recursiveDelete(db.doc(`users/${uid}`));
+  await db.recursiveDelete(db.doc(`chats/${uid}`));
+  await db.doc(`publicProfiles/${uid}`).delete();
 }
 
 export interface AccountCleanup {
@@ -66,4 +68,6 @@ export async function setRoleFor(
   if (!ROLES.includes(role as RoleId)) throw new HttpsError("invalid-argument", `Unknown role: ${role}`);
   await setClaims(uid, { role });
   await db.doc(`users/${uid}`).set({ role }, { merge: true });
+  // Members call and chat with this account by default
+  if (role === "swamiji") await db.doc("config/staff").set({ swamijiUid: uid }, { merge: true });
 }

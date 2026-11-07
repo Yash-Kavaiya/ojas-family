@@ -44,11 +44,8 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      allow read: if signedIn() && (
-        request.auth.uid == uid
-        || isStaff()
-        || (viewerMemberLevel() >= 3 && resource.data.get('hideProfile', false) != true)
-      );
+      // The full profile (with date of birth) is private; others see publicProfiles/{uid}
+      allow read: if signedIn() && (request.auth.uid == uid || isStaff());
 
       // The client may create its own profile before onUserCreate runs; the function fills server fields
       allow create: if signedIn() && request.auth.uid == uid
@@ -65,6 +62,29 @@ service cloud.firestore {
         allow read: if signedIn() && request.auth.uid == uid;
         allow write: if false;
       }
+
+      // Written by the logPractice function, which stamps the IST day itself
+      match /practiceLog/{day} {
+        allow read: if signedIn() && request.auth.uid == uid;
+        allow write: if false;
+      }
+
+      // Paid access: written only by Functions (Play Billing verification, admin grants)
+      match /entitlements/{name} {
+        allow read: if signedIn() && (request.auth.uid == uid || isStaff());
+        allow write: if false;
+      }
+    }
+
+    // What other people may see of a member (no date of birth). Staff and Member Level 3 can open
+    // profiles; a member who hides their profile is visible to staff only.
+    match /publicProfiles/{uid} {
+      allow read: if signedIn() && (
+        request.auth.uid == uid
+        || isStaff()
+        || (viewerMemberLevel() >= 3 && resource.data.get('hidden', false) != true)
+      );
+      allow write: if false;
     }
 
     function validContent(data) {
@@ -108,13 +128,33 @@ service cloud.firestore {
       return text.matches('(?s).*(https?://|www[.]).*');
     }
 
-    // Author snapshot must be the caller, with the caller's real role; links wait for approval
+    // Images in posts: paid members and staff only (spec 1.1, 3)
+    function canAttachImage() {
+      return isStaff() || rank('memberLevel') >= 1;
+    }
+
+    function hasImage(data) {
+      return data.get('imageUrl', '') != '';
+    }
+
+    function validMedia(data) {
+      return !('imageUrl' in data)
+        || (data.imageUrl is string && data.imageUrl.size() < 1000 && (data.imageUrl == '' || canAttachImage()));
+    }
+
+    // People picked from the thread to be notified
+    function validMentions(data) {
+      return !('mentions' in data) || (data.mentions is list && data.mentions.size() <= 10);
+    }
+
+    // Author snapshot must be the caller, with the caller's real role; links and images wait for approval
     function validPost(data, maxLen) {
       return data.authorUid == request.auth.uid
         && data.authorRole == role()
         && data.authorName is string && data.authorName.size() <= 80
         && data.text is string && data.text.size() > 0 && data.text.size() <= maxLen
-        && data.status == (hasLink(data.text) ? 'pending' : 'visible');
+        && validMedia(data) && validMentions(data)
+        && data.status == ((hasLink(data.text) || hasImage(data)) ? 'pending' : 'visible');
     }
 
     function readablePost() {
@@ -157,7 +197,9 @@ service cloud.firestore {
         && request.resource.data.authorRole == role()
         && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 150
         && request.resource.data.body is string && request.resource.data.body.size() <= 2000
-        && request.resource.data.status == (hasLink(request.resource.data.title + ' ' + request.resource.data.body) ? 'pending' : 'visible');
+        && validMedia(request.resource.data) && validMentions(request.resource.data)
+        && request.resource.data.status == ((hasLink(request.resource.data.title + ' ' + request.resource.data.body)
+             || hasImage(request.resource.data)) ? 'pending' : 'visible');
       allow update: if isAdmin();
       allow delete: if signedIn() && (resource.data.authorUid == request.auth.uid || isAdmin());
 
@@ -226,6 +268,128 @@ service cloud.firestore {
     }
     match /{path=**}/answers/{answerId} {
       allow read: if isAdmin();
+    }
+
+    // ---- Daily Activities (spec 1.2): paid members read, like and reply; Member Level 3 posts ----
+
+    function isPaid() {
+      return signedIn() && (isStaff() || rank('memberLevel') >= 1);
+    }
+
+    match /dailyPosts/{postId} {
+      allow read: if isPaid()
+        && (resource.data.status == 'visible' || resource.data.authorUid == request.auth.uid || isAdmin());
+      allow create: if signedIn() && (isStaff() || rank('memberLevel') >= 3)
+        && request.resource.data.authorUid == request.auth.uid
+        && request.resource.data.authorRole == role()
+        && request.resource.data.authorName is string && request.resource.data.authorName.size() <= 80
+        && request.resource.data.text is string && request.resource.data.text.size() <= 1000
+        && request.resource.data.imageUrl is string && request.resource.data.imageUrl.size() > 0
+        && request.resource.data.imageUrl.size() < 1000
+        && validMentions(request.resource.data)
+        && request.resource.data.status == (hasLink(request.resource.data.text) ? 'pending' : 'visible');
+      allow update: if isAdmin();
+      allow delete: if signedIn() && (resource.data.authorUid == request.auth.uid || isAdmin());
+
+      match /likes/{uid} {
+        allow read: if isPaid();
+        allow create: if isPaid() && validLike(uid);
+        allow delete: if signedIn() && request.auth.uid == uid;
+      }
+
+      match /replies/{replyId} {
+        allow read: if isPaid() && readablePost();
+        allow create: if isPaid() && validPost(request.resource.data, 1000);
+        allow update: if isAdmin();
+        allow delete: if signedIn() && (resource.data.authorUid == request.auth.uid || isAdmin());
+      }
+    }
+
+    match /{path=**}/replies/{replyId} {
+      allow read: if isAdmin();
+    }
+
+    // ---- Personal chat (spec 4.2) ----
+
+    function hasEntitlement(name) {
+      let path = /databases/$(database)/documents/users/$(request.auth.uid)/entitlements/$(name);
+      return exists(path) && get(path).data.expiresAt > request.time;
+    }
+
+    // Swamiji and admins see every chat; a senior member only the chats Swamiji assigned to them
+    function canStaffChat(memberUid) {
+      return role() in ['admin', 'swamiji']
+        || (role() == 'senior_member'
+            && get(/databases/$(database)/documents/chats/$(memberUid)).data.get('assigneeUid', '') == request.auth.uid);
+    }
+
+    match /chats/{memberUid} {
+      allow read: if signedIn() && (
+        request.auth.uid == memberUid
+        || role() in ['admin', 'swamiji']
+        || (role() == 'senior_member' && resource.data.get('assigneeUid', '') == request.auth.uid));
+      allow create: if signedIn() && request.auth.uid == memberUid && hasEntitlement('chat')
+        && request.resource.data.keys().hasOnly(['memberUid', 'memberName', 'memberPhoto', 'createdAt'])
+        && request.resource.data.memberUid == memberUid;
+      allow update: if signedIn() && (
+        (role() in ['admin', 'swamiji']
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['assigneeUid', 'assigneeName', 'unreadByStaff']))
+        || (canStaffChat(memberUid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['unreadByStaff']))
+        || (request.auth.uid == memberUid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['unreadByMember', 'memberName', 'memberPhoto'])));
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if signedIn() && (request.auth.uid == memberUid || canStaffChat(memberUid));
+        allow create: if signedIn()
+          && request.resource.data.keys().hasOnly(['senderUid', 'text', 'createdAt'])
+          && request.resource.data.senderUid == request.auth.uid
+          && request.resource.data.text is string && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 2000
+          && ((request.auth.uid == memberUid && hasEntitlement('chat')) || canStaffChat(memberUid));
+        allow update, delete: if false;
+      }
+    }
+
+    // ---- Personal call (spec 4.3): WebRTC signalling between the two participants ----
+
+    function isStaffUid(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data.get('role', 'member') in ['admin', 'swamiji', 'senior_member'];
+    }
+
+    // An active call entitlement; a weekly pack also needs a call left
+    function canCall() {
+      let path = /databases/$(database)/documents/users/$(request.auth.uid)/entitlements/call;
+      return exists(path) && get(path).data.expiresAt > request.time
+        && (get(path).data.get('credits', null) == null || get(path).data.credits > 0);
+    }
+
+    function inCall(call) {
+      return signedIn() && request.auth.uid in [call.callerUid, call.calleeUid];
+    }
+
+    match /calls/{callId} {
+      allow read: if inCall(resource.data);
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['callerUid', 'calleeUid', 'memberUid', 'staffUid', 'status', 'offer', 'createdAt'])
+        && request.resource.data.callerUid == request.auth.uid
+        && request.resource.data.status == 'ringing'
+        && ((isStaff() && request.resource.data.staffUid == request.auth.uid
+              && request.resource.data.memberUid == request.resource.data.calleeUid)
+          || (request.resource.data.memberUid == request.auth.uid
+              && request.resource.data.staffUid == request.resource.data.calleeUid
+              && isStaffUid(request.resource.data.calleeUid) && canCall()));
+      allow update: if inCall(resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'answer', 'endedAt'])
+        && request.resource.data.status in ['ringing', 'active', 'ended', 'declined', 'missed'];
+      allow delete: if false;
+
+      match /candidates/{candidateId} {
+        allow read: if inCall(get(/databases/$(database)/documents/calls/$(callId)).data);
+        allow create: if inCall(get(/databases/$(database)/documents/calls/$(callId)).data)
+          && request.resource.data.from == request.auth.uid;
+        allow update, delete: if false;
+      }
     }
 
     match /config/{docId} {
