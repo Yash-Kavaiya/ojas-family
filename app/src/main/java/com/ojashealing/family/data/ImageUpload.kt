@@ -7,6 +7,10 @@ import android.net.Uri
 import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.tasks.await
+import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageMetadata
+import java.util.UUID
 
 /**
  * Reads a picked photo as a JPEG no larger than [maxEdge] pixels on its longest side.
@@ -24,5 +28,24 @@ suspend fun ContentResolver.shrunkJpeg(photo: Uri, maxEdge: Int): ByteArray = wi
         bitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
         bitmap.recycle()
         out.toByteArray()
+    }
+}
+
+/** Uploads a picked photo for a post and returns its download URL. */
+class PostImages(
+    private val storage: FirebaseStorage,
+    private val resolver: ContentResolver
+) {
+    /** Member uploads live under their own folder (storage.rules: owner writes, members read). */
+    suspend fun upload(uid: String, photo: Uri): String = put("users/$uid/posts/${UUID.randomUUID()}.jpg", photo)
+
+    /** Thought of the Day pictures; storage.rules lets only admins write here. */
+    suspend fun uploadThought(thoughtId: String, photo: Uri): String = put("thoughts/$thoughtId.jpg", photo)
+
+    private suspend fun put(path: String, photo: Uri): String {
+        val ref = storage.reference.child(path)
+        val meta = StorageMetadata.Builder().setContentType("image/jpeg").build()
+        ref.putBytes(resolver.shrunkJpeg(photo, 1600), meta).await()
+        return ref.downloadUrl.await().toString()
     }
 }

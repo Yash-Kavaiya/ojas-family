@@ -9,6 +9,7 @@ import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.google.firebase.initialize
 import com.ojashealing.family.data.auth.signingSha1
 import com.ojashealing.family.di.AppContainer
+import com.ojashealing.family.push.Channels
 
 class OjasApp : Application() {
 
@@ -27,5 +28,6 @@ class OjasApp : Application() {
             else PlayIntegrityAppCheckProviderFactory.getInstance()
         )
         container = AppContainer(this)
+        Channels.create(this)
     }
 }

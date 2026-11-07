@@ -15,12 +15,32 @@ data class Thought(
     val title: String,
     val text: String,
     val likeCount: Int,
-    val commentCount: Int
+    val commentCount: Int,
+    val imageUrl: String = ""
 )
 
 enum class PostStatus { Visible, Pending }
 
-data class Post(val id: String, val author: Author, val text: String, val createdAt: Long, val status: PostStatus)
+data class Post(
+    val id: String,
+    val author: Author,
+    val text: String,
+    val createdAt: Long,
+    val status: PostStatus,
+    val imageUrl: String = ""
+)
+
+/** A Daily Activities photo post by a Member Level 3 member (spec 1.2). */
+data class DailyPost(
+    val id: String,
+    val author: Author,
+    val text: String,
+    val imageUrl: String,
+    val createdAt: Long,
+    val likeCount: Int,
+    val replyCount: Int,
+    val status: PostStatus
+)
 
 data class Question(
     val id: String,
@@ -30,19 +50,27 @@ data class Question(
     val createdAt: Long,
     val likeCount: Int,
     val answerCount: Int,
-    val status: PostStatus
+    val status: PostStatus,
+    val imageUrl: String = ""
 )
 
 data class Announcement(val id: String, val title: String, val body: String, val createdAt: Long)
 
 /** A post waiting for an admin, or a member's report. [path] is the Firestore document path. */
-data class PendingItem(val path: String, val text: String, val author: String, val createdAt: Long)
+data class PendingItem(val path: String, val text: String, val author: String, val createdAt: Long, val imageUrl: String = "")
 data class Report(val id: String, val targetPath: String, val reason: String, val createdAt: Long)
 
 private val linkPattern = Regex("""https?://|www\.""", RegexOption.IGNORE_CASE)
 
 // Must match hasLink() in firestore.rules, which rejects a 'visible' post that contains a link
 fun containsLink(text: String): Boolean = linkPattern.containsMatchIn(text)
+
+// Links and pictures wait for an admin (firestore.rules validPost)
+fun needsReview(text: String, imageUrl: String): Boolean = containsLink(text) || imageUrl.isNotEmpty()
+
+/** People named with @ in [text], out of those offered by the mention picker (at most 10, as the rules allow). */
+fun mentionedUids(text: String, candidates: List<Author>): List<String> =
+    candidates.filter { it.name.isNotBlank() && text.contains("@${it.name}") }.map { it.uid }.distinct().take(10)
 
 private val ist: TimeZone = TimeZone.getTimeZone("Asia/Kolkata")
 
@@ -81,4 +109,5 @@ internal fun DocumentSnapshot.status() = if (getString("status") == "pending") P
 
 internal fun DocumentSnapshot.millis(field: String) = getTimestamp(field)?.toDate()?.time ?: 0L
 
-internal fun DocumentSnapshot.toPost() = Post(id, author(), getString("text").orEmpty(), millis("createdAt"), status())
+internal fun DocumentSnapshot.toPost() =
+    Post(id, author(), getString("text").orEmpty(), millis("createdAt"), status(), getString("imageUrl").orEmpty())

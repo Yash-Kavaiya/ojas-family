@@ -208,6 +208,12 @@ S = {
 "moderation_unknown_member": ("A member", "एक सदस्य", "એક સભ્ય"),
 }
 
+# Practices, Daily Activities, payments, chat, calls and notifications
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from strings_features import F
+assert not set(F) & set(S), set(F) & set(S)
+S.update(F)
+
 def esc(t):
     return t.replace("&", "&amp;").replace("<", "&lt;").replace("'", "\\'").replace('"', '\\"')
 

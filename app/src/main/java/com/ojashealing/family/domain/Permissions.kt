@@ -36,4 +36,16 @@ object Permissions {
     fun canBuyMonthlyChat(v: Viewer): Boolean = isStaff(v) || v.memberLevel >= MemberLevel.M2
 
     fun canBuyAnytimeCalls(v: Viewer): Boolean = isStaff(v) || v.memberLevel >= MemberLevel.M3
+
+    // A one-week pack of 3–4 calls, open from Level 2 like the weekly chat (design §9)
+    fun canBuyWeeklyCalls(v: Viewer): Boolean = canBuyWeeklyChat(v)
+
+    // Daily Activities: every paid member reads, likes and replies; Member Level 3 posts
+    fun canViewDailyActivities(v: Viewer): Boolean = isStaff(v) || v.memberLevel >= MemberLevel.M1
+
+    // Pictures in comments, answers and questions: paid members, held for admin review (spec 1.1, 3)
+    fun canAttachImage(v: Viewer): Boolean = isStaff(v) || v.memberLevel >= MemberLevel.M1
+
+    // Swamiji and admins answer every chat and call; a senior member answers the ones assigned to them
+    fun isChatStaff(v: Viewer): Boolean = isStaff(v)
 }

@@ -27,15 +27,17 @@ private fun Query.flow() = callbackFlow {
     awaitClose { reg.remove() }
 }
 
-private fun postFields(author: Author, text: String) = mapOf(
-    "authorUid" to author.uid,
-    "authorName" to author.name,
-    "authorPhoto" to author.photo,
-    "authorRole" to author.role.toId(),
-    "text" to text.trim(),
-    "status" to if (containsLink(text)) "pending" else "visible",
-    "createdAt" to FieldValue.serverTimestamp()
-)
+private fun postFields(author: Author, text: String, imageUrl: String = "", mentions: List<String> = emptyList()) = buildMap<String, Any> {
+    put("authorUid", author.uid)
+    put("authorName", author.name)
+    put("authorPhoto", author.photo)
+    put("authorRole", author.role.toId())
+    put("text", text.trim())
+    put("status", if (needsReview(text, imageUrl)) "pending" else "visible")
+    put("createdAt", FieldValue.serverTimestamp())
+    if (imageUrl.isNotEmpty()) put("imageUrl", imageUrl)
+    if (mentions.isNotEmpty()) put("mentions", mentions.take(10))
+}
 
 /**
  * Visible posts plus the viewer's own pending ones (admins get everything). Two queries because
@@ -64,7 +66,8 @@ class ThoughtRepository(private val db: FirebaseFirestore) {
                     title = d.getString("title").orEmpty(),
                     text = d.getString("text").orEmpty(),
                     likeCount = d.getLong("likeCount")?.toInt() ?: 0,
-                    commentCount = d.getLong("commentCount")?.toInt() ?: 0
+                    commentCount = d.getLong("commentCount")?.toInt() ?: 0,
+                    imageUrl = d.getString("imageUrl").orEmpty()
                 )
             }
         }
@@ -84,17 +87,18 @@ class ThoughtRepository(private val db: FirebaseFirestore) {
         Unit
     }
 
-    suspend fun addComment(thoughtId: String, author: Author, text: String): Result<Unit> = runCatching {
-        db.collection("thoughts/$thoughtId/comments").add(postFields(author, text)).await()
+    suspend fun addComment(thoughtId: String, author: Author, text: String, imageUrl: String = "", mentions: List<String> = emptyList()): Result<Unit> = runCatching {
+        db.collection("thoughts/$thoughtId/comments").add(postFields(author, text, imageUrl, mentions)).await()
         Unit
     }
 
-    /** Admin only: the thought becomes visible at 00:00 IST on [date]. */
-    suspend fun schedule(date: LocalDateLike, title: String, text: String): Result<Unit> = runCatching {
-        db.document("thoughts/${date.iso()}").set(
-            mapOf("title" to title.trim(), "text" to text.trim(), "publishAt" to Timestamp(Date(istMidnightMillis(date)))),
-            SetOptions.merge()
-        ).await()
+    /** Admin only: the thought becomes visible at 00:00 IST on [date]; [imageUrl] null keeps the current picture. */
+    suspend fun schedule(date: LocalDateLike, title: String, text: String, imageUrl: String? = null): Result<Unit> = runCatching {
+        val fields = buildMap<String, Any> {
+            put("title", title.trim()); put("text", text.trim()); put("publishAt", Timestamp(Date(istMidnightMillis(date))))
+            imageUrl?.let { put("imageUrl", it) }
+        }
+        db.document("thoughts/${date.iso()}").set(fields, SetOptions.merge()).await()
         Unit
     }
 }
@@ -112,7 +116,8 @@ class CommunityRepository(private val db: FirebaseFirestore) {
                 Question(
                     id = d.id, author = d.author(), title = d.getString("title").orEmpty(), body = d.getString("body").orEmpty(),
                     createdAt = d.millis("createdAt"), likeCount = d.getLong("likeCount")?.toInt() ?: 0,
-                    answerCount = d.getLong("answerCount")?.toInt() ?: 0, status = d.status()
+                    answerCount = d.getLong("answerCount")?.toInt() ?: 0, status = d.status(),
+                    imageUrl = d.getString("imageUrl").orEmpty()
                 )
             }.sortedByDescending { it.createdAt }
         }
@@ -139,20 +144,21 @@ class CommunityRepository(private val db: FirebaseFirestore) {
         Unit
     }
 
-    suspend fun ask(author: Author, title: String, body: String): Result<Unit> = runCatching {
+    suspend fun ask(author: Author, title: String, body: String, imageUrl: String = ""): Result<Unit> = runCatching {
         db.collection("questions").add(
-            mapOf(
-                "authorUid" to author.uid, "authorName" to author.name, "authorPhoto" to author.photo, "authorRole" to author.role.toId(),
-                "title" to title.trim(), "body" to body.trim(),
-                "status" to if (containsLink("$title $body")) "pending" else "visible",
-                "createdAt" to FieldValue.serverTimestamp()
-            )
+            buildMap<String, Any> {
+                put("authorUid", author.uid); put("authorName", author.name); put("authorPhoto", author.photo)
+                put("authorRole", author.role.toId()); put("title", title.trim()); put("body", body.trim())
+                put("status", if (needsReview("$title $body", imageUrl)) "pending" else "visible")
+                put("createdAt", FieldValue.serverTimestamp())
+                if (imageUrl.isNotEmpty()) put("imageUrl", imageUrl)
+            }
         ).await()
         Unit
     }
 
-    suspend fun answer(questionId: String, author: Author, text: String): Result<Unit> = runCatching {
-        db.collection("questions/$questionId/answers").add(postFields(author, text)).await()
+    suspend fun answer(questionId: String, author: Author, text: String, imageUrl: String = "", mentions: List<String> = emptyList()): Result<Unit> = runCatching {
+        db.collection("questions/$questionId/answers").add(postFields(author, text, imageUrl, mentions)).await()
         Unit
     }
 
@@ -174,18 +180,76 @@ class CommunityRepository(private val db: FirebaseFirestore) {
     }
 }
 
+/** Daily Activities (spec 1.2): paid members read, like and reply; Member Level 3 posts photos. */
+class DailyRepository(private val db: FirebaseFirestore) {
+
+    fun observePosts(viewer: Viewer, uid: String): Flow<List<DailyPost>> {
+        val base = db.collection("dailyPosts")
+        val admin = viewer.role == Role.Admin
+        val visible = (if (admin) base else base.whereEqualTo("status", "visible"))
+            .orderBy("createdAt", Query.Direction.DESCENDING).limit(100).flow()
+        val mine = if (admin) flowOf(emptyList()) else base.whereEqualTo("authorUid", uid).whereEqualTo("status", "pending").flow()
+        return combine(visible, mine) { v, m ->
+            (v + m).distinctBy { it.id }.map { d ->
+                DailyPost(
+                    id = d.id, author = d.author(), text = d.getString("text").orEmpty(), imageUrl = d.getString("imageUrl").orEmpty(),
+                    createdAt = d.millis("createdAt"), likeCount = d.getLong("likeCount")?.toInt() ?: 0,
+                    replyCount = d.getLong("replyCount")?.toInt() ?: 0, status = d.status()
+                )
+            }.sortedByDescending { it.createdAt }
+        }
+    }
+
+    fun observeLiked(postId: String, uid: String): Flow<Boolean> = callbackFlow {
+        val reg = db.document("dailyPosts/$postId/likes/$uid").addSnapshotListener { s, _ -> trySend(s?.exists() == true) }
+        awaitClose { reg.remove() }
+    }
+
+    fun observeReplies(postId: String, viewer: Viewer, uid: String): Flow<List<Post>> =
+        db.posts("dailyPosts/$postId/replies", uid, viewer.role == Role.Admin, Query.Direction.ASCENDING)
+
+    suspend fun setLiked(postId: String, uid: String, liked: Boolean): Result<Unit> = runCatching {
+        val ref = db.document("dailyPosts/$postId/likes/$uid")
+        if (liked) ref.set(mapOf("createdAt" to FieldValue.serverTimestamp())).await() else ref.delete().await()
+        Unit
+    }
+
+    suspend fun post(author: Author, text: String, imageUrl: String, mentions: List<String>): Result<Unit> = runCatching {
+        db.collection("dailyPosts").add(
+            buildMap<String, Any> {
+                put("authorUid", author.uid); put("authorName", author.name); put("authorPhoto", author.photo)
+                put("authorRole", author.role.toId()); put("text", text.trim()); put("imageUrl", imageUrl)
+                put("status", if (containsLink(text)) "pending" else "visible")
+                put("createdAt", FieldValue.serverTimestamp())
+                if (mentions.isNotEmpty()) put("mentions", mentions.take(10))
+            }
+        ).await()
+        Unit
+    }
+
+    suspend fun reply(postId: String, author: Author, text: String, imageUrl: String = "", mentions: List<String> = emptyList()): Result<Unit> = runCatching {
+        db.collection("dailyPosts/$postId/replies").add(postFields(author, text, imageUrl, mentions)).await()
+        Unit
+    }
+}
+
 class ModerationRepository(private val db: FirebaseFirestore) {
 
     /** Pending comments, answers and questions across the app (admin only). */
     fun observePending(): Flow<List<PendingItem>> {
         fun group(name: String) = db.collectionGroup(name).whereEqualTo("status", "pending").flow()
-        return combine(group("comments"), group("answers"), db.collection("questions").whereEqualTo("status", "pending").flow()) { c, a, q ->
-            (c + a + q).map { d ->
+        return combine(
+            group("comments"), group("answers"), group("replies"),
+            db.collection("questions").whereEqualTo("status", "pending").flow(),
+            db.collection("dailyPosts").whereEqualTo("status", "pending").flow()
+        ) { c, a, r, q, dp ->
+            (c + a + r + q + dp).map { d ->
                 PendingItem(
                     path = d.reference.path,
                     text = d.getString("text") ?: listOfNotNull(d.getString("title"), d.getString("body")).joinToString("\n"),
                     author = d.getString("authorName").orEmpty(),
-                    createdAt = d.millis("createdAt")
+                    createdAt = d.millis("createdAt"),
+                    imageUrl = d.getString("imageUrl").orEmpty()
                 )
             }.sortedBy { it.createdAt }
         }

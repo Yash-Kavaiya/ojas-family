@@ -21,6 +21,14 @@ import com.ojashealing.family.data.social.ModerationRepository
 import com.ojashealing.family.data.social.ThoughtRepository
 import com.ojashealing.family.data.user.FirestoreUserRepository
 import com.ojashealing.family.data.user.UserRepository
+import com.ojashealing.family.data.PostImages
+import com.ojashealing.family.data.call.CallRepository
+import com.ojashealing.family.data.chat.ChatRepository
+import com.ojashealing.family.data.paid.PaidRepository
+import com.ojashealing.family.data.paid.PlayBilling
+import com.ojashealing.family.data.practice.PracticeRepository
+import com.ojashealing.family.data.social.DailyRepository
+import com.ojashealing.family.data.user.PublicProfileRepository
 
 // Hand-written DI: one instance of each repository for the whole app (see design §6)
 class AppContainer(context: Context) {
@@ -38,5 +46,13 @@ class AppContainer(context: Context) {
     val community = CommunityRepository(Firebase.firestore)
     val moderation = ModerationRepository(Firebase.firestore)
     val goals = GoalRepository(Firebase.firestore, Firebase.storage, app.contentResolver)
+    val practice = PracticeRepository(Firebase.firestore, functions)
+    val paid = PaidRepository(Firebase.firestore, functions)
+    val billing by lazy { PlayBilling(app, paid) }
+    val daily = DailyRepository(Firebase.firestore)
+    val chat = ChatRepository(Firebase.firestore)
+    val calls = CallRepository(Firebase.firestore)
+    val publicProfiles = PublicProfileRepository(Firebase.firestore)
+    val images = PostImages(Firebase.storage, app.contentResolver)
     val locations = LocationRepository { name -> app.assets.open(name).bufferedReader().use { it.readText() } }
 }

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Status bar icon: a single-colour lotus (Android tints it) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,3C10.3,5.2 9.5,7.6 9.5,10C9.5,12.4 10.5,14.6 12,16C13.5,14.6 14.5,12.4 14.5,10C14.5,7.6 13.7,5.2 12,3Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M3,9C3.4,13.3 6.6,16.6 11,17C9,15.3 7.9,13.2 7.6,10.8C6,10.1 4.5,9.5 3,9Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M21,9C19.5,9.5 18,10.1 16.4,10.8C16.1,13.2 15,15.3 13,17C17.4,16.6 20.6,13.3 21,9Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M4,19L20,19A1,1 0,0 1,20 21L4,21A1,1 0,0 1,4 19Z" />
+</vector>
