@@ -180,3 +180,11 @@ describe("hiding a profile", () => {
     await assertSucceeds(updateDoc(doc(as("was"), "users", "was"), { hideProfile: false }));
   });
 });
+
+describe("profile text fields", () => {
+  test("about, city and village are typed text with length limits", async () => {
+    await assertSucceeds(updateDoc(doc(as("free"), "users", "free"), { about: "Seeker", city: "Rajkot", village: "Gondal" }));
+    await assertFails(updateDoc(doc(as("free"), "users", "free"), { about: "x".repeat(501) }));
+    await assertFails(updateDoc(doc(as("free"), "users", "free"), { village: 5 }));
+  });
+});

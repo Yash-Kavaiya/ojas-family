@@ -242,6 +242,38 @@ fun MainShell(container: AppContainer) {
     }
     AskNotificationPermission()
 
+    // Celebrate each goal the moment it is approved, and each new level, once per phone
+    var celebration by remember { mutableStateOf<Pair<String, String>?>(null) }
+    val goalLang = com.ojashealing.family.ui.goals.goalLanguage()
+    val goalDoneTitle = stringResource(R.string.celebrate_goal_title)
+    val goalDoneBody = stringResource(R.string.celebrate_goal_body)
+    val levelTitle = stringResource(R.string.celebrate_level_title)
+    val levelBody = stringResource(R.string.celebrate_level_body)
+    val memberTitle = stringResource(R.string.celebrate_member_title)
+    val achievedIds = goals.achieved.map { it.id }.toSet()
+    LaunchedEffect(goals.loaded, achievedIds, p?.uid) {
+        val uid = p?.uid ?: return@LaunchedEffect
+        if (!goals.loaded) return@LaunchedEffect
+        val fresh = com.ojashealing.family.ui.components.newlyReached(context, "goals_$uid", achievedIds)
+        val g = goals.achieved.firstOrNull { it.id in fresh } ?: return@LaunchedEffect
+        com.ojashealing.family.ui.components.markCelebrated(context, "goals_$uid", fresh)
+        celebration = goalDoneTitle to goalDoneBody.format(g.titleIn(goalLang), g.reward)
+    }
+    val userLevel = p?.viewer?.userLevel?.rank ?: 0
+    val memberLevel = p?.viewer?.memberLevel?.rank ?: 0
+    LaunchedEffect(userLevel, memberLevel, p?.uid) {
+        val uid = p?.uid ?: return@LaunchedEffect
+        val reached = (2..userLevel).map { "u$it" }.toSet() + (1..memberLevel).map { "m$it" }.toSet()
+        val fresh = com.ojashealing.family.ui.components.newlyReached(context, "levels_$uid", reached)
+        if (fresh.isEmpty()) return@LaunchedEffect
+        com.ojashealing.family.ui.components.markCelebrated(context, "levels_$uid", fresh)
+        celebration = if (fresh.any { it.startsWith("m") }) memberTitle.format(memberLevel) to levelBody
+        else levelTitle.format(userLevel) to levelBody
+    }
+    celebration?.let { (title, body) ->
+        com.ojashealing.family.ui.components.CelebrationDialog(title, body, onDismiss = { celebration = null })
+    }
+
     // A call ringing for me opens the call screen, even if its push never arrived
     LaunchedEffect(p?.uid) {
         val uid = p?.uid ?: return@LaunchedEffect
@@ -301,7 +333,7 @@ fun MainShell(container: AppContainer) {
                 Scaffold(
                     containerColor = MaterialTheme.colorScheme.background,
                     topBar = { OjasTopBar(profile, onCounterPositioned = { anchors.counterCenter = it }, onOpenPoints = { nav.navigate(PointsHistoryRoute) }) },
-                    bottomBar = { OjasBottomBar(current = tab, onSelect = { tab = it }) }
+                    bottomBar = { OjasBottomBar(current = tab, onSelect = { tab = it }, photoUrl = profile?.photoUrl.orEmpty()) }
                 ) { padding ->
                     Box(
                         modifier = Modifier

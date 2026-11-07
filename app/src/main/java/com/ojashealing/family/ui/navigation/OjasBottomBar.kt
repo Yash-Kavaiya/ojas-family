@@ -21,6 +21,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
@@ -38,7 +42,7 @@ enum class MainTab(@StringRes val label: Int, val selectedIcon: ImageVector, val
 }
 
 @Composable
-fun OjasBottomBar(current: MainTab, onSelect: (MainTab) -> Unit, modifier: Modifier = Modifier) {
+fun OjasBottomBar(current: MainTab, onSelect: (MainTab) -> Unit, modifier: Modifier = Modifier, photoUrl: String = "") {
     NavigationBar(
         containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
@@ -50,7 +54,18 @@ fun OjasBottomBar(current: MainTab, onSelect: (MainTab) -> Unit, modifier: Modif
             NavigationBarItem(
                 selected = selected,
                 onClick = { onSelect(tab) },
-                icon = { Icon(if (selected) tab.selectedIcon else tab.icon, contentDescription = null) },
+                icon = {
+                    // The member's own photo stands in for the Profile icon
+                    if (tab == MainTab.Profile && photoUrl.isNotEmpty()) {
+                        coil.compose.AsyncImage(
+                            model = photoUrl,
+                            contentDescription = null,
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                            modifier = Modifier.size(26.dp).clip(CircleShape)
+                                .border(if (selected) 2.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, CircleShape)
+                        )
+                    } else Icon(if (selected) tab.selectedIcon else tab.icon, contentDescription = null)
+                },
                 label = {
                     // Hindi and Gujarati labels can be wider than English; never wrap to a second line
                     Text(

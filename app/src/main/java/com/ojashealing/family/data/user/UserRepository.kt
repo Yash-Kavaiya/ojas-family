@@ -54,6 +54,8 @@ class FirestoreUserRepository(
             "country" to edit.country,
             "state" to edit.state,
             "city" to edit.city.trim(),
+            "village" to edit.village.trim(),
+            "about" to edit.about.trim(),
             "language" to edit.language,
             "profileComplete" to true
         )
@@ -62,7 +64,8 @@ class FirestoreUserRepository(
     }
 
     override suspend fun uploadAvatar(uid: String, uri: Uri): Result<String> = runCatching {
-        val ref = storage.reference.child("users/$uid/avatar.jpg")
+        // A new name each time, so the new picture's URL differs and no screen shows a cached old one
+        val ref = storage.reference.child("users/$uid/avatar_${System.currentTimeMillis()}.jpg")
         // A profile picture never needs more than this; large camera photos would break the 5 MB rule
         ref.putBytes(resolver.shrunkJpeg(uri, 1024), StorageMetadata.Builder().setContentType("image/jpeg").build()).await()
         val url = ref.downloadUrl.await().toString()

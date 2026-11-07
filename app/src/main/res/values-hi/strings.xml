@@ -400,5 +400,26 @@
     <string name="about_youtube">YouTube पर ओजस हीलिंग</string>
     <string name="about_ojas_body">ओजस परिवार ओजस हीलिंग का समुदाय है। यहाँ सदस्य सुविचार पढ़ते हैं, सुबह और रात की मार्गदर्शित साधना करते हैं, प्रश्न पूछते हैं, अपनी दैनिक सेवा साझा करते हैं और स्वामीजी के साथ आध्यात्मिक मार्ग पर साथ बढ़ते हैं।</string>
     <string name="about_swamiji_body">स्वामीजी ध्यान, स्वयं-उपचार और आध्यात्मिक ज्ञान से ओजस हीलिंग परिवार का मार्गदर्शन करते हैं। उनकी शिक्षाएँ ओजस हीलिंग YouTube चैनल पर देखें और पूछें टैब में चैट या कॉल से अपने प्रश्न पूछें।</string>
+    <string name="field_village">गाँव (वैकल्पिक)</string>
+    <string name="field_about">मेरे बारे में (वैकल्पिक)</string>
+    <string name="field_about_hint">आपके और आपकी आध्यात्मिक यात्रा के बारे में कुछ शब्द</string>
+    <string name="crop_mode_crop">क्रॉप</string>
+    <string name="crop_mode_fit">पूरी फ़ोटो</string>
+    <string name="crop_fit_hint">पूरी फ़ोटो गोले के अंदर आ जाएगी</string>
+    <string name="road_member_1">सदस्य लेवल 1 · जुड़ें</string>
+    <string name="road_member_1_detail">सभी साधनाएँ, दैनिक गतिविधियाँ देखना, लाइक और जवाब, और पोस्ट में फ़ोटो।</string>
+    <string name="road_member_2">सदस्य लेवल 2 · 3 महीने बाद</string>
+    <string name="road_member_2_detail">स्वामीजी के साथ मासिक चैट खुलती है।</string>
+    <string name="road_member_3">सदस्य लेवल 3 · 6 महीने बाद</string>
+    <string name="road_member_3_detail">अपनी दैनिक गतिविधियाँ साझा करें और अन्य सदस्यों की प्रोफ़ाइल देखें।</string>
+    <string name="road_days_progress">%2$d में से %1$d सदस्यता दिन</string>
+    <string name="road_paused">आपकी सदस्यता समाप्त हो गई है, इसलिए दिन रुके हैं। गिनती जारी रखने के लिए नवीनीकरण करें।</string>
+    <string name="road_goals_progress">%2$d में से %1$d लक्ष्य पूरे</string>
+    <string name="celebrate_ok">जय हो! 🙏</string>
+    <string name="celebrate_goal_title">लक्ष्य पूरा!</string>
+    <string name="celebrate_goal_body">%1$s · +%2$d मोक्ष पॉइंट</string>
+    <string name="celebrate_level_title">आप लेवल %1$d पर पहुँचे!</string>
+    <string name="celebrate_member_title">सदस्य लेवल %1$d!</string>
+    <string name="celebrate_level_body">आपके लिए नई सुविधाएँ खुल गई हैं। ओजस परिवार के साथ आगे बढ़ते रहें।</string>
     <string name="ai_answer_general">आपके प्रश्न के लिए धन्यवाद। 🙏 सबसे सरल मार्ग रोज़ की साधना है: सुबह कुछ मिनट ध्यान, रात को कृतज्ञता और दिन भर दयालुता। मार्गदर्शित वीडियो के लिए आध्यात्मिक टैब देखें और समुदाय से पूछें।</string>
 </resources>

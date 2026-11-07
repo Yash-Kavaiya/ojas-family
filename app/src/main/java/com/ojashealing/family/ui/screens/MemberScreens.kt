@@ -115,6 +115,7 @@ fun PublicProfileScreen(profile: Flow<PublicProfile?>, goals: List<Goal>, locati
                         }
                         val age = ageFromBirthMonth(u.birthMonth, LocalDateLike.today())
                         val place = listOfNotNull(
+                            u.village.takeIf { it.isNotEmpty() },
                             u.city.takeIf { it.isNotEmpty() },
                             locations.states(u.country, "").firstOrNull { it.code == u.state }?.name,
                             locations.country(u.country)?.name
@@ -122,6 +123,7 @@ fun PublicProfileScreen(profile: Flow<PublicProfile?>, goals: List<Goal>, locati
                         Text(listOfNotNull(age?.let { stringResource(R.string.profile_age, it) }, place.ifEmpty { null }).joinToString(" · "),
                             style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         com.ojashealing.family.ui.components.ProfileBadges(u.role, u.userLevel, u.memberLevel)
+                        if (u.about.isNotBlank()) Text(u.about, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
                         Text(stringResource(R.string.profile_points) + ": " + u.mokshaPoints, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                     }
                 }

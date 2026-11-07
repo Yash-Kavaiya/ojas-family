@@ -401,5 +401,26 @@
     <string name="about_youtube">Ojas Healing on YouTube</string>
     <string name="about_ojas_body">Ojas Family is the community of Ojas Healing. Here members read the Thought of the Day, follow guided morning and night practices, ask questions, share their daily seva and grow together on the spiritual path with Swamiji.</string>
     <string name="about_swamiji_body">Swamiji guides the Ojas Healing family through meditation, self-healing and spiritual knowledge. Watch his teachings on the Ojas Healing YouTube channel, and ask him your questions through chat or a call in the Ask tab.</string>
+    <string name="field_village">Village (optional)</string>
+    <string name="field_about">About me (optional)</string>
+    <string name="field_about_hint">A few words about you and your spiritual journey</string>
+    <string name="crop_mode_crop">Crop</string>
+    <string name="crop_mode_fit">Fit</string>
+    <string name="crop_fit_hint">The whole photo fits inside the circle</string>
+    <string name="road_member_1">Member Level 1 · Join</string>
+    <string name="road_member_1_detail">All practices, Daily Activities to see, like and reply, and photos in posts.</string>
+    <string name="road_member_2">Member Level 2 · after 3 months</string>
+    <string name="road_member_2_detail">Monthly chat with Swamiji opens.</string>
+    <string name="road_member_3">Member Level 3 · after 6 months</string>
+    <string name="road_member_3_detail">Share your own Daily Activities and see other members’ profiles.</string>
+    <string name="road_days_progress">%1$d of %2$d membership days</string>
+    <string name="road_paused">Your membership has ended, so the days are paused. Renew to keep counting.</string>
+    <string name="road_goals_progress">%1$d of %2$d goals complete</string>
+    <string name="celebrate_ok">Jai ho! 🙏</string>
+    <string name="celebrate_goal_title">Goal complete!</string>
+    <string name="celebrate_goal_body">%1$s · +%2$d Moksha Points</string>
+    <string name="celebrate_level_title">You reached Level %1$d!</string>
+    <string name="celebrate_member_title">Member Level %1$d!</string>
+    <string name="celebrate_level_body">New features are now open for you. Keep growing with Ojas Family.</string>
     <string name="ai_answer_general">Thank you for your question. 🙏 The simplest path is daily practice: a few minutes of morning meditation, gratitude at night, and kindness through the day. Explore the Spiritual tab for guided videos, and ask the Community.</string>
 </resources>

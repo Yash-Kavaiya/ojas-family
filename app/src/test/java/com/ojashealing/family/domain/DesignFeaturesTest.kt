@@ -101,4 +101,13 @@ class DesignFeaturesTest {
         assertEquals(true, Permissions.canHideProfile(Viewer(UserLevel.L3, MemberLevel.None, Role.Member)))
         assertEquals(true, Permissions.canHideProfile(Viewer(UserLevel.L1, MemberLevel.None, Role.Swamiji)))
     }
+
+    @Test
+    fun fitCentresTheWholePicture() {
+        val r = com.ojashealing.family.ui.components.fitRect(4000, 2000, 1000f)
+        assertEquals(0f, r.left, 0.01f)
+        assertEquals(250f, r.top, 0.01f)
+        assertEquals(1000f, r.right, 0.01f)
+        assertEquals(750f, r.bottom, 0.01f)
+    }
 }

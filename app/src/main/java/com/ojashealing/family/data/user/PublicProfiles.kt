@@ -25,7 +25,9 @@ data class PublicProfile(
     val memberLevel: Int,
     val role: Role,
     val hidden: Boolean,
-    val achievedGoals: List<String>
+    val achievedGoals: List<String>,
+    val about: String = "",
+    val village: String = ""
 )
 
 /** Age from a birth month: whole years, counting the birthday as reached at the start of its month. */
@@ -53,7 +55,9 @@ private fun DocumentSnapshot.toPublicProfile(): PublicProfile {
         memberLevel = getLong("memberLevel")?.toInt() ?: 0,
         role = Role.fromId(getString("role")),
         hidden = getBoolean("hidden") == true,
-        achievedGoals = goals
+        achievedGoals = goals,
+        about = getString("about").orEmpty(),
+        village = getString("village").orEmpty()
     )
 }
 

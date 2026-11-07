@@ -70,8 +70,12 @@ fun ProfileSetupScreen(vm: ProfileSetupViewModel, onBack: (() -> Unit)? = null, 
     LaunchedEffect(state.saved) { if (state.saved) onSaved() }
 
     var picker by rememberSaveable { mutableStateOf<String?>(null) } // "dob", "country", "state"
+    var cropping by remember { mutableStateOf<android.net.Uri?>(null) }
+    cropping?.let { src ->
+        com.ojashealing.family.ui.components.PhotoCropDialog(src, onDismiss = { cropping = null }, onCropped = { cropping = null; vm.pickPhoto(it) })
+    }
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        uri?.let(vm::pickPhoto)
+        if (uri != null) cropping = uri
     }
 
     OnboardingLayout(
@@ -152,12 +156,32 @@ fun ProfileSetupScreen(vm: ProfileSetupViewModel, onBack: (() -> Unit)? = null, 
             )
         }
 
-        CityField(
+        // Typed, not picked from a list: any city or village name is fine
+        OutlinedTextField(
             value = form.city,
-            suggestions = remember(form.country, form.state, form.city) {
-                if (form.state.isEmpty()) emptyList() else vm.locations.cities(form.country, form.state, form.city).take(6)
-            },
-            onChange = { v -> vm.edit { it.copy(city = v) } }
+            onValueChange = { v -> vm.edit { it.copy(city = v.take(80)) } },
+            label = { Text(stringResource(R.string.field_city)) },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+            modifier = Modifier.fillMaxWidth()
+        )
+        OutlinedTextField(
+            value = form.village,
+            onValueChange = { v -> vm.edit { it.copy(village = v.take(80)) } },
+            label = { Text(stringResource(R.string.field_village)) },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+            modifier = Modifier.fillMaxWidth()
+        )
+        OutlinedTextField(
+            value = form.about,
+            onValueChange = { v -> vm.edit { it.copy(about = v.take(500)) } },
+            label = { Text(stringResource(R.string.field_about)) },
+            placeholder = { Text(stringResource(R.string.field_about_hint)) },
+            minLines = 3,
+            supportingText = { Text("${form.about.length}/500") },
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+            modifier = Modifier.fillMaxWidth()
         )
     }
 
@@ -198,30 +222,6 @@ private fun PickerField(label: String, value: String, error: String?, onClick: (
                 .matchParentSize()
                 .clickable(onClick = onClick)
         )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun CityField(value: String, suggestions: List<String>, onChange: (String) -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
-    val visible = suggestions.filter { !it.equals(value, ignoreCase = true) }
-    ExposedDropdownMenuBox(expanded = expanded && visible.isNotEmpty(), onExpandedChange = { expanded = it }) {
-        OutlinedTextField(
-            value = value,
-            onValueChange = { onChange(it); expanded = true },
-            label = { Text(stringResource(R.string.field_city)) },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-            modifier = Modifier
-                .fillMaxWidth()
-                .menuAnchor(MenuAnchorType.PrimaryEditable)
-        )
-        ExposedDropdownMenu(expanded = expanded && visible.isNotEmpty(), onDismissRequest = { expanded = false }) {
-            visible.forEach { city ->
-                DropdownMenuItem(text = { Text(city) }, onClick = { onChange(city); expanded = false })
-            }
-        }
     }
 }
 

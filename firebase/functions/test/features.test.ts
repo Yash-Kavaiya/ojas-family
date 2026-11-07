@@ -6,7 +6,7 @@ import { onAnswerNotify, onDailyReplyWritten, onQuestionNotify } from "../src/co
 import { onGoalProgressWritten } from "../src/goals";
 import { wantsPersonal, type Messenger } from "../src/notify";
 import { dayBefore, logPracticeFor, streak } from "../src/practice";
-import { publicProfileOf, syncPublicProfile } from "../src/profiles";
+import { publicProfileOf, refreshAuthorSnapshots, syncPublicProfile } from "../src/profiles";
 import { clearDb, testDb } from "./emulator";
 
 const db = testDb();
@@ -144,6 +144,22 @@ describe("public profiles", () => {
     expect((await db.doc("publicProfiles/m1").get()).get("hidden")).toBe(true);
     await syncPublicProfile(db, "m1", undefined);
     expect((await db.doc("publicProfiles/m1").get()).exists).toBe(false);
+  });
+});
+
+describe("author snapshots", () => {
+  test("a new photo or name reaches every post, comment, answer and reply", async () => {
+    await db.doc("questions/q9").set({ authorUid: "pic", authorName: "Old", authorPhoto: "old" });
+    await db.doc("questions/q9/answers/a1").set({ authorUid: "pic", authorName: "Old", authorPhoto: "old" });
+    await db.doc("thoughts/2026-11-07/comments/c1").set({ authorUid: "pic", authorName: "Old", authorPhoto: "old" });
+    await db.doc("dailyPosts/d9/replies/r1").set({ authorUid: "pic", authorName: "Old", authorPhoto: "old" });
+    await db.doc("questions/q8").set({ authorUid: "someoneElse", authorName: "X", authorPhoto: "x" });
+    const n = await refreshAuthorSnapshots(db, "pic", { displayName: "Old", photoUrl: "old" }, { displayName: "New", photoUrl: "new" });
+    expect(n).toBe(4);
+    expect((await db.doc("thoughts/2026-11-07/comments/c1").get()).get("authorPhoto")).toBe("new");
+    expect((await db.doc("dailyPosts/d9/replies/r1").get()).get("authorName")).toBe("New");
+    expect((await db.doc("questions/q8").get()).get("authorPhoto")).toBe("x");
+    expect(await refreshAuthorSnapshots(db, "pic", { displayName: "New", photoUrl: "new" }, { displayName: "New", photoUrl: "new", mokshaPoints: 5 })).toBe(0);
   });
 });
 

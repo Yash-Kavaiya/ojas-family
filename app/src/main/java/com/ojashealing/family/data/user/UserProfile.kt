@@ -24,7 +24,11 @@ data class UserProfile(
     val nightReminder: String,
     val mokshaPoints: Int,
     val activeDays: Int,
-    val viewer: Viewer
+    val viewer: Viewer,
+    val about: String = "",
+    val village: String = "",
+    /** Days of paid membership counted so far (server-owned): 90 = Member Level 2, 180 = Level 3. */
+    val paidDays: Int = 0
 )
 
 // The only profile fields a client sends; server-owned fields (points, levels, role) are never written here
@@ -35,7 +39,9 @@ data class ProfileEdit(
     val country: String,
     val state: String,
     val city: String,
-    val language: String
+    val language: String,
+    val about: String = "",
+    val village: String = ""
 )
 
 internal fun DocumentSnapshot.toUserProfile(): UserProfile {
@@ -64,6 +70,9 @@ internal fun DocumentSnapshot.toUserProfile(): UserProfile {
             userLevel = UserLevel.fromRank(getLong("userLevel")?.toInt() ?: 1),
             memberLevel = MemberLevel.fromRank(getLong("memberLevel")?.toInt() ?: 0),
             role = Role.fromId(getString("role"))
-        )
+        ),
+        about = getString("about").orEmpty(),
+        village = getString("village").orEmpty(),
+        paidDays = getLong("paidDays")?.toInt() ?: 0
     )
 }

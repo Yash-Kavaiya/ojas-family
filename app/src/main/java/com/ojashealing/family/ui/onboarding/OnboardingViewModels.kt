@@ -204,7 +204,9 @@ class ProfileSetupViewModel(
                     gender = Gender.fromId(existing.gender),
                     country = existing.country,
                     state = existing.state,
-                    city = existing.city
+                    city = existing.city,
+                    village = existing.village,
+                    about = existing.about
                 )
             } else ProfileForm(name = suggestedName, country = "IN")
             _state.update { it.copy(form = form, photoUrl = existing?.photoUrl.orEmpty(), errors = validate(form, LocalDateLike.today())) }
@@ -240,6 +242,8 @@ class ProfileSetupViewModel(
                     country = f.country,
                     state = f.state,
                     city = f.city,
+                    village = f.village,
+                    about = f.about,
                     language = currentAppLanguage().ifEmpty { "en" }
                 )
             ).onSuccess { _state.update { it.copy(saving = false, saved = true) } }

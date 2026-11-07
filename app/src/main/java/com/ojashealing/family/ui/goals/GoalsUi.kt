@@ -157,33 +157,53 @@ fun ProfileGoalsCard(state: ProfileGoalsState, onSubmit: (Goal) -> Unit) {
             Text(stringResource(R.string.profile_goals_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
         }
         val suggested = state.suggested
-        when {
-            !state.loaded -> Unit
-            suggested != null -> SuggestedGoal(suggested, lang, state.suggestedWasRejected, onSubmit)
-            state.achieved.isEmpty() && state.waiting.isEmpty() ->
-                Text(stringResource(R.string.profile_goals_empty), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            else -> Text(stringResource(R.string.goal_all_done), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (!state.loaded) return@OjasCard
+        if (state.goals.isEmpty()) {
+            Text(stringResource(R.string.profile_goals_empty), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            return@OjasCard
         }
-        if (state.waiting.isNotEmpty()) {
-            HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.s))
-            Text(stringResource(R.string.goal_waiting), style = MaterialTheme.typography.labelLarge)
-            state.waiting.forEach { GoalLine(it.titleIn(lang), Icons.Outlined.HourglassTop) }
+        val done = state.achieved.map { it.id }.toSet()
+        val waiting = state.waiting.map { it.id }.toSet()
+        // The roadmap: every goal in order, with the one to do now highlighted
+        val ordered = state.goals.sortedBy { it.order }
+        Text(
+            stringResource(R.string.road_goals_progress, done.size, ordered.size),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary
+        )
+        com.ojashealing.family.ui.components.Roadmap(
+            ordered.map { g ->
+                com.ojashealing.family.ui.components.RoadStep(
+                    title = g.titleIn(lang),
+                    detail = if (g.id == suggested?.id) g.descriptionIn(lang) else stringResource(R.string.goal_reward, g.reward),
+                    state = when (g.id) {
+                        in done -> com.ojashealing.family.ui.components.StepState.Done
+                        in waiting -> com.ojashealing.family.ui.components.StepState.Waiting
+                        suggested?.id -> com.ojashealing.family.ui.components.StepState.Current
+                        else -> com.ojashealing.family.ui.components.StepState.Upcoming
+                    },
+                    icon = if (g.id == suggested?.id) Icons.Outlined.Flag else null
+                )
+            }
+        ) { i ->
+            val g = ordered[i]
+            SuggestedGoal(g, lang, state.suggestedWasRejected, onSubmit, compact = true)
         }
-        if (state.achieved.isNotEmpty()) {
-            HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.s))
-            Text(stringResource(R.string.goal_achieved), style = MaterialTheme.typography.labelLarge)
-            state.achieved.forEach { GoalLine(it.titleIn(lang), Icons.Outlined.CheckCircle) }
+        if (suggested == null && done.size == ordered.size) {
+            Text(stringResource(R.string.goal_all_done), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
         }
     }
 }
 
 @Composable
-private fun SuggestedGoal(goal: Goal, lang: String, wasRejected: Boolean, onSubmit: (Goal) -> Unit) {
+private fun SuggestedGoal(goal: Goal, lang: String, wasRejected: Boolean, onSubmit: (Goal) -> Unit, compact: Boolean = false) {
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
-        Text(stringResource(R.string.goal_suggested), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-        Text(goal.titleIn(lang), style = MaterialTheme.typography.titleMedium)
-        goal.descriptionIn(lang).takeIf { it.isNotEmpty() }?.let {
-            Text(it, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (!compact) {
+            Text(stringResource(R.string.goal_suggested), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            Text(goal.titleIn(lang), style = MaterialTheme.typography.titleMedium)
+            goal.descriptionIn(lang).takeIf { it.isNotEmpty() }?.let {
+                Text(it, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
         Text(stringResource(R.string.goal_reward, goal.reward), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (wasRejected) {

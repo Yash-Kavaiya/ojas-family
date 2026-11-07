@@ -39,7 +39,9 @@ data class ProfileForm(
     val gender: Gender? = null,
     val country: String = "",
     val state: String = "",
-    val city: String = ""
+    val city: String = "",
+    val village: String = "",
+    val about: String = ""
 )
 
 const val MIN_AGE = 13 // Play Families policy: the app is not directed at children

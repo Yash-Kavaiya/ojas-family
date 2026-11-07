@@ -190,12 +190,21 @@ private fun IdentityCard(
                 locations.country(profile.country)?.name
             ).joinToString(", ").ifEmpty { stringResource(R.string.profile_location_unset) }
             Text(
-                listOfNotNull(age?.let { stringResource(R.string.profile_age, it) }, place).joinToString(" · "),
+                listOfNotNull(age?.let { stringResource(R.string.profile_age, it) }, profile.village.takeIf { it.isNotBlank() }, place).joinToString(" · "),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
             com.ojashealing.family.ui.components.ProfileBadges(profile.viewer.role, profile.viewer.userLevel.rank, profile.viewer.memberLevel.rank)
+            if (profile.about.isNotBlank()) {
+                Text(
+                    profile.about,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = Spacing.xs)
+                )
+            }
         }
     }
 }
@@ -221,6 +230,37 @@ private fun StatCard(value: String, label: String, modifier: Modifier = Modifier
     }
 }
 
+/** Member Level 1 on joining, Level 2 after 90 paid days, Level 3 after 180 (functions/src/billing.ts). */
+@Composable
+private fun MembershipRoadmap(level: Int, paidDays: Int, active: Boolean, onPlans: () -> Unit) {
+    fun state(n: Int) = when {
+        level >= n -> com.ojashealing.family.ui.components.StepState.Done
+        level == n - 1 && (n == 1 || active) -> com.ojashealing.family.ui.components.StepState.Current
+        else -> com.ojashealing.family.ui.components.StepState.Upcoming
+    }
+    val paused = !active && level >= 1 && level < 3
+    val steps = listOf(
+        com.ojashealing.family.ui.components.RoadStep(
+            stringResource(R.string.road_member_1), stringResource(R.string.road_member_1_detail), state(1),
+            icon = Icons.Outlined.WorkspacePremium
+        ),
+        com.ojashealing.family.ui.components.RoadStep(
+            stringResource(R.string.road_member_2), stringResource(R.string.road_member_2_detail), state(2),
+            progress = if (state(2) == com.ojashealing.family.ui.components.StepState.Current) paidDays / 90f else null,
+            progressLabel = stringResource(R.string.road_days_progress, paidDays.coerceAtMost(90), 90)
+        ),
+        com.ojashealing.family.ui.components.RoadStep(
+            stringResource(R.string.road_member_3), stringResource(R.string.road_member_3_detail), state(3),
+            progress = if (state(3) == com.ojashealing.family.ui.components.StepState.Current) paidDays / 180f else null,
+            progressLabel = stringResource(R.string.road_days_progress, paidDays.coerceAtMost(180), 180)
+        )
+    )
+    com.ojashealing.family.ui.components.Roadmap(steps) { i ->
+        if (i == 0) Button(onClick = onPlans) { Text(stringResource(R.string.membership_join)) }
+    }
+    if (paused) Text(stringResource(R.string.road_paused), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+}
+
 /** Spec: paid membership (monthly) with member levels after 3 and 6 months. */
 @Composable
 private fun MembershipCard(profile: UserProfile, entitlements: com.ojashealing.family.data.paid.Entitlements, onPlans: () -> Unit) {
@@ -232,11 +272,10 @@ private fun MembershipCard(profile: UserProfile, entitlements: com.ojashealing.f
         }
         if (m != null) {
             Text(stringResource(R.string.membership_active_until, formatDate(m.expiresAt)), style = MaterialTheme.typography.bodyLarge)
-            Text(stringResource(R.string.profile_member_level, profile.viewer.memberLevel.rank), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-            OutlinedButton(onClick = onPlans) { Text(stringResource(R.string.membership_plans)) }
         } else {
             Text(stringResource(R.string.membership_benefits), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Button(onClick = onPlans) { Text(stringResource(R.string.membership_join)) }
         }
+        MembershipRoadmap(profile.viewer.memberLevel.rank, profile.paidDays, active = m != null, onPlans = onPlans)
+        if (m != null) OutlinedButton(onClick = onPlans) { Text(stringResource(R.string.membership_plans)) }
     }
 }

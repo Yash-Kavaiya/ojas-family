@@ -16,7 +16,7 @@ import { getMessaging } from "firebase-admin/messaging";
 import { logPracticeFor } from "./practice";
 import { adminGrantFor, countPaidDay, onSubscriptionNotice, verifyPurchaseFor } from "./billing";
 import { playApi } from "./playApi";
-import { syncPublicProfile } from "./profiles";
+import { refreshAuthorSnapshots, syncPublicProfile } from "./profiles";
 import { onCallCreated, onCallUpdated, onChatMessage } from "./chat";
 import {
   onAnnouncementCountChanged, onAnnouncementCreated, onAnswerNotify, onDailyLikeChanged, onDailyPostWritten, onDailyReplyWritten,
@@ -174,8 +174,10 @@ export const logPractice = onCall({ enforceAppCheck: enforceAppCheck }, async (r
 
 // ---- Profiles visible to others ----
 
-export const userWritten = onDocumentWritten("users/{uid}", (e) =>
-  syncPublicProfile(db, e.params.uid, e.data?.after.data()));
+export const userWritten = onDocumentWritten("users/{uid}", async (e) => {
+  await syncPublicProfile(db, e.params.uid, e.data?.after.data());
+  await refreshAuthorSnapshots(db, e.params.uid, e.data?.before.data(), e.data?.after.data());
+});
 
 // ---- Notifications ----
 
