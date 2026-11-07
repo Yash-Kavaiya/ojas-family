@@ -63,12 +63,15 @@ import com.ojashealing.family.ui.components.PostImage
 import com.ojashealing.family.ui.components.SendPillButton
 import com.ojashealing.family.ui.theme.OjasGradients
 import com.ojashealing.family.ui.theme.Spacing
+import com.ojashealing.family.ui.theme.noticeTintFor
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.runtime.remember
 import com.ojashealing.family.ui.components.LikeButton
+import com.ojashealing.family.ui.components.RollingCount
 import com.ojashealing.family.ui.components.LoadingState
 import com.ojashealing.family.ui.components.PostComposer
 import com.ojashealing.family.ui.thought.LockHint
@@ -83,14 +86,23 @@ fun AnnouncementCard(
     onLike: () -> Unit = {},
     onOpen: (() -> Unit)? = null
 ) {
-    OjasCard(onClick = onOpen) {
+    // Each announcement has its own colour: pastel in light mode, deep in dark mode (follows the app theme)
+    val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val tint = noticeTintFor(n.id)
+    val accent = if (dark) tint.accentDark else tint.accentLight
+    OjasCard(
+        onClick = onOpen,
+        containerColor = if (dark) tint.cardDark else tint.cardLight,
+        borderColor = if (dark) tint.borderDark else tint.borderLight
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
             Box(
-                Modifier.size(36.dp).clip(CircleShape).background(Brush.linearGradient(OjasGradients.sunrise)),
+                Modifier.size(36.dp).clip(CircleShape)
+                    .background(Brush.linearGradient(listOf(accent.copy(alpha = 0.85f), accent))),
                 contentAlignment = Alignment.Center
-            ) { Icon(Icons.Filled.Campaign, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp)) }
+            ) { Icon(Icons.Filled.Campaign, contentDescription = null, tint = if (dark) Color(0xFF1A1030) else Color.White, modifier = Modifier.size(20.dp)) }
             Column(Modifier.weight(1f)) {
-                Text(stringResource(R.string.announcement_label), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                Text(stringResource(R.string.announcement_label), style = MaterialTheme.typography.labelLarge, color = accent)
                 if (n.createdAt > 0) {
                     Text(
                         DateUtils.getRelativeTimeSpanString(n.createdAt, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString(),
@@ -110,11 +122,11 @@ fun AnnouncementCard(
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             LikeButton(liked = liked, enabled = canLike, onToggle = onLike)
-            Text(stringResource(R.string.likes_count, n.likeCount), style = MaterialTheme.typography.labelLarge)
+            RollingCount(n.likeCount, { stringResource(R.string.likes_count, it) })
             Box(Modifier.weight(1f))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                Text(stringResource(R.string.home_view_comments, n.commentCount), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
+                Text(stringResource(R.string.home_view_comments, n.commentCount), style = MaterialTheme.typography.labelLarge, color = accent)
             }
         }
     }

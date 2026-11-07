@@ -65,3 +65,19 @@ object OjasGradients {
     val twilight = listOf(Color(0xFF4C2A85), Color(0xFF2A1B47))
     val gold = listOf(Color(0xFFFFE08A), Color(0xFFF2B33D))
 }
+
+/** One announcement colour: a pastel card for light mode, a deep card for dark mode, and an accent for each. */
+data class NoticeTint(val cardLight: Color, val cardDark: Color, val accentLight: Color, val accentDark: Color, val borderLight: Color, val borderDark: Color)
+
+/** Announcements cycle through these so neighbouring cards read apart. */
+val NoticeTints = listOf(
+    NoticeTint(Color(0xFFFFF0E3), Color(0xFF3D2416), Color(0xFFC94A00), Color(0xFFFFB27A), Color(0xFFF6D3B5), Color(0xFF5E3A22)), // saffron
+    NoticeTint(Color(0xFFFDEBF2), Color(0xFF3B1A2B), Color(0xFFB8336A), Color(0xFFF59BC1), Color(0xFFF3C6D8), Color(0xFF5C2944)), // lotus
+    NoticeTint(Color(0xFFE5F6F3), Color(0xFF123634), Color(0xFF00796B), Color(0xFF7FDCCB), Color(0xFFBFE6DF), Color(0xFF1F5450)), // teal
+    NoticeTint(Color(0xFFECEBFC), Color(0xFF221D4A), Color(0xFF4C3BB5), Color(0xFFB9AEFF), Color(0xFFCFCAF5), Color(0xFF37306E)), // indigo
+    NoticeTint(Color(0xFFE9F5E4), Color(0xFF1B3322), Color(0xFF2E7D32), Color(0xFF9AD69C), Color(0xFFC8E4BE), Color(0xFF2C4F35)), // green
+    NoticeTint(Color(0xFFFFF6D9), Color(0xFF3A3115), Color(0xFF9A6500), Color(0xFFF3D27A), Color(0xFFF0DFA6), Color(0xFF594B20))  // gold
+)
+
+/** The same announcement always gets the same colour. */
+fun noticeTintFor(id: String): NoticeTint = NoticeTints[Math.floorMod(id.hashCode(), NoticeTints.size)]

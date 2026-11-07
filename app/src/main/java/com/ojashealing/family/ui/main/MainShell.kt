@@ -38,6 +38,16 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import com.ojashealing.family.R
 import com.ojashealing.family.data.paid.Entitlements
 import com.ojashealing.family.data.paid.PaidAccess
@@ -278,7 +288,15 @@ fun MainShell(container: AppContainer) {
                 }
             }
     ) {
-        NavHost(navController = nav, startDestination = TabsRoute) {
+        NavHost(
+            navController = nav,
+            startDestination = TabsRoute,
+            // New screens glide in from the side and fade; Back plays it in reverse
+            enterTransition = { slideInHorizontally(tween(NAV_MS, easing = FastOutSlowInEasing)) { it / 4 } + fadeIn(tween(NAV_MS)) },
+            exitTransition = { slideOutHorizontally(tween(NAV_MS, easing = FastOutSlowInEasing)) { -it / 10 } + fadeOut(tween(NAV_MS / 2)) },
+            popEnterTransition = { slideInHorizontally(tween(NAV_MS, easing = FastOutSlowInEasing)) { -it / 10 } + fadeIn(tween(NAV_MS)) },
+            popExitTransition = { slideOutHorizontally(tween(NAV_MS, easing = FastOutSlowInEasing)) { it / 4 } + fadeOut(tween(NAV_MS / 2)) }
+        ) {
             composable<TabsRoute> {
                 Scaffold(
                     containerColor = MaterialTheme.colorScheme.background,
@@ -291,7 +309,8 @@ fun MainShell(container: AppContainer) {
                             .padding(padding)
                             .consumeWindowInsets(padding)
                     ) {
-                        when (tab) {
+                        AnimatedContent(targetState = tab, transitionSpec = { tabTransition(initialState, targetState) }, label = "tab") { shown ->
+                        when (shown) {
                             MainTab.Community -> CommunityScreen(
                                 communityVm,
                                 onOpenQuestion = { nav.navigate(QuestionRoute(it)) },
@@ -344,6 +363,7 @@ fun MainShell(container: AppContainer) {
                                 onPlans = { openPlans(null) },
                                 onOpenMembers = { nav.navigate(MembersRoute) }
                             )
+                        }
                         }
                     }
                 }
@@ -499,6 +519,17 @@ fun MainShell(container: AppContainer) {
         PaytmCoinOverlay(rewardEvent = reward, anchors = anchors, onDismiss = vm::clearReward)
     }
     }
+}
+
+private const val NAV_MS = 320
+
+/** Tabs slide toward the side of the tab you tapped, with a soft fade and a slight zoom. */
+private fun tabTransition(from: MainTab, to: MainTab): ContentTransform {
+    val dir = if (to.ordinal > from.ordinal) 1 else -1
+    val enter = slideInHorizontally(tween(280, easing = FastOutSlowInEasing)) { dir * it / 6 } +
+        fadeIn(tween(280)) + scaleIn(tween(280), initialScale = 0.98f)
+    val exit = slideOutHorizontally(tween(220, easing = FastOutSlowInEasing)) { -dir * it / 8 } + fadeOut(tween(180))
+    return enter togetherWith exit
 }
 
 /** Opens what a notification points at. */

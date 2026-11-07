@@ -4,6 +4,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
@@ -82,3 +83,18 @@ fun LikeButton(liked: Boolean, enabled: Boolean, onToggle: () -> Unit, modifier:
 }
 
 private const val BURST_DOTS = 8
+
+/** A count label that rolls up when the number grows and down when it shrinks. */
+@Composable
+fun RollingCount(count: Int, label: @Composable (Int) -> String, modifier: Modifier = Modifier) {
+    androidx.compose.animation.AnimatedContent(
+        targetState = count,
+        transitionSpec = {
+            val up = targetState > initialState
+            (androidx.compose.animation.slideInVertically(tween(220)) { if (up) it else -it } + androidx.compose.animation.fadeIn(tween(220))) togetherWith
+                (androidx.compose.animation.slideOutVertically(tween(220)) { if (up) -it else it } + androidx.compose.animation.fadeOut(tween(160)))
+        },
+        label = "count",
+        modifier = modifier
+    ) { n -> androidx.compose.material3.Text(label(n), style = MaterialTheme.typography.labelLarge) }
+}

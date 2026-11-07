@@ -107,7 +107,7 @@ fun CommunityScreen(
                     list.isEmpty() -> EmptyState(Icons.Outlined.Forum, stringResource(R.string.community_empty_qa), stringResource(R.string.empty_community_body))
                     else -> LazyColumn(contentPadding = PaddingValues(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
                         if (!p.canAsk) item(key = "lock", contentType = "lock") { LockHint(stringResource(R.string.community_ask_locked)) }
-                        items(list, key = { it.id }, contentType = { "question" }) { q -> QuestionCard(q) { onOpenQuestion(q.id) } }
+                        items(list, key = { it.id }, contentType = { "question" }) { q -> Box(Modifier.animateItem()) { QuestionCard(q) { onOpenQuestion(q.id) } } }
                     }
                 }
             } else {
@@ -118,7 +118,9 @@ fun CommunityScreen(
                     else -> LazyColumn(contentPadding = PaddingValues(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
                         items(list, key = { it.id }, contentType = { "notice" }) { n ->
                             val liked by remember(n.id) { vm.announcementLiked(n.id) }.collectAsStateWithLifecycle(false)
-                            AnnouncementCard(n, liked, p.canLike, onLike = { vm.setAnnouncementLiked(n.id, !liked) }, onOpen = { onOpenAnnouncement(n.id) })
+                            Box(Modifier.animateItem()) {
+                                AnnouncementCard(n, liked, p.canLike, onLike = { vm.setAnnouncementLiked(n.id, !liked) }, onOpen = { onOpenAnnouncement(n.id) })
+                            }
                         }
                     }
                 }

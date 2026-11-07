@@ -26,13 +26,15 @@ import com.ojashealing.family.ui.theme.Spacing
 fun OjasCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
+    containerColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.surface,
+    borderColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.outlineVariant,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val shape = RoundedCornerShape(22.dp)
-    val colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    val colors = CardDefaults.cardColors(containerColor = containerColor)
     // A soft shadow plus a hairline border keeps white cards clear on the ivory background in light mode
     val elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    val border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    val border = BorderStroke(1.dp, borderColor)
     val inner: @Composable ColumnScope.() -> Unit = {
         Column(
             modifier = Modifier.padding(Spacing.xl),

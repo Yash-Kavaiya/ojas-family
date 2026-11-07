@@ -182,7 +182,7 @@ fun ThoughtCard(
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             LikeButton(liked = liked, enabled = canLike, onToggle = onLike)
-            Text(stringResource(R.string.likes_count, thought.likeCount), style = MaterialTheme.typography.labelLarge)
+            com.ojashealing.family.ui.components.RollingCount(thought.likeCount, { stringResource(R.string.likes_count, it) })
             Box(Modifier.weight(1f))
             if (preview) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
