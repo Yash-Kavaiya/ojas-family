@@ -29,6 +29,9 @@ object Permissions {
 
     fun canPostDailyActivity(v: Viewer): Boolean = isStaff(v) || v.memberLevel >= MemberLevel.M3
 
+    /** Hiding your profile opens at User Level 3; staff can always. firestore.rules checks the same. */
+    fun canHideProfile(v: Viewer): Boolean = v.role != Role.Member || v.userLevel.rank >= 3
+
     fun canViewOtherProfiles(v: Viewer): Boolean = isStaff(v) || v.memberLevel >= MemberLevel.M3
 
     fun canBuyWeeklyChat(v: Viewer): Boolean = isStaff(v) || effectiveFreeRank(v) >= UserLevel.L2.rank

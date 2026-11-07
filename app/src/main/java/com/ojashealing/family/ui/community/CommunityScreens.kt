@@ -77,20 +77,26 @@ fun CommunityScreen(
     onOpenQuestion: (String) -> Unit,
     onAsk: () -> Unit,
     onAnnounce: () -> Unit,
-    daily: @Composable (canPost: Boolean) -> Unit = {}
+    daily: @Composable (canPost: Boolean) -> Unit = {},
+    onOpenAnnouncement: (String) -> Unit = {},
+    tab: Int = 0,
+    onTab: (Int) -> Unit = {}
 ) {
     val perms by vm.permissions.collectAsStateWithLifecycle()
     val questions by vm.questions.collectAsStateWithLifecycle()
     val notices by vm.announcements.collectAsStateWithLifecycle()
-    var tab by rememberSaveable { mutableStateOf(0) }
     val p = perms ?: return LoadingState()
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            TabRow(selectedTabIndex = tab, containerColor = MaterialTheme.colorScheme.surface) {
-                Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text(stringResource(R.string.community_qa), maxLines = 1) })
-                Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text(stringResource(R.string.community_daily), maxLines = 1) })
-                Tab(selected = tab == 2, onClick = { tab = 2 }, text = { Text(stringResource(R.string.community_notices), maxLines = 1) })
+            TabRow(
+                selectedTabIndex = tab,
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.primary
+            ) {
+                Tab(selected = tab == 0, onClick = { onTab(0) }, text = { Text(stringResource(R.string.community_qa), maxLines = 1, style = MaterialTheme.typography.labelLarge) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
+                Tab(selected = tab == 1, onClick = { onTab(1) }, text = { Text(stringResource(R.string.community_daily), maxLines = 1, style = MaterialTheme.typography.labelLarge) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
+                Tab(selected = tab == 2, onClick = { onTab(2) }, text = { Text(stringResource(R.string.community_notices), maxLines = 1, style = MaterialTheme.typography.labelLarge) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (tab == 1) {
                 Box(Modifier.weight(1f)) { daily(p.canPostDaily) }
@@ -111,10 +117,8 @@ fun CommunityScreen(
                     list.isEmpty() -> EmptyState(Icons.Outlined.Campaign, stringResource(R.string.community_empty_notices), stringResource(R.string.empty_community_body))
                     else -> LazyColumn(contentPadding = PaddingValues(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
                         items(list, key = { it.id }, contentType = { "notice" }) { n ->
-                            OjasCard {
-                                Text(n.title, style = MaterialTheme.typography.titleLarge)
-                                Text(n.body, style = MaterialTheme.typography.bodyLarge)
-                            }
+                            val liked by remember(n.id) { vm.announcementLiked(n.id) }.collectAsStateWithLifecycle(false)
+                            AnnouncementCard(n, liked, p.canLike, onLike = { vm.setAnnouncementLiked(n.id, !liked) }, onOpen = { onOpenAnnouncement(n.id) })
                         }
                     }
                 }

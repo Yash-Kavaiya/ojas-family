@@ -1,6 +1,23 @@
 package com.ojashealing.family.ui.thought
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.Link
+import androidx.compose.material.icons.outlined.SelfImprovement
+import androidx.compose.material.icons.outlined.SmartDisplay
+import androidx.compose.material.icons.outlined.Spa
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.LaunchedEffect
+import com.ojashealing.family.data.about.AboutInfo
+import com.ojashealing.family.data.about.OJAS_YOUTUBE
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,6 +74,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.runtime.compositionLocalOf
 import com.ojashealing.family.ui.components.PostComposer
 import com.ojashealing.family.ui.components.PostImage
+import com.ojashealing.family.ui.components.NameBadges
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.sp
+import com.ojashealing.family.ui.theme.LocalQuoteStyle
+import com.ojashealing.family.ui.theme.OjasGradients
 
 /** Opens a member's profile when the viewer may see other profiles (admins, staff, Member Level 3); null otherwise. */
 val LocalOpenProfile = compositionLocalOf<((String) -> Unit)?> { null }
@@ -64,23 +88,26 @@ val LocalOpenProfile = compositionLocalOf<((String) -> Unit)?> { null }
 private fun dayLabel(id: String): String = LocalDateLike.parse(id)?.let { "%02d/%02d".format(it.day, it.month) } ?: id
 
 @Composable
-fun HomeScreen(vm: ThoughtViewModel, onSchedule: () -> Unit) {
+fun HomeScreen(
+    vm: ThoughtViewModel,
+    onSchedule: () -> Unit,
+    onOpenThought: (String) -> Unit = {},
+    about: AboutInfo = AboutInfo(),
+    onOpenAbout: (String) -> Unit = {}
+) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val liked by vm.liked.collectAsStateWithLifecycle()
-    val comments by vm.comments.collectAsStateWithLifecycle()
-    val sending by vm.sending.collectAsStateWithLifecycle()
 
     val state = ui ?: return LoadingState()
     Box(Modifier.fillMaxSize()) {
-        if (state.selected == null) {
-            Column(Modifier.fillMaxSize()) {
-                SectionHeader(stringResource(R.string.notif_thought))
-                EmptyState(Icons.Outlined.WbSunny, stringResource(R.string.empty_home_title), stringResource(R.string.empty_home_body), Modifier.weight(1f))
-            }
-        } else {
+        LazyColumn(contentPadding = PaddingValues(bottom = 96.dp), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
+            item(key = "header", contentType = "header") { SectionHeader(stringResource(R.string.notif_thought)) }
             val thought = state.selected
-            LazyColumn(contentPadding = PaddingValues(bottom = 96.dp), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
-                item(key = "header", contentType = "header") { SectionHeader(stringResource(R.string.notif_thought)) }
+            if (thought == null) {
+                item(key = "empty", contentType = "empty") {
+                    EmptyState(Icons.Outlined.WbSunny, stringResource(R.string.empty_home_title), stringResource(R.string.empty_home_body))
+                }
+            } else {
                 item(key = "days", contentType = "days") {
                     LazyRow(contentPadding = PaddingValues(horizontal = Spacing.l), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                         items(state.days, key = { it.id }, contentType = { "day" }) { day ->
@@ -93,57 +120,208 @@ fun HomeScreen(vm: ThoughtViewModel, onSchedule: () -> Unit) {
                     }
                 }
                 item(key = "card", contentType = "card") {
-                    OjasCard(modifier = Modifier.padding(horizontal = Spacing.l)) {
-                        if (thought.imageUrl.isNotEmpty()) PostImage(thought.imageUrl)
-                        Text(thought.title, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
-                        Text(thought.text, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            LikeButton(liked = liked, enabled = state.canLike, onToggle = vm::toggleLike)
-                            Text(stringResource(R.string.likes_count, thought.likeCount), style = MaterialTheme.typography.labelLarge)
-                        }
-                        if (!state.canLike) LockHint(stringResource(R.string.home_like_locked))
-                    }
-                }
-                item(key = "commentsTitle", contentType = "title") {
-                    Text(
-                        stringResource(R.string.home_comments),
-                        style = MaterialTheme.typography.titleLarge,
+                    // The thought sits in its own box; tapping it opens the thought with all its comments
+                    ThoughtCard(
+                        thought = thought,
+                        dayText = if (thought.id == vm.todayId) stringResource(R.string.home_today) else dayLabel(thought.id),
+                        liked = liked,
+                        canLike = state.canLike,
+                        onLike = vm::toggleLike,
+                        onOpen = { onOpenThought(thought.id) },
+                        preview = true,
                         modifier = Modifier.padding(horizontal = Spacing.l)
                     )
                 }
-                if (comments.isEmpty()) {
-                    item(key = "noComments", contentType = "empty") {
-                        Text(
-                            stringResource(R.string.home_no_comments),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = Spacing.l)
-                        )
-                    }
-                }
-                items(comments, key = { it.id }, contentType = { "comment" }) { PostRow(it) }
-                item(key = "composer", contentType = "composer") {
-                    Column(Modifier.padding(horizontal = Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
-                        if (state.canComment) {
-                            PostComposer(
-                                hint = stringResource(R.string.home_comment_hint),
-                                canAttachImage = state.canAttachImage,
-                                mentionable = comments.map { it.author },
-                                busy = sending,
-                                onSend = { d, sent -> vm.comment(d.text, d.photo, d.mentions, sent) }
-                            )
-                        } else {
-                            LockHint(stringResource(R.string.home_comment_locked))
-                        }
-                    }
-                }
             }
+            item(key = "about", contentType = "about") { AboutBox(about, onOpenAbout, Modifier.padding(horizontal = Spacing.l)) }
         }
         if (state.canSchedule) {
             FloatingActionButton(
                 onClick = onSchedule,
                 modifier = Modifier.align(Alignment.BottomEnd).padding(Spacing.l)
             ) { Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.home_schedule)) }
+        }
+    }
+}
+
+/** The Thought of the Day box. In [preview] the text is clipped and a "comments" row invites a tap. */
+@Composable
+fun ThoughtCard(
+    thought: com.ojashealing.family.data.social.Thought,
+    dayText: String,
+    liked: Boolean,
+    canLike: Boolean,
+    onLike: () -> Unit,
+    onOpen: (() -> Unit)?,
+    preview: Boolean,
+    modifier: Modifier = Modifier
+) {
+    OjasCard(modifier = modifier, onClick = onOpen) {
+        Row(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
+                .background(Brush.linearGradient(OjasGradients.sunrise))
+                .padding(horizontal = Spacing.m, vertical = Spacing.s),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.s)
+        ) {
+            Icon(Icons.Outlined.WbSunny, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+            Text(stringResource(R.string.notif_thought), style = MaterialTheme.typography.labelLarge, color = Color.White, modifier = Modifier.weight(1f))
+            Text(dayText, style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.9f))
+        }
+        if (thought.imageUrl.isNotEmpty()) PostImage(thought.imageUrl)
+        Text(thought.title, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface)
+        Column {
+            Text("“", style = LocalQuoteStyle.current.copy(fontSize = 44.sp, lineHeight = 30.sp), color = MaterialTheme.colorScheme.primary)
+            Text(
+                thought.text,
+                style = LocalQuoteStyle.current,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = if (preview) 8 else Int.MAX_VALUE,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+            )
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            LikeButton(liked = liked, enabled = canLike, onToggle = onLike)
+            Text(stringResource(R.string.likes_count, thought.likeCount), style = MaterialTheme.typography.labelLarge)
+            Box(Modifier.weight(1f))
+            if (preview) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                    Text(stringResource(R.string.home_view_comments, thought.commentCount), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                }
+            }
+        }
+        if (!canLike) LockHint(stringResource(R.string.home_like_locked))
+    }
+}
+
+/** Below the thought: About Ojas Family, About Swamiji, the YouTube channel and any links admins add. */
+@Composable
+fun AboutBox(about: AboutInfo, onOpenAbout: (String) -> Unit, modifier: Modifier = Modifier) {
+    val uri = androidx.compose.ui.platform.LocalUriHandler.current
+    OjasCard(modifier = modifier) {
+        Text(stringResource(R.string.about_title), style = MaterialTheme.typography.titleMedium)
+        AboutRow(Icons.Outlined.Spa, stringResource(R.string.about_ojas_family)) { onOpenAbout("ojas") }
+        AboutRow(Icons.Outlined.SelfImprovement, stringResource(R.string.about_swamiji)) { onOpenAbout("swamiji") }
+        AboutRow(Icons.Outlined.SmartDisplay, stringResource(R.string.about_youtube)) { runCatching { uri.openUri(OJAS_YOUTUBE) } }
+        about.links.forEach { l -> AboutRow(Icons.Outlined.Link, l.title) { runCatching { uri.openUri(l.url) } } }
+    }
+}
+
+@Composable
+private fun AboutRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable(onClick = onClick).padding(vertical = Spacing.s),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.m)
+    ) {
+        Box(Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(20.dp))
+        }
+        Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** One thought with all its comments and the comment box; opened by tapping the Home card or a notification. */
+@Composable
+fun ThoughtDetailScreen(vm: ThoughtViewModel, thoughtId: String, onBack: () -> Unit) {
+    LaunchedEffect(thoughtId) { vm.select(thoughtId) }
+    val ui by vm.ui.collectAsStateWithLifecycle()
+    val liked by vm.liked.collectAsStateWithLifecycle()
+    val comments by vm.comments.collectAsStateWithLifecycle()
+    val sending by vm.sending.collectAsStateWithLifecycle()
+    val state = ui
+    val thought = state?.selected?.takeIf { it.id == thoughtId }
+
+    Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).imePadding(),
+            contentPadding = PaddingValues(bottom = Spacing.xl),
+            verticalArrangement = Arrangement.spacedBy(Spacing.m)
+        ) {
+            item(key = "top") {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(Spacing.s)) {
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
+                    Text(stringResource(R.string.notif_thought), style = MaterialTheme.typography.titleLarge)
+                }
+            }
+            if (state == null || thought == null) {
+                item(key = "loading") {
+                    if (state == null) LoadingState(Modifier.fillMaxWidth().padding(Spacing.xl))
+                    else EmptyState(Icons.Outlined.WbSunny, stringResource(R.string.empty_home_title), stringResource(R.string.empty_home_body))
+                }
+                return@LazyColumn
+            }
+            item(key = "card") {
+                ThoughtCard(
+                    thought, if (thought.id == vm.todayId) stringResource(R.string.home_today) else dayLabel(thought.id),
+                    liked, state.canLike, vm::toggleLike, onOpen = null, preview = false,
+                    modifier = Modifier.padding(horizontal = Spacing.l)
+                )
+            }
+            item(key = "commentsTitle") {
+                Text(stringResource(R.string.home_comments), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = Spacing.l))
+            }
+            if (comments.isEmpty()) item(key = "noComments") {
+                Text(stringResource(R.string.home_no_comments), style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = Spacing.l))
+            }
+            items(comments, key = { it.id }, contentType = { "comment" }) { PostRow(it) }
+            item(key = "composer") {
+                Column(Modifier.padding(horizontal = Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
+                    if (state.canComment) {
+                        PostComposer(
+                            hint = stringResource(R.string.home_comment_hint),
+                            canAttachImage = state.canAttachImage,
+                            mentionable = comments.map { it.author },
+                            busy = sending,
+                            onSend = { d, sent -> vm.comment(d.text, d.photo, d.mentions, sent) }
+                        )
+                    } else LockHint(stringResource(R.string.home_comment_locked))
+                }
+            }
+        }
+    }
+}
+
+/** About Ojas Family or About Swamiji: the admin's text from config/about, or the built-in wording. */
+@Composable
+fun AboutScreen(kind: String, about: AboutInfo, onBack: () -> Unit) {
+    val swamiji = kind == "swamiji"
+    val text = (if (swamiji) about.swamiji else about.ojasFamily).ifBlank { stringResource(if (swamiji) R.string.about_swamiji_body else R.string.about_ojas_body) }
+    val uri = androidx.compose.ui.platform.LocalUriHandler.current
+    Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
+        Column(
+            Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(Spacing.m)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(Spacing.s)) {
+                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
+                Text(stringResource(if (swamiji) R.string.about_swamiji else R.string.about_ojas_family), style = MaterialTheme.typography.titleLarge)
+            }
+            Box(
+                Modifier.padding(horizontal = Spacing.l).fillMaxWidth().clip(RoundedCornerShape(24.dp))
+                    .background(Brush.linearGradient(OjasGradients.sunrise)).padding(Spacing.xl),
+                contentAlignment = Alignment.Center
+            ) {
+                androidx.compose.foundation.Image(
+                    painter = androidx.compose.ui.res.painterResource(R.drawable.ojas_lotus),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.size(96.dp).clip(CircleShape)
+                )
+            }
+            OjasCard(modifier = Modifier.padding(horizontal = Spacing.l)) {
+                Text(text, style = MaterialTheme.typography.bodyLarge)
+            }
+            androidx.compose.material3.OutlinedButton(
+                onClick = { runCatching { uri.openUri(OJAS_YOUTUBE) } },
+                modifier = Modifier.padding(horizontal = Spacing.l).fillMaxWidth()
+            ) {
+                Icon(Icons.Outlined.SmartDisplay, contentDescription = null)
+                Text(stringResource(R.string.about_youtube), modifier = Modifier.padding(start = Spacing.s))
+            }
         }
     }
 }
@@ -169,14 +347,19 @@ fun AuthorAvatar(author: Author, size: Int = 36) {
     }
 }
 
-// Swamiji and senior members are marked so their answers stand out
+// Role tick (gold Swamiji, blue admin, teal senior) and level coin, so trusted voices stand out
 @Composable
 fun AuthorLine(author: Author) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-        Text(author.name, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface)
-        if (author.role == Role.Swamiji || author.role == Role.SeniorMember) {
-            Text("✦", style = MaterialTheme.typography.labelLarge, color = SacredGold)
-        }
+        Text(
+            author.name,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false)
+        )
+        NameBadges(author.role, author.userLevel, author.memberLevel)
     }
 }
 

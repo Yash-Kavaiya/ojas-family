@@ -90,14 +90,15 @@ fun PostComposer(
             onValueChange = { text = it.take(1000) },
             placeholder = { Text(hint) },
             modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
             trailingIcon = {
-                if (busy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                else TextButton(
-                    onClick = {
-                        onSend(Draft(text, photo, mentionedUids(text, mentionable))) { text = ""; photo = null }
-                    },
-                    enabled = text.isNotBlank()
-                ) { Text(stringResource(R.string.action_send)) }
+                SendButton(
+                    onClick = { onSend(Draft(text, photo, mentionedUids(text, mentionable))) { text = ""; photo = null } },
+                    enabled = text.isNotBlank(),
+                    busy = busy,
+                    size = 40.dp,
+                    modifier = Modifier.padding(end = 6.dp)
+                )
             }
         )
         Row(verticalAlignment = Alignment.CenterVertically) {

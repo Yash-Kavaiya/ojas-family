@@ -19,7 +19,7 @@ import { playApi } from "./playApi";
 import { syncPublicProfile } from "./profiles";
 import { onCallCreated, onCallUpdated, onChatMessage } from "./chat";
 import {
-  onAnnouncementCreated, onAnswerNotify, onDailyLikeChanged, onDailyPostWritten, onDailyReplyWritten,
+  onAnnouncementCountChanged, onAnnouncementCreated, onAnswerNotify, onDailyLikeChanged, onDailyPostWritten, onDailyReplyWritten,
   onQuestionNotify, onThoughtCommentNotify, onThoughtOfDay,
 } from "./community";
 import type { Messenger } from "./notify";
@@ -187,6 +187,16 @@ export const thoughtOfDayPush = onSchedule({ schedule: "0 6 * * *", timeZone: "A
 });
 
 // ---- Daily Activities (paid members) ----
+
+export const announcementLikeAdded = onDocumentCreated("announcements/{id}/likes/{uid}", (e) =>
+  onAnnouncementCountChanged(db, e.params.id, "likeCount", 1));
+export const announcementLikeRemoved = onDocumentDeleted("announcements/{id}/likes/{uid}", (e) =>
+  onAnnouncementCountChanged(db, e.params.id, "likeCount", -1));
+export const announcementCommentWritten = onDocumentWritten("announcements/{id}/comments/{commentId}", async (e) => {
+  const before = e.data?.before.exists, after = e.data?.after.exists;
+  if (!before && after) await onAnnouncementCountChanged(db, e.params.id, "commentCount", 1);
+  if (before && !after) await onAnnouncementCountChanged(db, e.params.id, "commentCount", -1);
+});
 
 export const dailyPostWritten = onDocumentWritten("dailyPosts/{id}", (e) =>
   onDailyPostWritten(db, messenger, e.params.id, e.data?.before.data(), e.data?.after.data()));

@@ -7,7 +7,15 @@ import java.util.Calendar
 import java.util.TimeZone
 
 /** Who wrote a post, copied onto the post when it is written. */
-data class Author(val uid: String, val name: String, val photo: String, val role: Role)
+/** A post's author snapshot. [userLevel] and [memberLevel] are 0 on posts written before badges existed. */
+data class Author(
+    val uid: String,
+    val name: String,
+    val photo: String,
+    val role: Role,
+    val userLevel: Int = 0,
+    val memberLevel: Int = 0
+)
 
 data class Thought(
     val id: String, // IST date "yyyy-MM-dd"
@@ -54,7 +62,25 @@ data class Question(
     val imageUrl: String = ""
 )
 
-data class Announcement(val id: String, val title: String, val body: String, val createdAt: Long)
+/** What an announcement carries besides text. Stored as "image", "audio" or "video"; absent for text only. */
+enum class MediaKind(val id: String) {
+    Image("image"), Audio("audio"), Video("video");
+
+    companion object {
+        fun fromId(id: String?): MediaKind? = entries.firstOrNull { it.id == id }
+    }
+}
+
+data class Announcement(
+    val id: String,
+    val title: String,
+    val body: String,
+    val createdAt: Long,
+    val mediaKind: MediaKind? = null,
+    val mediaUrl: String = "",
+    val likeCount: Int = 0,
+    val commentCount: Int = 0
+)
 
 /** A post waiting for an admin, or a member's report. [path] is the Firestore document path. */
 data class PendingItem(val path: String, val text: String, val author: String, val createdAt: Long, val imageUrl: String = "")
@@ -102,7 +128,9 @@ internal fun DocumentSnapshot.author() = Author(
     uid = getString("authorUid").orEmpty(),
     name = getString("authorName").orEmpty(),
     photo = getString("authorPhoto").orEmpty(),
-    role = Role.fromId(getString("authorRole"))
+    role = Role.fromId(getString("authorRole")),
+    userLevel = getLong("authorLevel")?.toInt() ?: 0,
+    memberLevel = getLong("authorMember")?.toInt() ?: 0
 )
 
 internal fun DocumentSnapshot.status() = if (getString("status") == "pending") PostStatus.Pending else PostStatus.Visible

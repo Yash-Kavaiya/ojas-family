@@ -6,6 +6,7 @@ export interface Award {
   amount: number;
   reason: string;
   milestone: boolean;
+  note?: string; // shown in the member's points history, e.g. an admin's gift message
   activeDaysDelta?: number;
   extra?: Record<string, unknown>; // other server-only fields to set in the same transaction
   cap?: { action: "like" | "comment" | "question"; day: string }; // counts against config dailyCaps for that IST day
@@ -45,6 +46,7 @@ export async function awardPoints(db: Firestore, uid: string, award: Award): Pro
       amount: award.amount,
       reason: award.reason,
       milestone: award.milestone,
+      ...(award.note ? { note: award.note } : {}),
       createdAt: FieldValue.serverTimestamp(),
     });
     tx.set(userRef, { ...award.extra, mokshaPoints: points, activeDays, userLevel }, { merge: true });

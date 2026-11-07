@@ -40,6 +40,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -127,7 +131,12 @@ private fun IdentityCard(
     uploading: Boolean,
     @StringRes photoError: Int?
 ) {
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> uri?.let(onPickPhoto) }
+    // Pick, then crop and zoom in a circle before uploading
+    var cropping by remember { mutableStateOf<Uri?>(null) }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) cropping = uri }
+    cropping?.let { src ->
+        com.ojashealing.family.ui.components.PhotoCropDialog(src, onDismiss = { cropping = null }, onCropped = { cropping = null; onPickPhoto(it) })
+    }
     val changePhoto = stringResource(R.string.profile_change_photo)
     OjasCard {
         Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
@@ -169,7 +178,10 @@ private fun IdentityCard(
                 Text(changePhoto, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
             }
             photoError?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
-            Text(profile.displayName, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                Text(profile.displayName, style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
+                com.ojashealing.family.ui.components.RoleTick(profile.viewer.role, 22.dp)
+            }
 
             val age = LocalDateLike.parse(profile.dob)?.let { ageOn(it, LocalDateLike.today()) }
             val place = listOfNotNull(
@@ -183,12 +195,7 @@ private fun IdentityCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-                AssistChip(onClick = {}, label = { Text(stringResource(R.string.profile_level, profile.viewer.userLevel.rank)) })
-                if (profile.viewer.memberLevel != MemberLevel.None) {
-                    AssistChip(onClick = {}, label = { Text(stringResource(R.string.profile_member_level, profile.viewer.memberLevel.rank)) })
-                }
-            }
+            com.ojashealing.family.ui.components.ProfileBadges(profile.viewer.role, profile.viewer.userLevel.rank, profile.viewer.memberLevel.rank)
         }
     }
 }

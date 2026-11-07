@@ -1,6 +1,11 @@
 package com.ojashealing.family.ui.ask
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -56,12 +61,14 @@ fun AskTab(
     onOpenChat: () -> Unit,
     onCallSwamiji: () -> Unit,
     onPlans: (PaidAccess) -> Unit,
-    onInbox: () -> Unit
+    onInbox: () -> Unit,
+    onOpenAi: () -> Unit = {}
 ) {
     var locked by remember { mutableStateOf<Access.Locked?>(null) }
     val p = profile ?: return LoadingState()
     val staff = Permissions.isChatStaff(p.viewer)
     LazyColumn(contentPadding = PaddingValues(bottom = Spacing.xl), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
+        item(key = "ai") { SwamijiAiCard(onOpenAi, Modifier.padding(start = Spacing.l, end = Spacing.l, top = Spacing.l)) }
         item(key = "personal") {
             SectionHeader(stringResource(R.string.ask_personal))
             Column(Modifier.padding(horizontal = Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
@@ -125,5 +132,41 @@ private fun PersonalCard(icon: ImageVector, title: String, desc: String, status:
         Text(desc, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         status?.let { Text(it, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary) }
         actions()
+    }
+}
+
+/** Entry to Ask Swamiji AI: a sunrise card with a "Beta" tag, since the AI is still being built. */
+@Composable
+private fun SwamijiAiCard(onOpen: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(24.dp))
+            .background(androidx.compose.ui.graphics.Brush.linearGradient(com.ojashealing.family.ui.theme.OjasGradients.sunrise))
+            .clickable(role = Role.Button, onClick = onOpen)
+            .padding(Spacing.l),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.m)
+    ) {
+        androidx.compose.foundation.layout.Box(
+            Modifier.size(52.dp).clip(androidx.compose.foundation.shape.CircleShape).background(androidx.compose.ui.graphics.Color.White.copy(alpha = 0.22f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Filled.AutoAwesome, contentDescription = null, tint = androidx.compose.ui.graphics.Color.White, modifier = Modifier.size(30.dp))
+        }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
+                Text(stringResource(R.string.ai_title), style = MaterialTheme.typography.titleMedium, color = androidx.compose.ui.graphics.Color.White)
+                Text(
+                    stringResource(R.string.ai_beta_tag),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = androidx.compose.ui.graphics.Color(0xFF7A2E00),
+                    modifier = Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(50))
+                        .background(androidx.compose.ui.graphics.Color(0xFFFFE08A)).padding(horizontal = 8.dp, vertical = 2.dp)
+                )
+            }
+            Text(stringResource(R.string.ai_card_desc), style = MaterialTheme.typography.bodyMedium, color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.95f))
+        }
+        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = androidx.compose.ui.graphics.Color.White)
     }
 }

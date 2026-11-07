@@ -22,7 +22,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.outlined.Call
 import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material.icons.outlined.PersonAdd
@@ -204,10 +203,15 @@ fun ChatScreen(vm: ChatViewModel, onBack: () -> Unit, onRenew: () -> Unit, onCal
                         onValueChange = { draft = it.take(2000) },
                         placeholder = { Text(stringResource(R.string.chat_hint)) },
                         modifier = Modifier.fillMaxWidth(),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
                         trailingIcon = {
-                            IconButton(onClick = { vm.send(draft) { draft = "" } }, enabled = draft.isNotBlank() && !sending) {
-                                Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = stringResource(R.string.action_send))
-                            }
+                            com.ojashealing.family.ui.components.SendButton(
+                                onClick = { vm.send(draft) { draft = "" } },
+                                enabled = draft.isNotBlank(),
+                                busy = sending,
+                                size = 40.dp,
+                                modifier = Modifier.padding(end = 6.dp)
+                            )
                         }
                     )
                 } else {

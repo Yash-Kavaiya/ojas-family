@@ -50,11 +50,15 @@ service cloud.firestore {
       // The client may create its own profile before onUserCreate runs; the function fills server fields
       allow create: if signedIn() && request.auth.uid == uid
         && request.resource.data.keys().hasOnly(userEditableFields())
-        && validProfile(request.resource.data);
+        && validProfile(request.resource.data)
+        && request.resource.data.get('hideProfile', false) != true;
 
+      // Turning hiding on needs User Level 3 (or a staff role); turning it off is always allowed
       allow update: if signedIn() && request.auth.uid == uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(userEditableFields())
-        && validProfile(request.resource.data);
+        && validProfile(request.resource.data)
+        && (request.resource.data.get('hideProfile', false) != true || resource.data.get('hideProfile', false) == true
+            || isStaff() || resource.data.get('userLevel', 1) >= 3);
 
       allow delete: if false;
 
@@ -147,13 +151,19 @@ service cloud.firestore {
       return !('mentions' in data) || (data.mentions is list && data.mentions.size() <= 10);
     }
 
+    // Level badges beside the author's name: optional, never higher than the author's real levels
+    function validBadges(data) {
+      return (!('authorLevel' in data) || (data.authorLevel is int && data.authorLevel >= 1 && data.authorLevel <= rank('userLevel')))
+        && (!('authorMember' in data) || (data.authorMember is int && data.authorMember >= 1 && data.authorMember <= rank('memberLevel')));
+    }
+
     // Author snapshot must be the caller, with the caller's real role; links and images wait for approval
     function validPost(data, maxLen) {
       return data.authorUid == request.auth.uid
         && data.authorRole == role()
         && data.authorName is string && data.authorName.size() <= 80
         && data.text is string && data.text.size() > 0 && data.text.size() <= maxLen
-        && validMedia(data) && validMentions(data)
+        && validMedia(data) && validMentions(data) && validBadges(data)
         && data.status == ((hasLink(data.text) || hasImage(data)) ? 'pending' : 'visible');
     }
 
@@ -197,7 +207,7 @@ service cloud.firestore {
         && request.resource.data.authorRole == role()
         && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 150
         && request.resource.data.body is string && request.resource.data.body.size() <= 2000
-        && validMedia(request.resource.data) && validMentions(request.resource.data)
+        && validMedia(request.resource.data) && validMentions(request.resource.data) && validBadges(request.resource.data)
         && request.resource.data.status == ((hasLink(request.resource.data.title + ' ' + request.resource.data.body)
              || hasImage(request.resource.data)) ? 'pending' : 'visible');
       allow update: if isAdmin();
@@ -220,6 +230,20 @@ service cloud.firestore {
     match /announcements/{id} {
       allow read: if signedIn();
       allow write: if isAdmin();
+
+      // Same rules as liking and commenting on the Thought of the Day
+      match /likes/{uid} {
+        allow read: if signedIn();
+        allow create: if canLike() && validLike(uid);
+        allow delete: if signedIn() && request.auth.uid == uid;
+      }
+
+      match /comments/{commentId} {
+        allow read: if readablePost();
+        allow create: if canComment() && validPost(request.resource.data, 1000);
+        allow update: if isAdmin();
+        allow delete: if signedIn() && (resource.data.authorUid == request.auth.uid || isAdmin());
+      }
     }
 
     match /reports/{id} {
@@ -286,7 +310,7 @@ service cloud.firestore {
         && request.resource.data.text is string && request.resource.data.text.size() <= 1000
         && request.resource.data.imageUrl is string && request.resource.data.imageUrl.size() > 0
         && request.resource.data.imageUrl.size() < 1000
-        && validMentions(request.resource.data)
+        && validMentions(request.resource.data) && validBadges(request.resource.data)
         && request.resource.data.status == (hasLink(request.resource.data.text) ? 'pending' : 'visible');
       allow update: if isAdmin();
       allow delete: if signedIn() && (resource.data.authorUid == request.auth.uid || isAdmin());

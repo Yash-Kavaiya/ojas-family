@@ -12,11 +12,20 @@ import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageMetadata
 import java.util.UUID
 
-/**
- * Reads a picked photo as a JPEG no larger than [maxEdge] pixels on its longest side.
- * Storage rules cap uploads at 5 MB and a phone camera photo can be bigger than that.
- */
-suspend fun ContentResolver.shrunkJpeg(photo: Uri, maxEdge: Int): ByteArray = withContext(Dispatchers.IO) {
+/** Turns of the EXIF orientation tag; phones often store photos sideways and set only this tag. */
+private fun ContentResolver.exifRotation(photo: Uri): Int = runCatching {
+    openInputStream(photo).use { input ->
+        when (android.media.ExifInterface(input!!).getAttributeInt(android.media.ExifInterface.TAG_ORIENTATION, 1)) {
+            android.media.ExifInterface.ORIENTATION_ROTATE_90 -> 90
+            android.media.ExifInterface.ORIENTATION_ROTATE_180 -> 180
+            android.media.ExifInterface.ORIENTATION_ROTATE_270 -> 270
+            else -> 0
+        }
+    }
+}.getOrDefault(0)
+
+/** Decodes a picked photo upright, no larger than about [maxEdge] pixels on its longest side. */
+suspend fun ContentResolver.decodeUpright(photo: Uri, maxEdge: Int): Bitmap = withContext(Dispatchers.IO) {
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     openInputStream(photo).use { BitmapFactory.decodeStream(it, null, bounds) }
     var sample = 1
@@ -24,6 +33,18 @@ suspend fun ContentResolver.shrunkJpeg(photo: Uri, maxEdge: Int): ByteArray = wi
     val bitmap = openInputStream(photo).use {
         BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
     } ?: error("Could not read the photo")
+    val turn = exifRotation(photo)
+    if (turn == 0) bitmap
+    else Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, android.graphics.Matrix().apply { postRotate(turn.toFloat()) }, true)
+        .also { if (it !== bitmap) bitmap.recycle() }
+}
+
+/**
+ * Reads a picked photo as a JPEG no larger than [maxEdge] pixels on its longest side.
+ * Storage rules cap uploads at 5 MB and a phone camera photo can be bigger than that.
+ */
+suspend fun ContentResolver.shrunkJpeg(photo: Uri, maxEdge: Int): ByteArray = withContext(Dispatchers.IO) {
+    val bitmap = decodeUpright(photo, maxEdge)
     ByteArrayOutputStream().use { out ->
         bitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
         bitmap.recycle()
@@ -41,6 +62,20 @@ class PostImages(
 
     /** Thought of the Day pictures; storage.rules lets only admins write here. */
     suspend fun uploadThought(thoughtId: String, photo: Uri): String = put("thoughts/$thoughtId.jpg", photo)
+
+    /**
+     * Announcement attachment (admins only, storage.rules). Pictures are shrunk to JPEG; audio and
+     * video go up as picked, streamed from the file, with their own content type.
+     */
+    suspend fun uploadAnnouncement(media: Uri, kind: com.ojashealing.family.data.social.MediaKind): String {
+        val id = UUID.randomUUID().toString()
+        if (kind == com.ojashealing.family.data.social.MediaKind.Image) return put("announcements/$id.jpg", media)
+        val type = resolver.getType(media) ?: if (kind == com.ojashealing.family.data.social.MediaKind.Audio) "audio/mpeg" else "video/mp4"
+        val ext = type.substringAfter('/').substringBefore(';').ifEmpty { "bin" }
+        val ref = storage.reference.child("announcements/$id.$ext")
+        ref.putFile(media, StorageMetadata.Builder().setContentType(type).build()).await()
+        return ref.downloadUrl.await().toString()
+    }
 
     private suspend fun put(path: String, photo: Uri): String {
         val ref = storage.reference.child(path)

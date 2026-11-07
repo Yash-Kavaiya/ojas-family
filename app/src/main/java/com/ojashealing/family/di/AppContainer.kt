@@ -54,5 +54,6 @@ class AppContainer(context: Context) {
     val calls = CallRepository(Firebase.firestore)
     val publicProfiles = PublicProfileRepository(Firebase.firestore)
     val images = PostImages(Firebase.storage, app.contentResolver)
+    val about = com.ojashealing.family.data.about.AboutRepository(Firebase.firestore)
     val locations = LocationRepository { name -> app.assets.open(name).bufferedReader().use { it.readText() } }
 }

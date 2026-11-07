@@ -90,7 +90,13 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit) {
                 }
 
                 Section(stringResource(R.string.settings_privacy)) {
-                    SwitchRow(stringResource(R.string.settings_hide_profile), state.hideProfile, onChange = vm::setHideProfile)
+                    // Turning hiding off always works; turning it on waits for User Level 3
+                    SwitchRow(stringResource(R.string.settings_hide_profile), state.hideProfile,
+                        enabled = state.canHideProfile || state.hideProfile, onChange = vm::setHideProfile)
+                    if (!state.canHideProfile && !state.hideProfile) {
+                        Text(stringResource(R.string.settings_hide_profile_locked), style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                     SwitchRow(stringResource(R.string.settings_hide_goals), state.hideGoals, onChange = vm::setHideGoals)
                 }
 

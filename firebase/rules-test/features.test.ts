@@ -137,3 +137,46 @@ describe("server-only data", () => {
     await assertSucceeds(getDoc(doc(as("paid"), "users", "paid", "entitlements", "chat")));
   });
 });
+
+describe("level badges on posts", () => {
+  test("a badge may show the author's real level or lower, never higher", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "questions", "q1"), { status: "visible", authorUid: "sw" });
+    });
+    // "free" is User Level 3, Member Level 0
+    await assertSucceeds(setDoc(doc(as("free"), "questions", "q1", "answers", "a1"), post("free", { authorLevel: 3 })));
+    await assertFails(setDoc(doc(as("free"), "questions", "q1", "answers", "a2"), post("free", { authorLevel: 4 })));
+    await assertFails(setDoc(doc(as("free"), "questions", "q1", "answers", "a3"), post("free", { authorMember: 1 })));
+    // "m3" is Member Level 3
+    await assertSucceeds(setDoc(doc(as("m3"), "dailyPosts", "x"), post("m3", { imageUrl: "https://img", authorLevel: 2, authorMember: 3 })));
+    await assertFails(setDoc(doc(as("m3"), "dailyPosts", "y"), post("m3", { imageUrl: "https://img", authorLevel: "4" })));
+  });
+});
+
+describe("announcement likes and comments", () => {
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "announcements", "n1"), { title: "Hi", body: "" });
+    });
+  });
+
+  test("members who may like and comment elsewhere may here too", async () => {
+    await assertSucceeds(setDoc(doc(as("free"), "announcements", "n1", "likes", "free"), {}));
+    await assertFails(setDoc(doc(as("free"), "announcements", "n1", "likes", "paid"), {}));
+    await assertSucceeds(setDoc(doc(as("free"), "announcements", "n1", "comments", "c1"), post("free")));
+    await assertFails(setDoc(doc(as("free"), "announcements", "n1", "comments", "c2"), post("paid")));
+  });
+});
+
+describe("hiding a profile", () => {
+  test("opens at User Level 3; turning it off always works", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "users", "low"), { displayName: "Low", userLevel: 2, memberLevel: 3, role: "member", hideProfile: false });
+      await setDoc(doc(ctx.firestore(), "users", "was"), { displayName: "Was", userLevel: 1, role: "member", hideProfile: true });
+    });
+    await assertFails(updateDoc(doc(as("low"), "users", "low"), { hideProfile: true }));
+    await assertSucceeds(updateDoc(doc(as("free"), "users", "free"), { hideProfile: true })); // "free" is Level 3
+    await assertSucceeds(updateDoc(doc(as("was"), "users", "was"), { displayName: "Was 2" })); // already hidden stays allowed
+    await assertSucceeds(updateDoc(doc(as("was"), "users", "was"), { hideProfile: false }));
+  });
+});

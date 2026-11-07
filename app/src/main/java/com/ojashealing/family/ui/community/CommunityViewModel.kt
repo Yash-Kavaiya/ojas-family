@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ojashealing.family.data.social.Announcement
+import com.ojashealing.family.data.social.MediaKind
 import com.ojashealing.family.data.social.CommunityRepository
 import com.ojashealing.family.data.social.Post
 import com.ojashealing.family.data.social.Question
@@ -55,8 +56,25 @@ fun orderAnswers(answers: List<Post>, blocked: Set<String>): List<Post> =
 class CommunityViewModel(
     private val repo: CommunityRepository,
     profile: Flow<UserProfile?>,
-    private val uploadImage: suspend (uid: String, photo: Uri) -> String = { _, _ -> error("uploads not available") }
+    private val uploadImage: suspend (uid: String, photo: Uri) -> String = { _, _ -> error("uploads not available") },
+    private val uploadAnnouncementMedia: suspend (media: Uri, kind: MediaKind) -> String = { _, _ -> error("uploads not available") }
 ) : ViewModel() {
+
+    private val _announceFailed = kotlinx.coroutines.flow.MutableStateFlow(false)
+    /** True after an announcement (usually its upload) failed, until the next try. */
+    val announceFailed: StateFlow<Boolean> = _announceFailed
+
+    /** Posts an announcement with an optional picture, audio or video; the file uploads first. */
+    fun announce(title: String, body: String, media: Uri?, kind: MediaKind?, onDone: () -> Unit) = withMe {
+        if (_sending.value) return@withMe
+        _sending.value = true
+        _announceFailed.value = false
+        runCatching {
+            val url = if (media != null && kind != null) uploadAnnouncementMedia(media, kind) else ""
+            repo.postAnnouncement(title, body, kind.takeIf { url.isNotEmpty() }, url).getOrThrow()
+        }.onSuccess { onDone() }.onFailure { _announceFailed.value = true }
+        _sending.value = false
+    }
 
     private val _sending = kotlinx.coroutines.flow.MutableStateFlow(false)
     val sending: StateFlow<Boolean> = _sending
@@ -93,6 +111,17 @@ class CommunityViewModel(
     fun answers(questionId: String): Flow<List<Post>> = me.flatMapLatest { p ->
         combine(repo.observeAnswers(questionId, p.viewer, p.uid), blocked) { a, b -> orderAnswers(a, b) }
     }
+
+    fun announcementLiked(id: String): Flow<Boolean> = me.flatMapLatest { repo.observeAnnouncementLiked(id, it.uid) }
+
+    fun announcementComments(id: String): Flow<List<Post>> = me.flatMapLatest { p ->
+        combine(repo.observeAnnouncementComments(id, p.viewer, p.uid), blocked) { c, b -> c.filter { it.author.uid !in b } }
+    }
+
+    fun setAnnouncementLiked(id: String, liked: Boolean) = withMe { repo.setAnnouncementLiked(id, it.uid, liked) }
+
+    fun commentOnAnnouncement(id: String, text: String, photo: Uri?, mentions: List<String>, onDone: () -> Unit) =
+        withPhoto(photo) { p, url -> repo.commentOnAnnouncement(id, p.asAuthor(), text, url, mentions).onSuccess { onDone() } }
 
     fun liked(questionId: String): Flow<Boolean> = me.flatMapLatest { repo.observeLiked(questionId, it.uid) }
 

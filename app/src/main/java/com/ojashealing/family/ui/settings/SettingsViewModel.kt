@@ -35,13 +35,15 @@ data class SettingsProfile(
     val hideGoals: Boolean,
     val notificationPrefs: Map<String, Boolean>,
     val morningReminder: String,
-    val nightReminder: String
+    val nightReminder: String,
+    val canHideProfile: Boolean = true
 )
 
 data class SettingsUiState(
     val themeMode: ThemeMode = ThemeMode.System,
     val language: String = "en",
     val hideProfile: Boolean = false,
+    val canHideProfile: Boolean = true,
     val hideGoals: Boolean = false,
     val notificationPrefs: Map<String, Boolean> = emptyMap(),
     val morningReminder: String = "06:00",
@@ -74,6 +76,7 @@ class SettingsViewModel(
                 if (p != null) _state.update {
                     it.copy(
                         hideProfile = p.hideProfile,
+                        canHideProfile = p.canHideProfile,
                         hideGoals = p.hideGoals,
                         notificationPrefs = p.notificationPrefs,
                         morningReminder = p.morningReminder,

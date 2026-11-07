@@ -1,5 +1,6 @@
 package com.ojashealing.family.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -27,9 +28,11 @@ fun OjasCard(
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val shape = RoundedCornerShape(20.dp)
+    val shape = RoundedCornerShape(22.dp)
     val colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    val elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    // A soft shadow plus a hairline border keeps white cards clear on the ivory background in light mode
+    val elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    val border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     val inner: @Composable ColumnScope.() -> Unit = {
         Column(
             modifier = Modifier.padding(Spacing.xl),
@@ -38,9 +41,9 @@ fun OjasCard(
         )
     }
     if (onClick != null) {
-        Card(onClick = onClick, modifier = modifier.fillMaxWidth(), shape = shape, colors = colors, elevation = elevation, content = inner)
+        Card(onClick = onClick, modifier = modifier.fillMaxWidth(), shape = shape, colors = colors, elevation = elevation, border = border, content = inner)
     } else {
-        Card(modifier = modifier.fillMaxWidth(), shape = shape, colors = colors, elevation = elevation, content = inner)
+        Card(modifier = modifier.fillMaxWidth(), shape = shape, colors = colors, elevation = elevation, border = border, content = inner)
     }
 }
 

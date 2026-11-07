@@ -20,6 +20,8 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -37,7 +39,11 @@ enum class MainTab(@StringRes val label: Int, val selectedIcon: ImageVector, val
 
 @Composable
 fun OjasBottomBar(current: MainTab, onSelect: (MainTab) -> Unit, modifier: Modifier = Modifier) {
-    NavigationBar(containerColor = MaterialTheme.colorScheme.surface, modifier = modifier.testTag("bottom_nav_bar")) {
+    NavigationBar(
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
+        modifier = modifier.shadow(12.dp).testTag("bottom_nav_bar")
+    ) {
         MainTab.entries.forEach { tab ->
             val selected = tab == current
             val label = stringResource(tab.label)
@@ -56,9 +62,11 @@ fun OjasBottomBar(current: MainTab, onSelect: (MainTab) -> Unit, modifier: Modif
                     )
                 },
                 colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = MaterialTheme.colorScheme.primary,
+                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     selectedTextColor = MaterialTheme.colorScheme.primary,
-                    indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                    indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                 ),
                 modifier = Modifier.testTag("nav_${tab.name}")
             )

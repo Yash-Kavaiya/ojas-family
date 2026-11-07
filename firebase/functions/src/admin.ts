@@ -46,6 +46,7 @@ export async function givePointsFor(
       amount,
       reason: "gift",
       milestone: true,
+      note: typeof input.note === "string" && input.note ? input.note.slice(0, 200) : undefined,
       extra: typeof input.note === "string" && input.note ? { lastGiftNote: input.note.slice(0, 200) } : undefined,
     });
     if (ok) given++;

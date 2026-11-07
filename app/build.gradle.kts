@@ -99,6 +99,8 @@ dependencies {
   implementation(libs.googleid)
   implementation(libs.billing.ktx)
   implementation(libs.stream.webrtc)
+  implementation(libs.media3.exoplayer)
+  implementation(libs.media3.ui)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.kotlinx.coroutines.play.services)

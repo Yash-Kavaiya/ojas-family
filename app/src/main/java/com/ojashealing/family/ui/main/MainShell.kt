@@ -66,6 +66,13 @@ import com.ojashealing.family.ui.ask.InboxScreen
 import com.ojashealing.family.ui.ask.InboxViewModel
 import com.ojashealing.family.ui.community.CommunityScreen
 import com.ojashealing.family.ui.community.CommunityViewModel
+import com.ojashealing.family.ui.community.ComposeAnnouncementScreen
+import com.ojashealing.family.ui.community.AnnouncementDetailScreen
+import com.ojashealing.family.ui.thought.ThoughtDetailScreen
+import com.ojashealing.family.ui.thought.AboutScreen
+import com.ojashealing.family.data.points.LevelTargets
+import com.ojashealing.family.ui.screens.PointsHistoryScreen
+import com.ojashealing.family.ui.ask.SwamijiAiScreen
 import com.ojashealing.family.ui.community.ComposeDailyScreen
 import com.ojashealing.family.ui.community.ComposePostScreen
 import com.ojashealing.family.ui.community.DailyFeed
@@ -134,6 +141,11 @@ import kotlinx.serialization.Serializable
 )
 @Serializable data class MemberProfileRoute(val uid: String)
 @Serializable object MembersRoute
+@Serializable object PointsHistoryRoute
+@Serializable data class ThoughtRoute(val id: String)
+@Serializable data class AnnouncementRoute(val id: String)
+@Serializable data class AboutRoute(val kind: String)
+@Serializable object SwamijiAiRoute
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @Composable
@@ -163,7 +175,7 @@ fun MainShell(container: AppContainer) {
         initializer { ThoughtViewModel(container.thoughts, vm.profile, uploadPostImage, container.images::uploadThought) }
     })
     val communityVm: CommunityViewModel = viewModel(factory = viewModelFactory {
-        initializer { CommunityViewModel(container.community, vm.profile, uploadPostImage) }
+        initializer { CommunityViewModel(container.community, vm.profile, uploadPostImage, container.images::uploadAnnouncement) }
     })
     val dailyVm: DailyViewModel = viewModel(factory = viewModelFactory {
         initializer {
@@ -192,6 +204,13 @@ fun MainShell(container: AppContainer) {
     val anchors = remember { RewardAnchors() }
     // Held above the NavHost so sub-screens keep the tab, but not saved: every fresh open starts on Home
     var tab by remember { mutableStateOf(MainTab.Home) }
+    // Q&A, Daily or Announcements inside Community; held here so notifications can pick it
+    var communityTab by rememberSaveable { mutableStateOf(0) }
+    val appLanguage = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language
+    val about by remember(appLanguage) {
+        container.about.observe(appLanguage)
+            .catch { emit(com.ojashealing.family.data.about.AboutInfo()) }
+    }.collectAsStateWithLifecycle(com.ojashealing.family.data.about.AboutInfo())
     val photoUploading by vm.photoUploading.collectAsStateWithLifecycle()
     val photoError by vm.photoError.collectAsStateWithLifecycle()
     val noSwamiji = stringResource(R.string.call_no_swamiji)
@@ -229,7 +248,7 @@ fun MainShell(container: AppContainer) {
         val t = target ?: return@LaunchedEffect
         if (p == null) return@LaunchedEffect
         DeepLinks.consume()
-        openTarget(nav, t, p.uid) { tab = it }
+        openTarget(nav, t, p.uid, selectCommunityTab = { communityTab = it }) { tab = it }
     }
 
     LaunchedEffect(practiceMessage) {
@@ -263,7 +282,7 @@ fun MainShell(container: AppContainer) {
             composable<TabsRoute> {
                 Scaffold(
                     containerColor = MaterialTheme.colorScheme.background,
-                    topBar = { OjasTopBar(profile, onCounterPositioned = { anchors.counterCenter = it }) },
+                    topBar = { OjasTopBar(profile, onCounterPositioned = { anchors.counterCenter = it }, onOpenPoints = { nav.navigate(PointsHistoryRoute) }) },
                     bottomBar = { OjasBottomBar(current = tab, onSelect = { tab = it }) }
                 ) { padding ->
                     Box(
@@ -285,10 +304,19 @@ fun MainShell(container: AppContainer) {
                                         onCompose = { nav.navigate(ComposeDailyRoute) },
                                         onJoin = { openPlans(PaidAccess.Membership) }
                                     )
-                                }
+                                },
+                                onOpenAnnouncement = { nav.navigate(AnnouncementRoute(it)) },
+                                tab = communityTab,
+                                onTab = { communityTab = it }
                             )
                             MainTab.Spiritual -> PracticeTab(practice, onPlay = play, practice = practiceStatus, practiceBusy = practiceBusy, onMarkPractice = practiceVm::mark)
-                            MainTab.Home -> HomeScreen(thoughtVm, onSchedule = { nav.navigate(ScheduleThoughtRoute) })
+                            MainTab.Home -> HomeScreen(
+                                thoughtVm,
+                                onSchedule = { nav.navigate(ScheduleThoughtRoute) },
+                                onOpenThought = { nav.navigate(ThoughtRoute(it)) },
+                                about = about,
+                                onOpenAbout = { nav.navigate(AboutRoute(it)) }
+                            )
                             MainTab.Ask -> AskTab(
                                 profile = profile,
                                 entitlements = entitlements,
@@ -297,7 +325,8 @@ fun MainShell(container: AppContainer) {
                                 onOpenChat = { nav.navigate(ChatRoute()) },
                                 onCallSwamiji = callSwamiji,
                                 onPlans = { openPlans(it) },
-                                onInbox = { nav.navigate(InboxRoute) }
+                                onInbox = { nav.navigate(InboxRoute) },
+                                onOpenAi = { nav.navigate(SwamijiAiRoute) }
                             )
                             MainTab.Profile -> ProfileTab(
                                 profile = profile,
@@ -334,15 +363,7 @@ fun MainShell(container: AppContainer) {
                     onSubmitWithPhoto = { t, b, photo, done -> communityVm.ask(t, b, photo, done) }
                 )
             }
-            composable<AnnounceRoute> {
-                ComposePostScreen(
-                    title = stringResource(R.string.community_post_notice),
-                    firstLabel = stringResource(R.string.field_title),
-                    secondLabel = stringResource(R.string.field_message),
-                    onBack = { nav.popBackStack() },
-                    onSubmit = { t, b, done -> communityVm.announce(t, b, done) }
-                )
-            }
+            composable<AnnounceRoute> { ComposeAnnouncementScreen(communityVm, onBack = { nav.popBackStack() }) }
             composable<DailyPostRoute> { entry -> DailyPostScreen(dailyVm, entry.toRoute<DailyPostRoute>().id, onBack = { nav.popBackStack() }) }
             composable<ComposeDailyRoute> { ComposeDailyScreen(dailyVm, onBack = { nav.popBackStack() }) }
             composable<ScheduleThoughtRoute> { ScheduleThoughtScreen(thoughtVm, onDone = { nav.popBackStack() }) }
@@ -422,6 +443,19 @@ fun MainShell(container: AppContainer) {
                 val uid = entry.toRoute<MemberProfileRoute>().uid
                 PublicProfileScreen(remember(uid) { container.publicProfiles.observe(uid) }, goals.goals, container.locations, onBack = { nav.popBackStack() })
             }
+            composable<ThoughtRoute> { entry -> ThoughtDetailScreen(thoughtVm, entry.toRoute<ThoughtRoute>().id, onBack = { nav.popBackStack() }) }
+            composable<AnnouncementRoute> { entry -> AnnouncementDetailScreen(communityVm, entry.toRoute<AnnouncementRoute>().id, onBack = { nav.popBackStack() }) }
+            composable<AboutRoute> { entry -> AboutScreen(entry.toRoute<AboutRoute>().kind, about, onBack = { nav.popBackStack() }) }
+            composable<PointsHistoryRoute> {
+                val uid = profile?.uid
+                val history by remember(uid) { uid?.let { container.points.observeHistory(it).catch { emit(emptyList()) } } ?: flowOf(null) }
+                    .collectAsStateWithLifecycle(null)
+                val targets by remember { container.points.observeLevelTargets().catch { emit(LevelTargets()) } }.collectAsStateWithLifecycle(LevelTargets())
+                PointsHistoryScreen(profile, history, targets, onBack = { nav.popBackStack() })
+            }
+            composable<SwamijiAiRoute> {
+                SwamijiAiScreen(onBack = { nav.popBackStack() }, onAskSwamiji = { nav.popBackStack(); tab = MainTab.Ask })
+            }
             composable<MembersRoute> {
                 val membersVm: MembersViewModel = viewModel(factory = viewModelFactory { initializer { MembersViewModel(container.publicProfiles, container.paid) } })
                 MembersScreen(membersVm, onBack = { nav.popBackStack() })
@@ -438,7 +472,7 @@ fun MainShell(container: AppContainer) {
                     initializer {
                         SettingsViewModel(
                             profile = vm.profile.map { p ->
-                                p?.let { SettingsProfile(it.hideProfile, it.hideGoals, it.notificationPrefs, it.morningReminder, it.nightReminder) }
+                                p?.let { SettingsProfile(it.hideProfile, it.hideGoals, it.notificationPrefs, it.morningReminder, it.nightReminder, Permissions.canHideProfile(it.viewer)) }
                             },
                             theme = container.settings,
                             writeSettings = { fields ->
@@ -468,16 +502,26 @@ fun MainShell(container: AppContainer) {
 }
 
 /** Opens what a notification points at. */
-private fun openTarget(nav: NavHostController, target: String, myUid: String, selectTab: (MainTab) -> Unit) {
+private fun openTarget(
+    nav: NavHostController,
+    target: String,
+    myUid: String,
+    selectCommunityTab: (Int) -> Unit = {},
+    selectTab: (MainTab) -> Unit
+) {
     val (kind, id) = target.split("/", limit = 2).let { it[0] to it.getOrElse(1) { "" } }
+    // Put the right tab underneath, then open the item itself, so Back lands where it belongs
     when (kind) {
-        "questions" -> nav.navigate(QuestionRoute(id))
-        "dailyPosts" -> nav.navigate(DailyPostRoute(id))
+        "questions" -> { selectTab(MainTab.Community); selectCommunityTab(0); nav.navigate(QuestionRoute(id)) }
+        "dailyPosts" -> { selectTab(MainTab.Community); selectCommunityTab(1); nav.navigate(DailyPostRoute(id)) }
         "chats" -> nav.navigate(ChatRoute(if (id == myUid) "" else id))
         // The ringing-call listener may already have opened it
         "calls" -> if (nav.currentBackStackEntry?.destination?.route?.contains("CallRoute") != true) nav.navigate(CallRoute(callId = id))
-        "thoughts" -> selectTab(MainTab.Home)
-        "announcements" -> selectTab(MainTab.Community)
+        "thoughts" -> { selectTab(MainTab.Home); if (id.isNotEmpty()) nav.navigate(ThoughtRoute(id)) }
+        "announcements" -> {
+            selectTab(MainTab.Community); selectCommunityTab(2)
+            if (id.isNotEmpty()) nav.navigate(AnnouncementRoute(id))
+        }
         "practice" -> selectTab(MainTab.Spiritual)
     }
 }

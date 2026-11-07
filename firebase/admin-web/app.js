@@ -390,18 +390,50 @@ async function moderation() {
 }
 
 // ---------- announcements ----------
+const MEDIA_LIMITS = { image: 5, audio: 30, video: 100 }; // MB, same as storage.rules
+
+function mediaKindOf(file) {
+  const t = (file && file.type) || "";
+  return t.startsWith("image/") ? "image" : t.startsWith("audio/") ? "audio" : t.startsWith("video/") ? "video" : null;
+}
+
+function mediaHtml(x) {
+  const url = typeof x.mediaUrl === "string" && x.mediaUrl.startsWith("https://") ? esc(x.mediaUrl) : "";
+  if (!url) return "";
+  if (x.mediaType === "image") return `<img src="${url}" alt="" style="max-width:100%;max-height:320px;border-radius:12px">`;
+  if (x.mediaType === "audio") return `<audio controls preload="none" src="${url}" style="width:100%"></audio>`;
+  if (x.mediaType === "video") return `<video controls preload="metadata" src="${url}" style="max-width:100%;max-height:360px;border-radius:12px"></video>`;
+  return "";
+}
+
 async function announcements() {
   const snap = await getDocs(query(collection(db, "announcements"), orderBy("createdAt", "desc"), limit(50)));
   view().innerHTML = `
     <h1>Announcements</h1>
     <div class="card stack"><label>Title<input id="a-title" maxlength="150"></label><label>Message<textarea id="a-body" maxlength="2000"></textarea></label>
-      <p class="muted">Members with announcement notifications on get a push.</p><button class="primary" id="a-post">Post</button></div>
-    <h2>Posted</h2><div class="stack">${snap.docs.map((d) => { const x = d.data(); return `<div class="card" data-id="${d.id}"><b>${esc(x.title)}</b>
-      <span class="muted">${fmt(x.createdAt)}</span><p>${esc(x.body)}</p><button class="link danger a-del">Delete</button></div>`; }).join("") || '<p class="muted">None yet.</p>'}</div>`;
+      <label>Picture, audio or video (optional)<input id="a-file" type="file" accept="image/*,audio/*,video/*"></label>
+      <p class="muted">Up to 5 MB for a picture, 30 MB for audio, 100 MB for video. Members with announcement notifications on get a push.</p>
+      <button class="primary" id="a-post">Post</button></div>
+    <h2>Posted</h2><div class="stack">${snap.docs.map((d) => { const x = d.data(); return `<div class="card stack" data-id="${d.id}"><div><b>${esc(x.title)}</b>
+      <span class="muted">${fmt(x.createdAt)}</span></div><p>${esc(x.body)}</p>${mediaHtml(x)}<button class="link danger a-del">Delete</button></div>`; }).join("") || '<p class="muted">None yet.</p>'}</div>`;
   $("#a-post").onclick = (e) => {
     const title = $("#a-title").value.trim(), body = $("#a-body").value.trim();
+    const file = $("#a-file").files[0];
     if (!title) return toast("Title is required", true);
-    run(e.target, () => addDoc(collection(db, "announcements"), { title, body, createdAt: serverTimestamp() }), "Posted").then(announcements);
+    const kind = file ? mediaKindOf(file) : null;
+    if (file && !kind) return toast("Pick a picture, audio or video file", true);
+    if (file && file.size >= MEDIA_LIMITS[kind] * 1024 * 1024) return toast(`That ${kind} is larger than ${MEDIA_LIMITS[kind]} MB`, true);
+    run(e.target, async () => {
+      const data = { title, body, createdAt: serverTimestamp() };
+      if (file) {
+        const ext = (file.name.split(".").pop() || "bin").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 5) || "bin";
+        const r = ref(storage, `announcements/${crypto.randomUUID()}.${ext}`);
+        await uploadBytes(r, file, { contentType: file.type });
+        data.mediaType = kind;
+        data.mediaUrl = await getDownloadURL(r);
+      }
+      await addDoc(collection(db, "announcements"), data);
+    }, "Posted").then(announcements);
   };
   $$(".a-del").forEach((b) => (b.onclick = () => confirm("Delete this announcement?") &&
     run(b, () => deleteDoc(doc(db, "announcements", b.closest("[data-id]").dataset.id)), "Deleted").then(announcements)));
@@ -437,6 +469,8 @@ async function settings() {
   const lv = (await getDoc(doc(db, "config", "levels"))).data() || {};
   const turn = (await getDoc(doc(db, "config", "turn"))).data() || {};
   const staff = (await getDoc(doc(db, "config", "staff"))).data() || {};
+  const about = (await getDoc(doc(db, "config", "about"))).data() || {};
+  const ta = (id, label) => `<label>${label}<textarea id="ab-${id}" maxlength="3000">${esc(about[id] || "")}</textarea></label>`;
   const n = (path, dflt) => path.split(".").reduce((o, k) => o?.[k], lv) ?? dflt;
   const lvl = (k, d, p) => `<tr><td>${k.toUpperCase()}</td><td><input type="number" id="${k}-days" value="${n(`${k}.days`, d)}" style="width:100px"></td><td><input type="number" id="${k}-points" value="${n(`${k}.points`, p)}" style="width:120px"></td></tr>`;
   view().innerHTML = `
@@ -453,7 +487,13 @@ async function settings() {
       <p class="muted">If calls ring but never connect on some networks, add a TURN relay here (no app update needed).</p>
       <label>TURN URLs (comma separated)<input id="turn-urls" value="${esc((turn.urls || []).join(", "))}" placeholder="turn:turn.example.com:3478"></label>
       <div class="row"><label>Username<input id="turn-user" value="${esc(turn.username || "")}"></label><label>Password<input id="turn-pass" value="${esc(turn.credential || "")}"></label></div>
-      <button class="primary" id="s-turn">Save calls</button></div>`;
+      <button class="primary" id="s-turn">Save calls</button></div>
+    <div class="card stack" style="margin-top:12px"><h3>About box on the Home tab</h3>
+      <p class="muted">Leave a box empty to show the app's built-in text. Hindi and Gujarati are optional; English shows when they are empty.</p>
+      ${ta("ojasFamily", "About Ojas Family (English)")}${ta("ojasFamily_hi", "About Ojas Family (Hindi)")}${ta("ojasFamily_gu", "About Ojas Family (Gujarati)")}
+      ${ta("swamiji", "About Swamiji (English)")}${ta("swamiji_hi", "About Swamiji (Hindi)")}${ta("swamiji_gu", "About Swamiji (Gujarati)")}
+      <label>Extra links, one per line: Title | https://link<textarea id="ab-links">${esc((about.links || []).map((l) => `${l.title} | ${l.url}`).join("\n"))}</textarea></label>
+      <button class="primary" id="s-about">Save About</button></div>`;
   const num = (id) => Math.max(0, Math.floor(Number($(id).value) || 0));
   $("#s-levels").onclick = (e) => run(e.target, () => setDoc(doc(db, "config", "levels"), {
     l2: { days: num("#l2-days"), points: num("#l2-points") },
@@ -461,6 +501,14 @@ async function settings() {
     l4: { days: num("#l4-days"), points: num("#l4-points") },
     dailyCaps: { like: num("#cap-like"), comment: num("#cap-comment"), question: num("#cap-question") },
   }, { merge: true }), "Levels saved");
+  $("#s-about").onclick = (e) => {
+    const links = $("#ab-links").value.split("\n").map((line) => line.split("|").map((x) => x.trim())).filter((p) => p.length >= 2 && p[0] && p[1]);
+    const bad = links.find((p) => !p[1].startsWith("https://"));
+    if (bad) return toast(`Links must start with https:// (${bad[0]})`, true);
+    const data = { links: links.map(([title, url]) => ({ title: title.slice(0, 60), url: url.slice(0, 500) })) };
+    for (const k of ["ojasFamily", "ojasFamily_hi", "ojasFamily_gu", "swamiji", "swamiji_hi", "swamiji_gu"]) data[k] = $(`#ab-${k}`).value.trim();
+    run(e.target, () => setDoc(doc(db, "config", "about"), data), "About saved");
+  };
   $("#s-turn").onclick = (e) => run(e.target, () => setDoc(doc(db, "config", "turn"), {
     urls: $("#turn-urls").value.split(",").map((s) => s.trim()).filter(Boolean), username: $("#turn-user").value.trim(), credential: $("#turn-pass").value.trim(),
   }), "Saved");

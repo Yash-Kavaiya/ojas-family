@@ -50,7 +50,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ojashealing.family.R
 import com.ojashealing.family.data.user.UserProfile
-import com.ojashealing.family.ui.theme.SacredGold
+import com.ojashealing.family.ui.theme.OjasGradients
+import com.ojashealing.family.ui.theme.BrandNumberStyle
+import com.ojashealing.family.ui.theme.BrandTitleStyle
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import com.ojashealing.family.ui.theme.Spacing
 import kotlinx.coroutines.delay
 
@@ -58,7 +65,8 @@ import kotlinx.coroutines.delay
 fun OjasTopBar(
     profile: UserProfile?,
     modifier: Modifier = Modifier,
-    onCounterPositioned: (Offset) -> Unit = {}
+    onCounterPositioned: (Offset) -> Unit = {},
+    onOpenPoints: () -> Unit = {}
 ) {
     val points = profile?.mokshaPoints ?: 0
 
@@ -79,7 +87,7 @@ fun OjasTopBar(
         lastPoints = points
     }
 
-    Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp, modifier = modifier.fillMaxWidth()) {
+    Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 3.dp, modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -88,30 +96,39 @@ fun OjasTopBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.m)
         ) {
-            Image(
-                painter = painterResource(R.drawable.ojas_lotus),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.size(40.dp).clip(CircleShape)
-            )
+            Box(
+                Modifier.size(44.dp).clip(CircleShape).background(Brush.linearGradient(OjasGradients.gold)).padding(2.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.ojas_lotus),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.size(40.dp).clip(CircleShape)
+                )
+            }
             Column(modifier = Modifier.weight(1f)) {
+                // The brand name always in Poppins, whatever the app language
                 Text(
                     stringResource(R.string.app_name),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    style = BrandTitleStyle.copy(brush = Brush.horizontalGradient(OjasGradients.saffron)),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 if (profile != null) {
-                    Text(
-                        stringResource(R.string.profile_level, profile.viewer.userLevel.rank),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            stringResource(R.string.profile_level, profile.viewer.userLevel.rank),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        NameBadges(profile.viewer.role, profile.viewer.userLevel.rank, profile.viewer.memberLevel.rank, 14.dp)
+                    }
                 }
             }
 
             val pointsLabel = stringResource(R.string.profile_points)
+            val historyLabel = stringResource(R.string.points_history_title)
             Row(
                 modifier = Modifier
                     .testTag("moksha_points_badge")
@@ -121,14 +138,16 @@ fun OjasTopBar(
                     }
                     .onPlaced { onCounterPositioned(it.boundsInRoot().center) }
                     .clip(RoundedCornerShape(50))
-                    .background(MaterialTheme.colorScheme.primaryContainer)
+                    .background(Brush.linearGradient(OjasGradients.gold))
+                    .clickable(onClickLabel = historyLabel, role = Role.Button, onClick = onOpenPoints)
                     .padding(horizontal = Spacing.m, vertical = Spacing.s)
                     .semantics { contentDescription = "$points $pointsLabel" },
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
             ) {
-                Icon(Icons.Filled.Stars, contentDescription = null, tint = SacredGold, modifier = Modifier.size(18.dp))
-                Text("$shownPoints", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                Icon(Icons.Filled.Stars, contentDescription = null, tint = Color(0xFFB45309), modifier = Modifier.size(18.dp))
+                Text("$shownPoints", style = BrandNumberStyle, color = Color(0xFF3B2300))
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = Color(0xFF3B2300), modifier = Modifier.size(16.dp))
             }
         }
     }

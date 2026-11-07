@@ -48,7 +48,7 @@ fun buildThoughtUi(thoughts: List<Thought>, selectedId: String?, viewer: Viewer,
     )
 }
 
-fun UserProfile.asAuthor() = Author(uid, displayName, photoUrl, viewer.role)
+fun UserProfile.asAuthor() = Author(uid, displayName, photoUrl, viewer.role, viewer.userLevel.rank, viewer.memberLevel.rank)
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ThoughtViewModel(

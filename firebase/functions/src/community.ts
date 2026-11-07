@@ -74,3 +74,10 @@ export async function onDailyReplyWritten(db: Firestore, m: Messenger, postId: s
 export async function onDailyLikeChanged(db: Firestore, postId: string, delta: 1 | -1): Promise<void> {
   await db.doc(`dailyPosts/${postId}`).set({ likeCount: FieldValue.increment(delta) }, { merge: true });
 }
+
+/** Announcement likes and comments only keep counts (no points, no pushes). */
+export async function onAnnouncementCountChanged(db: Firestore, id: string, field: "likeCount" | "commentCount", delta: 1 | -1): Promise<void> {
+  const ref = db.doc(`announcements/${id}`);
+  if (!(await ref.get()).exists) return; // the announcement itself was deleted
+  await ref.set({ [field]: FieldValue.increment(delta) }, { merge: true });
+}

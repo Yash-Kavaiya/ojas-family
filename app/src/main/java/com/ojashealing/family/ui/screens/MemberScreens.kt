@@ -109,7 +109,10 @@ fun PublicProfileScreen(profile: Flow<PublicProfile?>, goals: List<Goal>, locati
                 OjasCard {
                     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
                         Avatar(u.photoUrl, 88)
-                        Text(u.displayName, style = MaterialTheme.typography.titleLarge)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                            Text(u.displayName, style = MaterialTheme.typography.headlineSmall)
+                            com.ojashealing.family.ui.components.RoleTick(u.role, 22.dp)
+                        }
                         val age = ageFromBirthMonth(u.birthMonth, LocalDateLike.today())
                         val place = listOfNotNull(
                             u.city.takeIf { it.isNotEmpty() },
@@ -118,10 +121,7 @@ fun PublicProfileScreen(profile: Flow<PublicProfile?>, goals: List<Goal>, locati
                         ).joinToString(", ")
                         Text(listOfNotNull(age?.let { stringResource(R.string.profile_age, it) }, place.ifEmpty { null }).joinToString(" · "),
                             style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-                            AssistChip(onClick = {}, label = { Text(stringResource(R.string.profile_level, u.userLevel)) })
-                            if (u.memberLevel > 0) AssistChip(onClick = {}, label = { Text(stringResource(R.string.profile_member_level, u.memberLevel)) })
-                        }
+                        com.ojashealing.family.ui.components.ProfileBadges(u.role, u.userLevel, u.memberLevel)
                         Text(stringResource(R.string.profile_points) + ": " + u.mokshaPoints, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                     }
                 }

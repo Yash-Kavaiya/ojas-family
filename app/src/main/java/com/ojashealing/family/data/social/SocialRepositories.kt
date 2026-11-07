@@ -27,11 +27,18 @@ private fun Query.flow() = callbackFlow {
     awaitClose { reg.remove() }
 }
 
+/** Level badges shown beside the name; firestore.rules checks they are no higher than the author's real levels. */
+internal fun MutableMap<String, Any>.putBadges(author: Author) {
+    if (author.userLevel > 0) put("authorLevel", author.userLevel)
+    if (author.memberLevel > 0) put("authorMember", author.memberLevel)
+}
+
 private fun postFields(author: Author, text: String, imageUrl: String = "", mentions: List<String> = emptyList()) = buildMap<String, Any> {
     put("authorUid", author.uid)
     put("authorName", author.name)
     put("authorPhoto", author.photo)
     put("authorRole", author.role.toId())
+    putBadges(author)
     put("text", text.trim())
     put("status", if (needsReview(text, imageUrl)) "pending" else "visible")
     put("createdAt", FieldValue.serverTimestamp())
@@ -133,10 +140,39 @@ class CommunityRepository(private val db: FirebaseFirestore) {
 
     fun observeAnnouncements(): Flow<List<Announcement>> =
         db.collection("announcements").orderBy("createdAt", Query.Direction.DESCENDING).limit(50).flow()
-            .map { docs -> docs.map { Announcement(it.id, it.getString("title").orEmpty(), it.getString("body").orEmpty(), it.millis("createdAt")) } }
+            .map { docs ->
+                docs.map {
+                    Announcement(
+                        it.id, it.getString("title").orEmpty(), it.getString("body").orEmpty(), it.millis("createdAt"),
+                        MediaKind.fromId(it.getString("mediaType")), it.getString("mediaUrl").orEmpty(),
+                        (it.getLong("likeCount") ?: 0L).toInt().coerceAtLeast(0), (it.getLong("commentCount") ?: 0L).toInt().coerceAtLeast(0)
+                    )
+                }
+            }
 
     fun observeBlocked(uid: String): Flow<Set<String>> =
         db.collection("users/$uid/blocked").flow().map { docs -> docs.map { it.id }.toSet() }
+
+    // ---- Announcement likes and comments (counts kept by functions) ----
+
+    fun observeAnnouncementLiked(id: String, uid: String): Flow<Boolean> = callbackFlow {
+        val reg = db.document("announcements/$id/likes/$uid").addSnapshotListener { s, _ -> trySend(s?.exists() == true) }
+        awaitClose { reg.remove() }
+    }
+
+    fun observeAnnouncementComments(id: String, viewer: Viewer, uid: String): Flow<List<Post>> =
+        db.posts("announcements/$id/comments", uid, viewer.role == Role.Admin, Query.Direction.ASCENDING)
+
+    suspend fun setAnnouncementLiked(id: String, uid: String, liked: Boolean): Result<Unit> = runCatching {
+        val ref = db.document("announcements/$id/likes/$uid")
+        if (liked) ref.set(mapOf("createdAt" to FieldValue.serverTimestamp())).await() else ref.delete().await()
+        Unit
+    }
+
+    suspend fun commentOnAnnouncement(id: String, author: Author, text: String, imageUrl: String = "", mentions: List<String> = emptyList()): Result<Unit> = runCatching {
+        db.collection("announcements/$id/comments").add(postFields(author, text, imageUrl, mentions)).await()
+        Unit
+    }
 
     suspend fun setLiked(questionId: String, uid: String, liked: Boolean): Result<Unit> = runCatching {
         val ref = db.document("questions/$questionId/likes/$uid")
@@ -148,7 +184,7 @@ class CommunityRepository(private val db: FirebaseFirestore) {
         db.collection("questions").add(
             buildMap<String, Any> {
                 put("authorUid", author.uid); put("authorName", author.name); put("authorPhoto", author.photo)
-                put("authorRole", author.role.toId()); put("title", title.trim()); put("body", body.trim())
+                put("authorRole", author.role.toId()); putBadges(author); put("title", title.trim()); put("body", body.trim())
                 put("status", if (needsReview("$title $body", imageUrl)) "pending" else "visible")
                 put("createdAt", FieldValue.serverTimestamp())
                 if (imageUrl.isNotEmpty()) put("imageUrl", imageUrl)
@@ -162,8 +198,13 @@ class CommunityRepository(private val db: FirebaseFirestore) {
         Unit
     }
 
-    suspend fun postAnnouncement(title: String, body: String): Result<Unit> = runCatching {
-        db.collection("announcements").add(mapOf("title" to title.trim(), "body" to body.trim(), "createdAt" to FieldValue.serverTimestamp())).await()
+    suspend fun postAnnouncement(title: String, body: String, media: MediaKind? = null, mediaUrl: String = ""): Result<Unit> = runCatching {
+        db.collection("announcements").add(
+            buildMap<String, Any> {
+                put("title", title.trim()); put("body", body.trim()); put("createdAt", FieldValue.serverTimestamp())
+                if (media != null && mediaUrl.isNotEmpty()) { put("mediaType", media.id); put("mediaUrl", mediaUrl) }
+            }
+        ).await()
         Unit
     }
 
@@ -218,7 +259,7 @@ class DailyRepository(private val db: FirebaseFirestore) {
         db.collection("dailyPosts").add(
             buildMap<String, Any> {
                 put("authorUid", author.uid); put("authorName", author.name); put("authorPhoto", author.photo)
-                put("authorRole", author.role.toId()); put("text", text.trim()); put("imageUrl", imageUrl)
+                put("authorRole", author.role.toId()); putBadges(author); put("text", text.trim()); put("imageUrl", imageUrl)
                 put("status", if (containsLink(text)) "pending" else "visible")
                 put("createdAt", FieldValue.serverTimestamp())
                 if (mentions.isNotEmpty()) put("mentions", mentions.take(10))

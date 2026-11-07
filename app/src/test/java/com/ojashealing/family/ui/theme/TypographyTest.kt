@@ -1,11 +1,10 @@
 package com.ojashealing.family.ui.theme
 
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import java.util.Locale
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
+import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
 class TypographyTest {
@@ -16,9 +15,10 @@ class TypographyTest {
     }
 
     @Test
-    fun latinScaleMatchesSpec() {
+    fun latinScale() {
         val t = ojasTypography(Script.Latin)
-        assertSize(t.displayLarge, 32, 40)
+        assertSize(t.displayLarge, 30, 38)
+        assertSize(t.headlineMedium, 24, 32)
         assertSize(t.titleLarge, 20, 28)
         assertSize(t.bodyLarge, 16, 24)
         assertSize(t.labelLarge, 14, 20)
@@ -26,20 +26,23 @@ class TypographyTest {
     }
 
     @Test
-    fun indicScriptsAddTwoSpLineHeight() {
-        assertEquals(26.sp, ojasTypography(Script.Devanagari).bodyLarge.lineHeight)
-        assertEquals(26.sp, ojasTypography(Script.Gujarati).bodyLarge.lineHeight)
+    fun indicScriptsAddFourSpLineHeight() {
+        assertEquals(28.sp, ojasTypography(Script.Devanagari).bodyLarge.lineHeight)
+        assertEquals(28.sp, ojasTypography(Script.Gujarati).bodyLarge.lineHeight)
     }
 
     @Test
-    fun onlyTwoWeights() {
+    fun englishHeadingsAndBodyUseDifferentFaces() {
         val t = ojasTypography(Script.Latin)
-        val styles = listOf(
-            t.displayLarge, t.displayMedium, t.displaySmall, t.headlineLarge, t.headlineMedium,
-            t.headlineSmall, t.titleLarge, t.titleMedium, t.titleSmall, t.bodyLarge, t.bodyMedium,
-            t.bodySmall, t.labelLarge, t.labelMedium, t.labelSmall
-        )
-        styles.forEach { assertTrue(it.fontWeight in setOf(FontWeight.Normal, FontWeight.SemiBold)) }
+        assertNotEquals(t.titleLarge.fontFamily, t.bodyLarge.fontFamily)
+        assertEquals(Poppins, t.titleLarge.fontFamily)
+    }
+
+    @Test
+    fun gujaratiUsesOneFaceThroughout() {
+        val t = ojasTypography(Script.Gujarati)
+        assertEquals(t.titleLarge.fontFamily, t.bodyLarge.fontFamily)
+        assertNotEquals(Poppins, t.bodyLarge.fontFamily)
     }
 
     @Test
