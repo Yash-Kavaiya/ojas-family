@@ -91,11 +91,17 @@ fun clampPan(w: Int, h: Int, view: Float, zoom: Float, pan: Offset): Offset {
 }
 
 /** Where the whole picture sits, centred, inside a [view]-sized square ("Fit"). */
-fun fitRect(w: Int, h: Int, view: Float): android.graphics.RectF {
+fun fitRect(w: Int, h: Int, view: Float): FitRect {
     val scale = minOf(view / w, view / h)
     val dw = w * scale
     val dh = h * scale
-    return android.graphics.RectF((view - dw) / 2f, (view - dh) / 2f, (view + dw) / 2f, (view + dh) / 2f)
+    return FitRect((view - dw) / 2f, (view - dh) / 2f, (view + dw) / 2f, (view + dh) / 2f)
+}
+
+data class FitRect(val left: Float, val top: Float, val right: Float, val bottom: Float) {
+    fun width() = right - left
+    fun height() = bottom - top
+    fun toRectF() = android.graphics.RectF(left, top, right, bottom)
 }
 
 /** A very soft copy of the picture: shrunk to a few pixels and stretched back, used behind a fitted photo. */
@@ -108,7 +114,7 @@ private fun fitSquare(src: Bitmap, edge: Int): Bitmap {
     val paint = android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG)
     c.drawBitmap(blurredBackdrop(src), null, android.graphics.RectF(0f, 0f, edge.toFloat(), edge.toFloat()), paint)
     c.drawColor(android.graphics.Color.argb(60, 0, 0, 0))
-    c.drawBitmap(src, null, fitRect(src.width, src.height, edge.toFloat()), paint)
+    c.drawBitmap(src, null, fitRect(src.width, src.height, edge.toFloat()).toRectF(), paint)
     return out
 }
 
