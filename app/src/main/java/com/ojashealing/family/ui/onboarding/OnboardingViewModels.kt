@@ -76,67 +76,91 @@ data class SignInUiState(
     /** Machine code shown after a generic message, so a tester can report what actually failed. */
     val errorDetail: String? = null,
     val phone: String = "+91",
+    val error: AuthError? = null,
+    val phone: String = "+$DEFAULT_COUNTRY_CODE",
+    /** The normalized E.164 number the code was sent to, shown on the OTP screen. */
+    val sentTo: String = "",
     val verification: PhoneVerification.CodeSent? = null,
     val code: String = "",
     val email: String = "",
     val password: String = "",
     val createAccount: Boolean = false,
     val resetSentTo: String? = null
-)
+) {
+    /** The error to show under [field], if it belongs there. Errors without a field show under the last input. */
+    fun errorFor(field: ErrorField, fallback: Boolean = false): AuthError? =
+        error?.takeIf { it.field == field || (fallback && it.field == null) }
+}
 
 class SignInViewModel(private val auth: AuthRepository) : ViewModel() {
 
     private val _state = MutableStateFlow(SignInUiState())
     val state: StateFlow<SignInUiState> = _state.asStateFlow()
 
-    fun onPhoneChange(value: String) = _state.update { it.copy(phone = value.filter { c -> c.isDigit() || c == '+' }, error = null) }
+    fun onPhoneChange(value: String) = _state.update { it.copy(phone = sanitizePhoneInput(value), error = null) }
     fun onCodeChange(value: String) = _state.update { it.copy(code = value.filter(Char::isDigit).take(6), error = null) }
-    fun onEmailChange(value: String) = _state.update { it.copy(email = value, error = null, errorText = null) }
-    fun onPasswordChange(value: String) = _state.update { it.copy(password = value, error = null, errorText = null) }
-    fun toggleCreateAccount() = _state.update { it.copy(createAccount = !it.createAccount, error = null, errorText = null) }
+    fun onEmailChange(value: String) = _state.update { it.copy(email = value.trim(), error = null, resetSentTo = null) }
+    fun onPasswordChange(value: String) = _state.update { it.copy(password = value, error = null) }
+    fun toggleCreateAccount() = _state.update { it.copy(createAccount = !it.createAccount, error = null, resetSentTo = null) }
     fun backToPhoneEntry() = _state.update { it.copy(verification = null, code = "", error = null) }
 
-    fun signInWithGoogle(activity: Activity) = run { auth.signInWithGoogle(activity) }
+    /** An error from one sign-in screen must not greet the person on the next one. */
+    fun clearError() = _state.update { it.copy(error = null, resetSentTo = null) }
+
+    fun signInWithGoogle(activity: Activity) = run(step = null) { auth.signInWithGoogle(activity) }
 
     fun sendCode(activity: Activity) {
-        val phone = _state.value.phone
-        if (!isValidE164(phone)) {
-            _state.update { it.copy(error = R.string.error_phone_invalid) }
+        val phone = normalizePhone(_state.value.phone)
+        if (!isValidPhone(phone)) {
+            _state.update { it.copy(error = AuthError(R.string.error_phone_invalid, ErrorField.Phone)) }
             return
         }
-        run(onSuccess = { result -> (result as? PhoneVerification.CodeSent)?.let { v -> _state.update { it.copy(verification = v) } } }) {
+        val resending = _state.value.verification != null
+        _state.update { it.copy(phone = phone) }
+        run(
+            step = if (resending) PhoneStep.Code else PhoneStep.Number,
+            onSuccess = { result ->
+                (result as? PhoneVerification.CodeSent)?.let { v -> _state.update { it.copy(verification = v, sentTo = phone) } }
+            }
+        ) {
             auth.startPhoneSignIn(activity, phone, _state.value.verification?.resendToken)
         }
     }
 
     fun verifyCode() {
-        val v = _state.value.verification ?: return
-        run { auth.confirmPhoneCode(v, _state.value.code) }
+        val s = _state.value
+        val v = s.verification ?: return
+        if (s.code.length != 6) {
+            _state.update { it.copy(error = AuthError(R.string.error_otp_invalid, ErrorField.Code)) }
+            return
+        }
+        run(step = PhoneStep.Code) { auth.confirmPhoneCode(v, s.code) }
     }
 
     fun submitEmail() {
         val s = _state.value
+        val email = s.email.trim()
         when {
-            !android.util.Patterns.EMAIL_ADDRESS.matcher(s.email.trim()).matches() ->
-                _state.update { it.copy(error = R.string.error_email_invalid) }
-            s.password.length < 8 -> _state.update { it.copy(error = R.string.error_password_short) }
-            else -> run { auth.signInWithEmail(s.email, s.password, s.createAccount) }
+            !isValidEmail(email) -> _state.update { it.copy(error = AuthError(R.string.error_email_invalid, ErrorField.Email)) }
+            s.password.length < MIN_PASSWORD -> _state.update { it.copy(error = AuthError(R.string.error_password_short, ErrorField.Password)) }
+            else -> run(step = null) { auth.signInWithEmail(email, s.password, s.createAccount) }
         }
     }
 
     fun sendPasswordReset() {
         val email = _state.value.email.trim()
-        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-            _state.update { it.copy(error = R.string.error_email_invalid) }
+        if (!isValidEmail(email)) {
+            _state.update { it.copy(error = AuthError(R.string.error_email_invalid, ErrorField.Email)) }
             return
         }
-        run(onSuccess = { _state.update { it.copy(resetSentTo = email) } }) { auth.sendPasswordReset(email) }
+        run(step = null, onSuccess = { _state.update { it.copy(resetSentTo = email) } }) { auth.sendPasswordReset(email) }
     }
 
     // Runs an auth call with a busy flag and maps failures to a message; success navigates via auth state
-    private fun <T> run(onSuccess: (T) -> Unit = {}, block: suspend () -> Result<T>) {
+    private fun <T> run(step: PhoneStep?, onSuccess: (T) -> Unit = {}, block: suspend () -> Result<T>) {
         if (_state.value.busy) return
         _state.update { it.copy(busy = true, error = null, errorText = null, errorDetail = null) }
+        _state.update { it.copy(busy = true, error = null) }
         viewModelScope.launch {
             block()
                 .onSuccess { value ->
@@ -175,6 +199,14 @@ class SignInViewModel(private val auth: AuthRepository) : ViewModel() {
         is FirebaseAuthUserCollisionException -> null // Firebase's own message names the conflicting provider
         is NoCredentialException -> R.string.error_no_google_account
         else -> R.string.error_generic
+                    else _state.update { it.copy(busy = false, error = authErrorFor(e, step)) }
+                }
+        }
+    }
+
+    private companion object {
+        // Firebase itself accepts 6; 8 is the app's own floor
+        const val MIN_PASSWORD = 8
     }
 
     private fun detailFor(e: Throwable): String = when (e) {
