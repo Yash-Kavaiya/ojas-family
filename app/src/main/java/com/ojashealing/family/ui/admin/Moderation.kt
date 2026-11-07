@@ -143,6 +143,12 @@ fun ModerationScreen(vm: ModerationViewModel, onBack: () -> Unit) {
                 OjasCard {
                     Text(item.author, style = MaterialTheme.typography.labelLarge)
                     Text(item.text, style = MaterialTheme.typography.bodyLarge)
+                    if (item.imageUrl.isNotEmpty()) {
+                        AsyncImage(
+                            model = item.imageUrl, contentDescription = null, contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxWidth().aspectRatio(4f / 3f).clip(RoundedCornerShape(12.dp))
+                        )
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                         OutlinedButton(onClick = { vm.approve(item.path) }) { Text(stringResource(R.string.moderation_approve)) }
                         TextButton(onClick = { vm.remove(item.path) }) { Text(stringResource(R.string.moderation_remove_post), color = MaterialTheme.colorScheme.error) }

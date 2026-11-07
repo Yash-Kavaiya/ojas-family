@@ -1,5 +1,6 @@
 package com.ojashealing.family.ui.community
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ojashealing.family.data.social.Announcement
@@ -22,13 +23,24 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-data class CommunityPermissions(val canAsk: Boolean, val canLike: Boolean, val canAnswer: Boolean, val canAnnounce: Boolean)
+data class CommunityPermissions(
+    val canAsk: Boolean,
+    val canLike: Boolean,
+    val canAnswer: Boolean,
+    val canAnnounce: Boolean,
+    val canAttachImage: Boolean = false,
+    val canSeeDaily: Boolean = false,
+    val canPostDaily: Boolean = false
+)
 
 fun communityPermissions(viewer: Viewer) = CommunityPermissions(
     canAsk = Permissions.canAskQuestion(viewer),
     canLike = Permissions.canLike(viewer),
     canAnswer = Permissions.canComment(viewer),
-    canAnnounce = viewer.role == Role.Admin
+    canAnnounce = viewer.role == Role.Admin,
+    canAttachImage = Permissions.canAttachImage(viewer),
+    canSeeDaily = Permissions.canViewDailyActivities(viewer),
+    canPostDaily = Permissions.canPostDailyActivity(viewer)
 )
 
 fun visibleQuestions(questions: List<Question>, blocked: Set<String>): List<Question> =
@@ -40,7 +52,29 @@ fun orderAnswers(answers: List<Post>, blocked: Set<String>): List<Post> =
         .sortedWith(compareBy<Post>({ if (it.author.role == Role.Member) 1 else 0 }, { it.createdAt }))
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class CommunityViewModel(private val repo: CommunityRepository, profile: Flow<UserProfile?>) : ViewModel() {
+class CommunityViewModel(
+    private val repo: CommunityRepository,
+    profile: Flow<UserProfile?>,
+    private val uploadImage: suspend (uid: String, photo: Uri) -> String = { _, _ -> error("uploads not available") }
+) : ViewModel() {
+
+    private val _sending = kotlinx.coroutines.flow.MutableStateFlow(false)
+    val sending: StateFlow<Boolean> = _sending
+
+    /** Runs [send] with the photo's URL ("" when none); a failed upload sends nothing. */
+    private fun withPhoto(photo: Uri?, send: suspend (UserProfile, String) -> Unit) = withMe { p ->
+        if (_sending.value) return@withMe
+        _sending.value = true
+        runCatching { photo?.let { uploadImage(p.uid, it) }.orEmpty() }.onSuccess { send(p, it) }
+        _sending.value = false
+    }
+
+    fun answer(questionId: String, text: String, photo: Uri?, mentions: List<String>, onDone: () -> Unit) =
+        withPhoto(photo) { p, url -> repo.answer(questionId, p.asAuthor(), text, url, mentions).onSuccess { onDone() } }
+
+    fun ask(title: String, body: String, photo: Uri?, onDone: () -> Unit) =
+        withPhoto(photo) { p, url -> repo.ask(p.asAuthor(), title, body, url).onSuccess { onDone() } }
+
 
     private val me = profile.filterNotNull()
     private val meNow = profile.stateIn(viewModelScope, SharingStarted.Eagerly, null)

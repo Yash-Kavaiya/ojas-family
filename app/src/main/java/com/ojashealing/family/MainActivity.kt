@@ -8,6 +8,8 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ojashealing.family.data.settings.ThemeMode
+import android.content.Intent
+import com.ojashealing.family.push.DeepLinks
 import com.ojashealing.family.ui.navigation.OjasRoot
 import com.ojashealing.family.ui.theme.OjasFamilyTheme
 
@@ -16,6 +18,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        DeepLinks.from(intent)
         val settings = (application as OjasApp).container.settings
 
         setContent {
@@ -29,5 +32,11 @@ class MainActivity : AppCompatActivity() {
                 OjasRoot()
             }
         }
+    }
+
+    // singleTop: a notification tapped while the app is open arrives here
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        DeepLinks.from(intent)
     }
 }

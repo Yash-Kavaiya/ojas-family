@@ -53,6 +53,13 @@ import com.ojashealing.family.ui.components.OjasCard
 import com.ojashealing.family.ui.components.SectionHeader
 import com.ojashealing.family.ui.theme.SacredGold
 import com.ojashealing.family.ui.theme.Spacing
+import androidx.compose.foundation.clickable
+import androidx.compose.runtime.compositionLocalOf
+import com.ojashealing.family.ui.components.PostComposer
+import com.ojashealing.family.ui.components.PostImage
+
+/** Opens a member's profile when the viewer may see other profiles (admins, staff, Member Level 3); null otherwise. */
+val LocalOpenProfile = compositionLocalOf<((String) -> Unit)?> { null }
 
 private fun dayLabel(id: String): String = LocalDateLike.parse(id)?.let { "%02d/%02d".format(it.day, it.month) } ?: id
 
@@ -61,7 +68,7 @@ fun HomeScreen(vm: ThoughtViewModel, onSchedule: () -> Unit) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val liked by vm.liked.collectAsStateWithLifecycle()
     val comments by vm.comments.collectAsStateWithLifecycle()
-    var draft by rememberSaveable { mutableStateOf("") }
+    val sending by vm.sending.collectAsStateWithLifecycle()
 
     val state = ui ?: return LoadingState()
     Box(Modifier.fillMaxSize()) {
@@ -87,6 +94,7 @@ fun HomeScreen(vm: ThoughtViewModel, onSchedule: () -> Unit) {
                 }
                 item(key = "card", contentType = "card") {
                     OjasCard(modifier = Modifier.padding(horizontal = Spacing.l)) {
+                        if (thought.imageUrl.isNotEmpty()) PostImage(thought.imageUrl)
                         Text(thought.title, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
                         Text(thought.text, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -117,16 +125,12 @@ fun HomeScreen(vm: ThoughtViewModel, onSchedule: () -> Unit) {
                 item(key = "composer", contentType = "composer") {
                     Column(Modifier.padding(horizontal = Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
                         if (state.canComment) {
-                            OutlinedTextField(
-                                value = draft,
-                                onValueChange = { draft = it.take(1000) },
-                                placeholder = { Text(stringResource(R.string.home_comment_hint)) },
-                                modifier = Modifier.fillMaxWidth(),
-                                trailingIcon = {
-                                    TextButton(onClick = { vm.comment(draft) { draft = "" } }, enabled = draft.isNotBlank()) {
-                                        Text(stringResource(R.string.action_send))
-                                    }
-                                }
+                            PostComposer(
+                                hint = stringResource(R.string.home_comment_hint),
+                                canAttachImage = state.canAttachImage,
+                                mentionable = comments.map { it.author },
+                                busy = sending,
+                                onSend = { d, sent -> vm.comment(d.text, d.photo, d.mentions, sent) }
                             )
                         } else {
                             LockHint(stringResource(R.string.home_comment_locked))
@@ -154,8 +158,10 @@ fun LockHint(text: String) {
 
 @Composable
 fun AuthorAvatar(author: Author, size: Int = 36) {
+    val open = LocalOpenProfile.current
     Box(
-        modifier = Modifier.size(size.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
+        modifier = Modifier.size(size.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant)
+            .then(if (open != null && author.uid.isNotEmpty()) Modifier.clickable { open(author.uid) } else Modifier),
         contentAlignment = Alignment.Center
     ) {
         if (author.photo.isNotEmpty()) AsyncImage(model = author.photo, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(size.dp))
@@ -184,6 +190,7 @@ fun PostRow(post: Post, trailing: (@Composable () -> Unit)? = null) {
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
             AuthorLine(post.author)
             Text(post.text, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+            if (post.imageUrl.isNotEmpty()) PostImage(post.imageUrl)
             if (post.status == PostStatus.Pending) {
                 Text(stringResource(R.string.post_pending), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
             }

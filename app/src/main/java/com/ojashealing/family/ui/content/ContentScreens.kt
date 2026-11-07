@@ -123,7 +123,13 @@ fun LockedDialog(locked: Access.Locked, onDismiss: () -> Unit) {
 }
 
 @Composable
-fun PracticeTab(sections: List<SectionUi>?, onPlay: (ContentItem) -> Unit) {
+fun PracticeTab(
+    sections: List<SectionUi>?,
+    onPlay: (ContentItem) -> Unit,
+    practice: com.ojashealing.family.data.practice.PracticeStatus? = null,
+    practiceBusy: Boolean = false,
+    onMarkPractice: (com.ojashealing.family.data.practice.PracticeKind) -> Unit = {}
+) {
     var locked by remember { mutableStateOf<Access.Locked?>(null) }
     when {
         sections == null -> LoadingState()
@@ -154,6 +160,9 @@ fun PracticeTab(sections: List<SectionUi>?, onPlay: (ContentItem) -> Unit) {
                         color = if (dark) tint.titleDark else tint.titleLight,
                         modifier = Modifier.padding(horizontal = Spacing.l).semantics { heading() }
                     )
+                    // Morning and night: the 21-day streak and today's check-in (spec 2.3, 2.4, Goals)
+                    val kind = section.section.practiceKind()
+                    if (kind != null && practice != null) PracticeBar(kind, practice, practiceBusy, { onMarkPractice(kind) })
                     LazyRow(
                         contentPadding = PaddingValues(horizontal = Spacing.l),
                         horizontalArrangement = Arrangement.spacedBy(Spacing.m)

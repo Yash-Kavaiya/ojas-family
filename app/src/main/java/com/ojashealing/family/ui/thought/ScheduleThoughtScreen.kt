@@ -1,6 +1,20 @@
 package com.ojashealing.family.ui.thought
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.runtime.remember
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -39,6 +53,9 @@ fun ScheduleThoughtScreen(vm: ThoughtViewModel, onDone: () -> Unit) {
     var text by rememberSaveable { mutableStateOf("") }
     var picking by rememberSaveable { mutableStateOf(false) }
     var saving by rememberSaveable { mutableStateOf(false) }
+    var image by remember { mutableStateOf<Uri?>(null) }
+    var failed by remember { mutableStateOf(false) }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) image = uri }
 
     OnboardingLayout(
         title = stringResource(R.string.home_schedule),
@@ -50,7 +67,8 @@ fun ScheduleThoughtScreen(vm: ThoughtViewModel, onDone: () -> Unit) {
                 onClick = {
                     val d = LocalDateLike.parse(date) ?: return@PrimaryButton
                     saving = true
-                    vm.schedule(d, title, text) { saving = false; onDone() }
+                    failed = false
+                    vm.schedule(d, title, text, image) { ok -> saving = false; if (ok) onDone() else failed = true }
                 },
                 busy = saving,
                 enabled = title.isNotBlank() && text.isNotBlank()
@@ -63,6 +81,15 @@ fun ScheduleThoughtScreen(vm: ThoughtViewModel, onDone: () -> Unit) {
         }
         OutlinedTextField(value = title, onValueChange = { title = it.take(150) }, label = { Text(stringResource(R.string.field_title)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(value = text, onValueChange = { text = it.take(5000) }, label = { Text(stringResource(R.string.field_message)) }, modifier = Modifier.fillMaxWidth().heightIn(min = 200.dp))
+        image?.let {
+            AsyncImage(model = it, contentDescription = null, contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxWidth().aspectRatio(4f / 3f).clip(RoundedCornerShape(16.dp)))
+        }
+        OutlinedButton(onClick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) {
+            Icon(Icons.Outlined.Image, contentDescription = null)
+            Text(stringResource(R.string.thought_add_image))
+        }
+        if (failed) com.ojashealing.family.ui.onboarding.ErrorText(stringResource(R.string.error_generic))
     }
 
     if (picking) {

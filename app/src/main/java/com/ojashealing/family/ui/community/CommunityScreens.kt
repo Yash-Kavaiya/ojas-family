@@ -62,9 +62,23 @@ import com.ojashealing.family.ui.thought.AuthorAvatar
 import com.ojashealing.family.ui.thought.AuthorLine
 import com.ojashealing.family.ui.thought.LockHint
 import com.ojashealing.family.ui.thought.PostRow
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material3.OutlinedButton
+import com.ojashealing.family.ui.components.PostComposer
+import com.ojashealing.family.ui.components.PostImage
 
 @Composable
-fun CommunityScreen(vm: CommunityViewModel, onOpenQuestion: (String) -> Unit, onAsk: () -> Unit, onAnnounce: () -> Unit) {
+fun CommunityScreen(
+    vm: CommunityViewModel,
+    onOpenQuestion: (String) -> Unit,
+    onAsk: () -> Unit,
+    onAnnounce: () -> Unit,
+    daily: @Composable (canPost: Boolean) -> Unit = {}
+) {
     val perms by vm.permissions.collectAsStateWithLifecycle()
     val questions by vm.questions.collectAsStateWithLifecycle()
     val notices by vm.announcements.collectAsStateWithLifecycle()
@@ -75,9 +89,12 @@ fun CommunityScreen(vm: CommunityViewModel, onOpenQuestion: (String) -> Unit, on
         Column(Modifier.fillMaxSize()) {
             TabRow(selectedTabIndex = tab, containerColor = MaterialTheme.colorScheme.surface) {
                 Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text(stringResource(R.string.community_qa), maxLines = 1) })
-                Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text(stringResource(R.string.community_notices), maxLines = 1) })
+                Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text(stringResource(R.string.community_daily), maxLines = 1) })
+                Tab(selected = tab == 2, onClick = { tab = 2 }, text = { Text(stringResource(R.string.community_notices), maxLines = 1) })
             }
-            if (tab == 0) {
+            if (tab == 1) {
+                Box(Modifier.weight(1f)) { daily(p.canPostDaily) }
+            } else if (tab == 0) {
                 val list = questions
                 when {
                     list == null -> LoadingState()
@@ -103,7 +120,7 @@ fun CommunityScreen(vm: CommunityViewModel, onOpenQuestion: (String) -> Unit, on
                 }
             }
         }
-        val showFab = if (tab == 0) p.canAsk else p.canAnnounce
+        val showFab = when (tab) { 0 -> p.canAsk; 2 -> p.canAnnounce; else -> false }
         if (showFab) {
             FloatingActionButton(onClick = if (tab == 0) onAsk else onAnnounce, modifier = Modifier.align(Alignment.BottomEnd).padding(Spacing.l)) {
                 Icon(Icons.Outlined.Add, contentDescription = stringResource(if (tab == 0) R.string.community_ask else R.string.community_post_notice))
@@ -135,7 +152,7 @@ fun QuestionDetailScreen(vm: CommunityViewModel, questionId: String, onBack: () 
     val questions by vm.questions.collectAsStateWithLifecycle()
     val answers by remember(questionId) { vm.answers(questionId) }.collectAsStateWithLifecycle(emptyList())
     val liked by remember(questionId) { vm.liked(questionId) }.collectAsStateWithLifecycle(false)
-    var draft by rememberSaveable { mutableStateOf("") }
+    val sending by vm.sending.collectAsStateWithLifecycle()
     var reportTarget by remember { mutableStateOf<String?>(null) }
     var notice by remember { mutableStateOf<Int?>(null) }
     val q = questions?.firstOrNull { it.id == questionId }
@@ -162,6 +179,7 @@ fun QuestionDetailScreen(vm: CommunityViewModel, questionId: String, onBack: () 
                     }
                     Text(q.title, style = MaterialTheme.typography.titleLarge)
                     if (q.body.isNotBlank()) Text(q.body, style = MaterialTheme.typography.bodyLarge)
+                    if (q.imageUrl.isNotEmpty()) PostImage(q.imageUrl)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         LikeButton(liked = liked, enabled = p.canLike, onToggle = { vm.setLiked(q.id, !liked) })
                         Text(stringResource(R.string.likes_count, q.likeCount), style = MaterialTheme.typography.labelLarge)
@@ -183,12 +201,12 @@ fun QuestionDetailScreen(vm: CommunityViewModel, questionId: String, onBack: () 
                 Column(Modifier.padding(horizontal = Spacing.l, vertical = Spacing.s)) {
                     notice?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
                     if (p.canAnswer) {
-                        OutlinedTextField(
-                            value = draft,
-                            onValueChange = { draft = it.take(1000) },
-                            placeholder = { Text(stringResource(R.string.community_answer_hint)) },
-                            modifier = Modifier.fillMaxWidth(),
-                            trailingIcon = { TextButton(onClick = { vm.answer(q.id, draft) { draft = "" } }, enabled = draft.isNotBlank()) { Text(stringResource(R.string.action_send)) } }
+                        PostComposer(
+                            hint = stringResource(R.string.community_answer_hint),
+                            canAttachImage = p.canAttachImage,
+                            mentionable = listOf(q.author) + answers.map { it.author },
+                            busy = sending,
+                            onSend = { d, sent -> vm.answer(q.id, d.text, d.photo, d.mentions, sent) }
                         )
                     } else LockHint(stringResource(R.string.community_answer_locked))
                 }
@@ -232,19 +250,41 @@ private fun ReportDialog(onDismiss: () -> Unit, onSend: (String) -> Unit) {
 
 /** Shared composer for a new question (title + details) or, for admins, an announcement. */
 @Composable
-fun ComposePostScreen(title: String, firstLabel: String, secondLabel: String, onBack: () -> Unit, onSubmit: (String, String, () -> Unit) -> Unit) {
+fun ComposePostScreen(
+    title: String,
+    firstLabel: String,
+    secondLabel: String,
+    onBack: () -> Unit,
+    onSubmit: (String, String, () -> Unit) -> Unit,
+    canAttachImage: Boolean = false,
+    onSubmitWithPhoto: ((String, String, Uri?, () -> Unit) -> Unit)? = null
+) {
     var first by rememberSaveable { mutableStateOf("") }
     var second by rememberSaveable { mutableStateOf("") }
     var busy by rememberSaveable { mutableStateOf(false) }
+    var photo by remember { mutableStateOf<Uri?>(null) }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) photo = uri }
     OnboardingLayout(
         title = title,
         subtitle = null,
         onBack = onBack,
         bottom = {
-            PrimaryButton(stringResource(R.string.action_send), onClick = { busy = true; onSubmit(first, second) { busy = false; onBack() } }, busy = busy, enabled = first.isNotBlank())
+            PrimaryButton(stringResource(R.string.action_send), onClick = {
+                busy = true
+                val done = { busy = false; onBack() }
+                if (onSubmitWithPhoto != null) onSubmitWithPhoto(first, second, photo, done) else onSubmit(first, second, done)
+            }, busy = busy, enabled = first.isNotBlank())
         }
     ) {
         OutlinedTextField(value = first, onValueChange = { first = it.take(150) }, label = { Text(firstLabel) }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(value = second, onValueChange = { second = it.take(2000) }, label = { Text(secondLabel) }, modifier = Modifier.fillMaxWidth().heightIn(min = 160.dp))
+        if (canAttachImage) {
+            photo?.let { PostImage(it.toString()) }
+            OutlinedButton(onClick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) {
+                Icon(Icons.Outlined.Image, contentDescription = null)
+                Text(stringResource(R.string.post_add_photo))
+            }
+            if (photo != null) Text(stringResource(R.string.post_photo_review), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }

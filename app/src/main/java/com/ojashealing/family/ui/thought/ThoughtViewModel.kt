@@ -1,5 +1,6 @@
 package com.ojashealing.family.ui.thought
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ojashealing.family.data.social.Author
@@ -29,7 +30,8 @@ data class ThoughtUi(
     val selected: Thought?,
     val canLike: Boolean,
     val canComment: Boolean,
-    val canSchedule: Boolean
+    val canSchedule: Boolean,
+    val canAttachImage: Boolean = false
 )
 
 /** Newest first; today's thought when there is one, otherwise the newest available. */
@@ -41,14 +43,20 @@ fun buildThoughtUi(thoughts: List<Thought>, selectedId: String?, viewer: Viewer,
         selected = selected,
         canLike = Permissions.canLike(viewer),
         canComment = Permissions.canComment(viewer),
-        canSchedule = viewer.role == Role.Admin
+        canSchedule = viewer.role == Role.Admin,
+        canAttachImage = Permissions.canAttachImage(viewer)
     )
 }
 
 fun UserProfile.asAuthor() = Author(uid, displayName, photoUrl, viewer.role)
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class ThoughtViewModel(private val repo: ThoughtRepository, private val profile: Flow<UserProfile?>) : ViewModel() {
+class ThoughtViewModel(
+    private val repo: ThoughtRepository,
+    private val profile: Flow<UserProfile?>,
+    private val uploadPostImage: suspend (uid: String, photo: Uri) -> String = { _, _ -> error("uploads not available") },
+    private val uploadThoughtImage: suspend (thoughtId: String, photo: Uri) -> String = { _, _ -> error("uploads not available") }
+) : ViewModel() {
 
     val todayId: String = todayIst().iso()
     private val selectedId = MutableStateFlow<String?>(null)
@@ -80,16 +88,30 @@ class ThoughtViewModel(private val repo: ThoughtRepository, private val profile:
         }
     }
 
-    fun comment(text: String, onDone: () -> Unit) {
+    private val _sending = MutableStateFlow(false)
+    val sending: StateFlow<Boolean> = _sending
+
+    fun comment(text: String, onDone: () -> Unit) = comment(text, null, emptyList(), onDone)
+
+    /** Uploads the photo first (if any); a failed upload leaves the draft in place. */
+    fun comment(text: String, photo: Uri?, mentions: List<String>, onDone: () -> Unit) {
         val id = ui.value?.selected?.id ?: return
-        if (text.isBlank()) return
+        if (text.isBlank() || _sending.value) return
         viewModelScope.launch {
             val p = meNow.value ?: return@launch
-            repo.addComment(id, p.asAuthor(), text).onSuccess { onDone() }
+            _sending.value = true
+            runCatching { photo?.let { uploadPostImage(p.uid, it) }.orEmpty() }
+                .onSuccess { url -> repo.addComment(id, p.asAuthor(), text, url, mentions).onSuccess { onDone() } }
+            _sending.value = false
         }
     }
 
-    fun schedule(date: LocalDateLike, title: String, text: String, onDone: () -> Unit) {
-        viewModelScope.launch { repo.schedule(date, title, text).onSuccess { onDone() } }
+    fun schedule(date: LocalDateLike, title: String, text: String, onDone: () -> Unit) = schedule(date, title, text, null) { ok -> if (ok) onDone() }
+
+    fun schedule(date: LocalDateLike, title: String, text: String, image: Uri?, onDone: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val url = image?.let { runCatching { uploadThoughtImage(date.iso(), it) }.getOrNull() ?: return@launch onDone(false) }
+            repo.schedule(date, title, text, url).onSuccess { onDone(true) }.onFailure { onDone(false) }
+        }
     }
 }

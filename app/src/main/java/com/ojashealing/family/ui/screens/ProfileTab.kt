@@ -27,6 +27,11 @@ import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.VideoLibrary
 import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.material.icons.outlined.Groups
+import androidx.compose.material.icons.outlined.WorkspacePremium
+import androidx.compose.material3.Button
+import com.ojashealing.family.data.paid.PaidAccess
+import com.ojashealing.family.ui.paid.formatDate
 import com.ojashealing.family.ui.admin.showAdminEntry
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Icon
@@ -69,7 +74,10 @@ fun ProfileTab(
     onSubmitGoal: (Goal) -> Unit = {},
     onPickPhoto: (Uri) -> Unit = {},
     photoUploading: Boolean = false,
-    @StringRes photoError: Int? = null
+    @StringRes photoError: Int? = null,
+    entitlements: com.ojashealing.family.data.paid.Entitlements = com.ojashealing.family.data.paid.Entitlements(),
+    onPlans: () -> Unit = {},
+    onOpenMembers: () -> Unit = {}
 ) {
     if (profile == null) {
         LoadingState()
@@ -87,6 +95,7 @@ fun ProfileTab(
         ) {
             IdentityCard(profile, locations, onPickPhoto, photoUploading, photoError)
             StatsRow(profile)
+            MembershipCard(profile, entitlements, onPlans)
             OutlinedButton(onClick = onEditProfile, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Outlined.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
                 Text(stringResource(R.string.action_edit_profile), modifier = Modifier.padding(start = Spacing.s))
@@ -99,6 +108,10 @@ fun ProfileTab(
                 OutlinedButton(onClick = onOpenModeration, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Outlined.Shield, contentDescription = null, modifier = Modifier.size(18.dp))
                     Text(stringResource(R.string.moderation_title), modifier = Modifier.padding(start = Spacing.s))
+                }
+                OutlinedButton(onClick = onOpenMembers, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Outlined.Groups, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Text(stringResource(R.string.members_title), modifier = Modifier.padding(start = Spacing.s))
                 }
             }
             ProfileGoalsCard(goals, onSubmit = onSubmitGoal)
@@ -198,5 +211,25 @@ private fun StatCard(value: String, label: String, modifier: Modifier = Modifier
     OjasCard(modifier = modifier) {
         Text(value, style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.primary)
         Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** Spec: paid membership (monthly) with member levels after 3 and 6 months. */
+@Composable
+private fun MembershipCard(profile: UserProfile, entitlements: com.ojashealing.family.data.paid.Entitlements, onPlans: () -> Unit) {
+    val m = entitlements[PaidAccess.Membership]?.takeIf { it.isActive() }
+    OjasCard {
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.m), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Outlined.WorkspacePremium, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Text(stringResource(R.string.membership_title), style = MaterialTheme.typography.titleLarge)
+        }
+        if (m != null) {
+            Text(stringResource(R.string.membership_active_until, formatDate(m.expiresAt)), style = MaterialTheme.typography.bodyLarge)
+            Text(stringResource(R.string.profile_member_level, profile.viewer.memberLevel.rank), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            OutlinedButton(onClick = onPlans) { Text(stringResource(R.string.membership_plans)) }
+        } else {
+            Text(stringResource(R.string.membership_benefits), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Button(onClick = onPlans) { Text(stringResource(R.string.membership_join)) }
+        }
     }
 }

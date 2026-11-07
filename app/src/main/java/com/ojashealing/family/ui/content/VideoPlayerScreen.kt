@@ -34,7 +34,12 @@ import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.Abs
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView
 
 @Composable
-fun VideoPlayerScreen(videoId: String, title: String, onBack: () -> Unit) {
+fun VideoPlayerScreen(
+    videoId: String,
+    title: String,
+    onBack: () -> Unit,
+    practice: (@Composable () -> Unit)? = null
+) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
@@ -65,6 +70,7 @@ fun VideoPlayerScreen(videoId: String, title: String, onBack: () -> Unit) {
                 OutlinedButton(onClick = {
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/watch?v=$videoId")))
                 }) { Text(stringResource(R.string.video_open_youtube)) }
+                practice?.invoke()
             }
         }
     }
