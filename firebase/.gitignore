@@ -2,3 +2,4 @@ rules-test/node_modules/
 functions/node_modules/
 functions/lib/
 *-debug.log
+.firebase/
