@@ -263,3 +263,45 @@ describe("moderation queries", () => {
     await assertFails(pending(asUser(ALICE)));
   });
 });
+
+describe("goals", () => {
+  const ADMIN = () => asUser("root", { role: "admin" });
+  const goal = { title: "Plant a tree", description: "Plant and share a photo", kind: "photo", reward: 25, order: 5, active: true };
+  const submitted = { status: "submitted", photoUrl: "https://x/p.jpg", note: "", submittedAt: new Date() };
+
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "goals", "tree"), goal);
+      await setDoc(doc(ctx.firestore(), "users", BOB, "goalProgress", "rejected1"), { ...submitted, status: "rejected" });
+    });
+  });
+
+  test("members read goals; only admin writes", async () => {
+    await assertSucceeds(getDoc(doc(asUser(ALICE), "goals", "tree")));
+    await assertFails(setDoc(doc(asUser(ALICE), "goals", "g2"), goal));
+    await assertSucceeds(setDoc(doc(ADMIN(), "goals", "g2"), goal));
+  });
+  test("member submits own progress as submitted", async () => {
+    await assertSucceeds(setDoc(doc(asUser(ALICE), "users", ALICE, "goalProgress", "tree"), submitted));
+    await assertFails(setDoc(doc(asUser(ALICE), "users", BOB, "goalProgress", "tree"), submitted));
+  });
+  test("member cannot set approved", async () => {
+    await assertFails(setDoc(doc(asUser(ALICE), "users", ALICE, "goalProgress", "tree"), { ...submitted, status: "approved" }));
+  });
+  test("member can resubmit after rejection", async () => {
+    await assertSucceeds(setDoc(doc(asUser(BOB), "users", BOB, "goalProgress", "rejected1"), submitted));
+  });
+  test("other members cannot read progress", async () => {
+    await assertFails(getDoc(doc(asUser(ALICE), "users", BOB, "goalProgress", "rejected1")));
+    await assertSucceeds(getDoc(doc(asUser(BOB), "users", BOB, "goalProgress", "rejected1")));
+  });
+  test("admin approves", async () => {
+    await assertSucceeds(updateDoc(doc(ADMIN(), "users", BOB, "goalProgress", "rejected1"), { status: "approved", reviewedAt: new Date() }));
+  });
+  test("admin lists submitted progress via collection group", async () => {
+    const { collectionGroup, getDocs, query, where } = await import("firebase/firestore");
+    const q = (db: ReturnType<typeof asUser>) => getDocs(query(collectionGroup(db, "goalProgress"), where("status", "==", "submitted")));
+    await assertSucceeds(q(ADMIN()));
+    await assertFails(q(asUser(ALICE)));
+  });
+});
