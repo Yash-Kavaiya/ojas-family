@@ -14,7 +14,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.VideoLibrary
@@ -36,6 +35,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.ojashealing.family.R
+import com.ojashealing.family.data.goals.Goal
+import com.ojashealing.family.ui.goals.ProfileGoalsCard
+import com.ojashealing.family.ui.goals.ProfileGoalsState
 import com.ojashealing.family.data.location.LocationRepository
 import com.ojashealing.family.data.user.UserProfile
 import com.ojashealing.family.domain.LocalDateLike
@@ -53,7 +55,9 @@ fun ProfileTab(
     onEditProfile: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenAdmin: () -> Unit = {},
-    onOpenModeration: () -> Unit = {}
+    onOpenModeration: () -> Unit = {},
+    goals: ProfileGoalsState = ProfileGoalsState(),
+    onSubmitGoal: (Goal) -> Unit = {}
 ) {
     if (profile == null) {
         LoadingState()
@@ -85,13 +89,7 @@ fun ProfileTab(
                     Text(stringResource(R.string.moderation_title), modifier = Modifier.padding(start = Spacing.s))
                 }
             }
-            OjasCard {
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.m), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.Flag, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Text(stringResource(R.string.profile_goals_title), style = MaterialTheme.typography.titleLarge)
-                }
-                Text(stringResource(R.string.profile_goals_empty), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+            ProfileGoalsCard(goals, onSubmit = onSubmitGoal)
         }
     }
 }

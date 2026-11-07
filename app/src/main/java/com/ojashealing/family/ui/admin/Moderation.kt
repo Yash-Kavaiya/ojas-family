@@ -28,7 +28,19 @@ import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import com.ojashealing.family.R
+import com.ojashealing.family.data.goals.Goal
+import com.ojashealing.family.data.goals.GoalRepository
+import com.ojashealing.family.data.goals.GoalSubmission
+import com.ojashealing.family.ui.goals.goalLanguage
+import kotlinx.coroutines.flow.combine
 import com.ojashealing.family.data.social.ModerationRepository
 import com.ojashealing.family.data.social.PendingItem
 import com.ojashealing.family.data.social.Report
@@ -47,19 +59,38 @@ interface ModerationActions {
     suspend fun approve(path: String): Result<Unit>
     suspend fun remove(path: String): Result<Unit>
     suspend fun dismissReport(id: String): Result<Unit>
+    val goalSubmissions: Flow<List<GoalSubmission>>
+    val goals: Flow<List<Goal>>
+    suspend fun reviewGoal(uid: String, goalId: String, approve: Boolean): Result<Unit>
 }
 
-fun ModerationRepository.asActions() = object : ModerationActions {
+/** A member's goal photo next to the goal it is for (null if the goal was deleted). */
+data class GoalReview(val submission: GoalSubmission, val goal: Goal?)
+
+fun ModerationRepository.asActions(goalRepo: GoalRepository) = object : ModerationActions {
     override val pending = observePending()
     override val reports = observeReports()
     override suspend fun approve(path: String) = this@asActions.approve(path)
     override suspend fun remove(path: String) = this@asActions.remove(path)
     override suspend fun dismissReport(id: String) = this@asActions.dismissReport(id)
+    override val goalSubmissions = goalRepo.observeSubmissions()
+    override val goals = goalRepo.observeGoals()
+    override suspend fun reviewGoal(uid: String, goalId: String, approve: Boolean) = goalRepo.review(uid, goalId, approve)
 }
 
 class ModerationViewModel(private val actions: ModerationActions) : ViewModel() {
     val pending: StateFlow<List<PendingItem>> = actions.pending.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val reports: StateFlow<List<Report>> = actions.reports.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val goalReviews: StateFlow<List<GoalReview>> = combine(actions.goalSubmissions, actions.goals) { subs, goals ->
+        val byId = goals.associateBy { it.id }
+        subs.map { GoalReview(it, byId[it.goalId]) }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    // Approval makes the server award the goal's points, once
+    fun reviewGoal(submission: GoalSubmission, approve: Boolean) {
+        viewModelScope.launch { actions.reviewGoal(submission.uid, submission.goalId, approve) }
+    }
 
     fun approve(path: String) {
         viewModelScope.launch { actions.approve(path) }
@@ -86,6 +117,8 @@ class ModerationViewModel(private val actions: ModerationActions) : ViewModel() 
 fun ModerationScreen(vm: ModerationViewModel, onBack: () -> Unit) {
     val pending by vm.pending.collectAsStateWithLifecycle()
     val reports by vm.reports.collectAsStateWithLifecycle()
+    val goalReviews by vm.goalReviews.collectAsStateWithLifecycle()
+    val lang = goalLanguage()
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing),
@@ -107,6 +140,24 @@ fun ModerationScreen(vm: ModerationViewModel, onBack: () -> Unit) {
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                         OutlinedButton(onClick = { vm.approve(item.path) }) { Text(stringResource(R.string.moderation_approve)) }
                         TextButton(onClick = { vm.remove(item.path) }) { Text(stringResource(R.string.moderation_remove_post), color = MaterialTheme.colorScheme.error) }
+                    }
+                }
+            }
+            item(key = "goalsTitle", contentType = "title") { Text(stringResource(R.string.moderation_goal_photos), style = MaterialTheme.typography.titleLarge) }
+            if (goalReviews.isEmpty()) item(key = "goalsEmpty", contentType = "empty") { EmptyLine() }
+            items(goalReviews, key = { "goal:${it.submission.uid}/${it.submission.goalId}" }, contentType = { "goal" }) { review ->
+                OjasCard {
+                    Text(review.goal?.titleIn(lang) ?: review.submission.goalId, style = MaterialTheme.typography.labelLarge)
+                    AsyncImage(
+                        model = review.submission.photoUrl,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxWidth().aspectRatio(4f / 3f).clip(RoundedCornerShape(12.dp))
+                    )
+                    if (review.submission.note.isNotEmpty()) Text(review.submission.note, style = MaterialTheme.typography.bodyLarge)
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
+                        OutlinedButton(onClick = { vm.reviewGoal(review.submission, approve = true) }) { Text(stringResource(R.string.moderation_approve)) }
+                        TextButton(onClick = { vm.reviewGoal(review.submission, approve = false) }) { Text(stringResource(R.string.moderation_reject), color = MaterialTheme.colorScheme.error) }
                     }
                 }
             }

@@ -185,4 +185,20 @@
     <string name="settings_delete_word">DELETE</string>
     <string name="settings_about">About</string>
     <string name="settings_attribution">Location data: countries-states-cities-database (ODbL). Fonts: Noto (OFL).</string>
+    <string name="goal_photo_required">Choose a photo first</string>
+    <string name="goal_all_done">You have completed every goal for now. New goals will appear here.</string>
+    <string name="goal_waiting">Waiting for review</string>
+    <string name="goal_achieved">Achieved</string>
+    <string name="goal_suggested">Suggested goal</string>
+    <string name="goal_reward">Earn %1$d Moksha Points</string>
+    <string name="goal_rejected_retry">Your last photo was not approved. Please try again.</string>
+    <string name="goal_submit_photo">Share a photo</string>
+    <string name="goal_practice_auto">This completes on its own when you keep up your practice for 21 days.</string>
+    <string name="goal_choose_photo">Tap to choose a photo</string>
+    <string name="goal_note">Note (optional)</string>
+    <string name="goal_send">Send for review</string>
+    <string name="goal_review_note">An admin will look at your photo. Points are added once it is approved.</string>
+    <string name="moderation_goal_photos">Goal photos</string>
+    <string name="moderation_reject">Reject</string>
+    <string name="action_back">Back</string>
 </resources>

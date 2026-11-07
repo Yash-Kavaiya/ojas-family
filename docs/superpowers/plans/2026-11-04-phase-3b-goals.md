@@ -25,16 +25,16 @@
 5. **Photo upload fails** — submission not created, user sees error (Task 4).
 
 ### Task 1: Rules — goals and goal progress
-- [ ] Failing tests: `members read goals; only admin writes`; `member submits own progress as submitted`; `member cannot set approved`; `member can resubmit after rejection`; `other members cannot read progress`; `admin approves`; `admin lists submitted progress via collection group`. → implement → pass → commit, deploy.
+- [x] Failing tests: `members read goals; only admin writes`; `member submits own progress as submitted`; `member cannot set approved`; `member can resubmit after rejection`; `other members cannot read progress`; `admin approves`; `admin lists submitted progress via collection group`. → implement → pass → commit, deploy.
 
 ### Task 2: Function — award on approval
-- [ ] Failing tests: `approval awards goal reward as milestone`; `second approval awards nothing`; `rejection awards nothing`. → `onGoalProgressWritten(db, uid, goalId, before, after)` + trigger → pass → commit, deploy. Seed the 8 goals.
+- [x] Failing tests: `approval awards goal reward as milestone`; `second approval awards nothing`; `rejection awards nothing`. → `onGoalProgressWritten(db, uid, goalId, before, after)` + trigger → pass → commit, deploy. Seed the 8 goals.
 
 ### Task 3: Data + suggestion logic
-- [ ] Failing tests (`GoalsTest`): `suggestsFirstOpenGoalByOrder`; `skipsApprovedAndSubmitted`; `achievedListedNewestFirst`. → `GoalRepository` (observeGoals, observeProgress(uid), submit(uid, goalId, photoUri, note), observeSubmissions() admin, review(uid, goalId, approve)) + `suggestGoal(goals, progress)`, `achieved(goals, progress)` → pass → commit.
+- [x] Failing tests (`GoalsTest`): `suggestsFirstOpenGoalByOrder`; `skipsApprovedAndSubmitted`; `achievedListedNewestFirst`. → `GoalRepository` (observeGoals, observeProgress(uid), submit(uid, goalId, photoUri, note), observeSubmissions() admin, review(uid, goalId, approve)) + `suggestGoal(goals, progress)`, `achieved(goals, progress)` → pass → commit.
 
 ### Task 4: UI — goal card, submit screen, profile goals, admin review
-- [ ] Failing test: `GoalSubmitViewModelTest.uploadFailureKeepsUserOnScreenWithError`. → Profile: suggested goal card + achieved list (respects own view; `hideGoals` only affects others); submit screen (photo picker, note); Moderation screen gets a "Goal photos" section with approve/reject. → pass → commit.
+- [x] Failing test: `GoalSubmitViewModelTest.uploadFailureKeepsUserOnScreenWithError`. → Profile: suggested goal card + achieved list (respects own view; `hideGoals` only affects others); submit screen (photo picker, note); Moderation screen gets a "Goal photos" section with approve/reject. → pass → commit.
 
 ### Task 5: Ship
-- [ ] Full suites green; merge to `main`, push, CI green.
+- [x] Full suites green; merge to `main`, push, CI green.

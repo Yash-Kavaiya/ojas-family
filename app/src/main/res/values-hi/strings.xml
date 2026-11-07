@@ -184,4 +184,20 @@
     <string name="settings_delete_word">DELETE</string>
     <string name="settings_about">जानकारी</string>
     <string name="settings_attribution">स्थान डेटा: countries-states-cities-database (ODbL)। फ़ॉन्ट: Noto (OFL)।</string>
+    <string name="goal_photo_required">पहले एक फ़ोटो चुनें</string>
+    <string name="goal_all_done">आपने अभी के सभी लक्ष्य पूरे कर लिए हैं। नए लक्ष्य यहाँ दिखेंगे।</string>
+    <string name="goal_waiting">समीक्षा की प्रतीक्षा में</string>
+    <string name="goal_achieved">पूरे किए</string>
+    <string name="goal_suggested">सुझाया गया लक्ष्य</string>
+    <string name="goal_reward">%1$d मोक्ष पॉइंट पाएँ</string>
+    <string name="goal_rejected_retry">आपकी पिछली फ़ोटो स्वीकृत नहीं हुई। कृपया फिर से प्रयास करें।</string>
+    <string name="goal_submit_photo">फ़ोटो साझा करें</string>
+    <string name="goal_practice_auto">21 दिन साधना करते रहने पर यह अपने आप पूरा हो जाएगा।</string>
+    <string name="goal_choose_photo">फ़ोटो चुनने के लिए टैप करें</string>
+    <string name="goal_note">टिप्पणी (वैकल्पिक)</string>
+    <string name="goal_send">समीक्षा के लिए भेजें</string>
+    <string name="goal_review_note">एक एडमिन आपकी फ़ोटो देखेंगे। स्वीकृत होने पर पॉइंट जुड़ जाएँगे।</string>
+    <string name="moderation_goal_photos">लक्ष्य फ़ोटो</string>
+    <string name="moderation_reject">अस्वीकार करें</string>
+    <string name="action_back">वापस</string>
 </resources>

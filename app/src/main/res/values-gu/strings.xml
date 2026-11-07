@@ -184,4 +184,20 @@
     <string name="settings_delete_word">DELETE</string>
     <string name="settings_about">માહિતી</string>
     <string name="settings_attribution">સ્થાન ડેટા: countries-states-cities-database (ODbL). ફોન્ટ: Noto (OFL).</string>
+    <string name="goal_photo_required">પહેલાં ફોટો પસંદ કરો</string>
+    <string name="goal_all_done">તમે હાલના બધા લક્ષ્યો પૂરા કર્યા છે. નવા લક્ષ્યો અહીં દેખાશે.</string>
+    <string name="goal_waiting">સમીક્ષાની રાહ જુએ છે</string>
+    <string name="goal_achieved">પૂરા કર્યા</string>
+    <string name="goal_suggested">સૂચવેલ લક્ષ્ય</string>
+    <string name="goal_reward">%1$d મોક્ષ પોઇન્ટ મેળવો</string>
+    <string name="goal_rejected_retry">તમારો છેલ્લો ફોટો મંજૂર થયો નથી. કૃપા કરીને ફરી પ્રયાસ કરો.</string>
+    <string name="goal_submit_photo">ફોટો શેર કરો</string>
+    <string name="goal_practice_auto">21 દિવસ સાધના ચાલુ રાખશો ત્યારે આ આપોઆપ પૂરું થશે.</string>
+    <string name="goal_choose_photo">ફોટો પસંદ કરવા ટૅપ કરો</string>
+    <string name="goal_note">નોંધ (વૈકલ્પિક)</string>
+    <string name="goal_send">સમીક્ષા માટે મોકલો</string>
+    <string name="goal_review_note">એડમિન તમારો ફોટો જોશે. મંજૂર થયા પછી પોઇન્ટ ઉમેરાશે.</string>
+    <string name="moderation_goal_photos">લક્ષ્ય ફોટા</string>
+    <string name="moderation_reject">નામંજૂર કરો</string>
+    <string name="action_back">પાછા</string>
 </resources>

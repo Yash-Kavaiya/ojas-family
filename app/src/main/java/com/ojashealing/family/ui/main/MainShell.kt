@@ -42,7 +42,13 @@ import com.ojashealing.family.ui.content.VideoPlayerScreen
 import com.ojashealing.family.ui.settings.SettingsProfile
 import com.ojashealing.family.ui.settings.SettingsScreen
 import com.ojashealing.family.ui.settings.SettingsViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import com.ojashealing.family.ui.goals.GoalSubmitScreen
+import com.ojashealing.family.ui.goals.GoalSubmitViewModel
+import com.ojashealing.family.ui.goals.ProfileGoalsViewModel
 import com.ojashealing.family.ui.components.OjasTopBar
 import com.ojashealing.family.ui.components.PaytmCoinOverlay
 import com.ojashealing.family.ui.components.RewardAnchors
@@ -71,8 +77,10 @@ import kotlinx.serialization.Serializable
 @Serializable object AskRoute
 @Serializable object AnnounceRoute
 @Serializable object ModerationRoute
+@Serializable data class GoalSubmitRoute(val goalId: String)
 @Serializable data class VideoRoute(val videoId: String, val title: String)
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @Composable
 fun MainShell(container: AppContainer) {
     val vm: MainViewModel = viewModel(factory = viewModelFactory {
@@ -92,6 +100,15 @@ fun MainShell(container: AppContainer) {
     val communityVm: CommunityViewModel = viewModel(factory = viewModelFactory {
         initializer { CommunityViewModel(container.community, vm.profile) }
     })
+    val goalsVm: ProfileGoalsViewModel = viewModel(factory = viewModelFactory {
+        initializer {
+            ProfileGoalsViewModel(
+                container.goals.observeGoals(),
+                container.auth.currentUid.flatMapLatest { uid -> uid?.let(container.goals::observeProgress) ?: flowOf(emptyMap()) }
+            )
+        }
+    })
+    val goals by goalsVm.state.collectAsStateWithLifecycle()
     val play: (ContentItem) -> Unit = { nav.navigate(VideoRoute(it.videoId, it.title)) }
     val anchors = remember { RewardAnchors() }
 
@@ -140,7 +157,9 @@ fun MainShell(container: AppContainer) {
                                 onEditProfile = { nav.navigate(EditProfileRoute) },
                                 onOpenSettings = { nav.navigate(SettingsRoute) },
                                 onOpenAdmin = { nav.navigate(AdminContentRoute) },
-                                onOpenModeration = { nav.navigate(ModerationRoute) }
+                                onOpenModeration = { nav.navigate(ModerationRoute) },
+                                goals = goals,
+                                onSubmitGoal = { nav.navigate(GoalSubmitRoute(it.id)) }
                             )
                         }
                     }
@@ -170,9 +189,21 @@ fun MainShell(container: AppContainer) {
             composable<ScheduleThoughtRoute> { ScheduleThoughtScreen(thoughtVm, onDone = { nav.popBackStack() }) }
             composable<ModerationRoute> {
                 val moderationVm: ModerationViewModel = viewModel(factory = viewModelFactory {
-                    initializer { ModerationViewModel(container.moderation.asActions()) }
+                    initializer { ModerationViewModel(container.moderation.asActions(container.goals)) }
                 })
                 ModerationScreen(moderationVm, onBack = { nav.popBackStack() })
+            }
+            composable<GoalSubmitRoute> { entry ->
+                val goalId = entry.toRoute<GoalSubmitRoute>().goalId
+                val submitVm: GoalSubmitViewModel = viewModel(factory = viewModelFactory {
+                    initializer {
+                        GoalSubmitViewModel { photo, note ->
+                            container.auth.currentUid.value?.let { container.goals.submit(it, goalId, photo, note) }
+                                ?: Result.failure(IllegalStateException("signed out"))
+                        }
+                    }
+                })
+                GoalSubmitScreen(goals.goals.firstOrNull { it.id == goalId }, submitVm, onBack = { nav.popBackStack() })
             }
             composable<AdminContentRoute> {
                 val adminVm: AdminContentViewModel = viewModel(factory = viewModelFactory {
