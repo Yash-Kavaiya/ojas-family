@@ -6,7 +6,10 @@ import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.GetCredentialException
+import androidx.credentials.exceptions.NoCredentialException
 import com.google.firebase.FirebaseNetworkException
+import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.ojashealing.family.R
@@ -70,6 +73,8 @@ data class SignInUiState(
     val busy: Boolean = false,
     @StringRes val error: Int? = null,
     val errorText: String? = null,
+    /** Machine code shown after a generic message, so a tester can report what actually failed. */
+    val errorDetail: String? = null,
     val phone: String = "+91",
     val verification: PhoneVerification.CodeSent? = null,
     val code: String = "",
@@ -131,7 +136,7 @@ class SignInViewModel(private val auth: AuthRepository) : ViewModel() {
     // Runs an auth call with a busy flag and maps failures to a message; success navigates via auth state
     private fun <T> run(onSuccess: (T) -> Unit = {}, block: suspend () -> Result<T>) {
         if (_state.value.busy) return
-        _state.update { it.copy(busy = true, error = null, errorText = null) }
+        _state.update { it.copy(busy = true, error = null, errorText = null, errorDetail = null) }
         viewModelScope.launch {
             block()
                 .onSuccess { value ->
@@ -142,7 +147,17 @@ class SignInViewModel(private val auth: AuthRepository) : ViewModel() {
                 .onFailure { e ->
                     // Closing the Google account picker is a choice, not an error
                     if (e is GetCredentialCancellationException) _state.update { it.copy(busy = false) }
-                    else _state.update { it.copy(busy = false, error = errorFor(e), errorText = if (errorFor(e) == null) e.localizedMessage else null) }
+                    else {
+                        val error = errorFor(e)
+                        _state.update {
+                            it.copy(
+                                busy = false,
+                                error = error,
+                                errorText = if (error == null) e.localizedMessage else null,
+                                errorDetail = if (error == R.string.error_generic) detailFor(e) else null
+                            )
+                        }
+                    }
                 }
         }
     }
@@ -150,9 +165,22 @@ class SignInViewModel(private val auth: AuthRepository) : ViewModel() {
     @StringRes
     private fun errorFor(e: Throwable): Int? = when (e) {
         is FirebaseNetworkException -> R.string.error_offline
-        is FirebaseAuthInvalidCredentialsException -> if (_state.value.verification != null) R.string.error_otp_invalid else R.string.error_generic
+        is FirebaseAuthInvalidCredentialsException -> when {
+            _state.value.verification != null -> R.string.error_otp_invalid
+            e.errorCode == "ERROR_INVALID_PHONE_NUMBER" -> R.string.error_phone_invalid
+            // With email enumeration protection, an unknown email and a wrong password look the same
+            e.errorCode == "ERROR_INVALID_CREDENTIAL" || e.errorCode == "ERROR_WRONG_PASSWORD" -> R.string.error_email_wrong
+            else -> R.string.error_generic
+        }
         is FirebaseAuthUserCollisionException -> null // Firebase's own message names the conflicting provider
+        is NoCredentialException -> R.string.error_no_google_account
         else -> R.string.error_generic
+    }
+
+    private fun detailFor(e: Throwable): String = when (e) {
+        is FirebaseAuthException -> e.errorCode
+        is GetCredentialException -> e.type.substringAfterLast('.')
+        else -> e.message?.take(80) ?: e.javaClass.simpleName
     }
 }
 

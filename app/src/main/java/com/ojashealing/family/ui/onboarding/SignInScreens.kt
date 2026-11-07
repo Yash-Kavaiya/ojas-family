@@ -38,7 +38,8 @@ import com.ojashealing.family.ui.theme.SaffronPrimary
 import com.ojashealing.family.ui.theme.Spacing
 
 @Composable
-private fun SignInUiState.message(): String? = error?.let { stringResource(it) } ?: errorText
+private fun SignInUiState.message(): String? =
+    error?.let { stringResource(it) + (errorDetail?.let { d -> " ($d)" } ?: "") } ?: errorText
 
 @Composable
 fun SignInScreen(vm: SignInViewModel, onPhone: () -> Unit, onEmail: () -> Unit) {

@@ -63,6 +63,8 @@
     <string name="error_otp_invalid">That code is not correct</string>
     <string name="error_email_invalid">Enter a valid email</string>
     <string name="error_password_short">Use at least 8 characters</string>
+    <string name="error_email_wrong">Wrong email or password. New here? Choose Create account.</string>
+    <string name="error_no_google_account">No Google account on this phone. Add one in phone Settings, or sign in with phone or email.</string>
     <string name="profile_age">%1$d years</string>
     <string name="profile_points">Moksha Points</string>
     <string name="profile_level">Level %1$d</string>

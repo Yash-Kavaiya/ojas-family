@@ -62,6 +62,8 @@
     <string name="error_otp_invalid">આ કોડ સાચો નથી</string>
     <string name="error_email_invalid">સાચો ઈમેલ દાખલ કરો</string>
     <string name="error_password_short">ઓછામાં ઓછા 8 અક્ષર રાખો</string>
+    <string name="error_email_wrong">ઈમેલ અથવા પાસવર્ડ ખોટો છે. નવા છો? એકાઉન્ટ બનાવો પસંદ કરો.</string>
+    <string name="error_no_google_account">આ ફોનમાં કોઈ Google એકાઉન્ટ નથી. ફોનના સેટિંગ્સમાં એકાઉન્ટ ઉમેરો, અથવા ફોન નંબર કે ઈમેલથી સાઇન ઇન કરો.</string>
     <string name="profile_age">%1$d વર્ષ</string>
     <string name="profile_points">મોક્ષ પોઈન્ટ</string>
     <string name="profile_level">સ્તર %1$d</string>
