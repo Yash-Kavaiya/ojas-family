@@ -474,7 +474,8 @@ private fun openTarget(nav: NavHostController, target: String, myUid: String, se
         "questions" -> nav.navigate(QuestionRoute(id))
         "dailyPosts" -> nav.navigate(DailyPostRoute(id))
         "chats" -> nav.navigate(ChatRoute(if (id == myUid) "" else id))
-        "calls" -> nav.navigate(CallRoute(callId = id))
+        // The ringing-call listener may already have opened it
+        "calls" -> if (nav.currentBackStackEntry?.destination?.route?.contains("CallRoute") != true) nav.navigate(CallRoute(callId = id))
         "thoughts" -> selectTab(MainTab.Home)
         "announcements" -> selectTab(MainTab.Community)
         "practice" -> selectTab(MainTab.Spiritual)
