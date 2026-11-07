@@ -201,4 +201,6 @@
     <string name="moderation_goal_photos">Goal photos</string>
     <string name="moderation_reject">Reject</string>
     <string name="action_back">Back</string>
+    <string name="error_photo_upload">Could not upload the photo. Please try again.</string>
+    <string name="profile_change_photo">Add or change photo</string>
 </resources>

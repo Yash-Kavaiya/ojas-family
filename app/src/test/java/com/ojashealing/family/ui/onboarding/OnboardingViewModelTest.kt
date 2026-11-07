@@ -53,4 +53,9 @@ class OnboardingViewModelTest {
         assertFalse(isValidE164("9876543210"))
         assertFalse(isValidE164("+91 98765"))
     }
+
+    // Members choose only Male or Female; older stored values still load
+    @Test fun genderChoicesAreMaleAndFemale() = assertEquals(listOf(Gender.Male, Gender.Female), Gender.choices)
+
+    @Test fun storedOtherGenderStillLoads() = assertEquals(Gender.Other, Gender.fromId("other"))
 }

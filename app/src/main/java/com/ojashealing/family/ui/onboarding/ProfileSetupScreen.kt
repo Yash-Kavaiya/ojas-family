@@ -123,7 +123,7 @@ fun ProfileSetupScreen(vm: ProfileSetupViewModel, onBack: (() -> Unit)? = null, 
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
             Text(stringResource(R.string.field_gender), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
-                Gender.entries.forEach { g ->
+                Gender.choices.forEach { g ->
                     FilterChip(
                         selected = form.gender == g,
                         onClick = { vm.edit { it.copy(gender = g) } },

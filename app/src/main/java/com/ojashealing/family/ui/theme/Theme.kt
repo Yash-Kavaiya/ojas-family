@@ -44,7 +44,7 @@ private val LightColorScheme = lightColorScheme(
     onBackground = TextPrimaryLight,
     surface = SurfaceLight,
     onSurface = TextPrimaryLight,
-    surfaceVariant = Color(0xFFF3ECE0),
+    surfaceVariant = Color(0xFFF7EAD3),
     onSurfaceVariant = TextSecondaryLight,
     outline = CardBorderLight
 )

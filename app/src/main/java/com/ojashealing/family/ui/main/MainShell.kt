@@ -10,7 +10,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -111,6 +110,10 @@ fun MainShell(container: AppContainer) {
     val goals by goalsVm.state.collectAsStateWithLifecycle()
     val play: (ContentItem) -> Unit = { nav.navigate(VideoRoute(it.videoId, it.title)) }
     val anchors = remember { RewardAnchors() }
+    // Held above the NavHost so sub-screens keep the tab, but not saved: every fresh open starts on Home
+    var tab by remember { mutableStateOf(MainTab.Home) }
+    val photoUploading by vm.photoUploading.collectAsStateWithLifecycle()
+    val photoError by vm.photoError.collectAsStateWithLifecycle()
 
     LifecycleEventEffect(Lifecycle.Event.ON_START) { vm.onAppForeground() }
 
@@ -129,7 +132,6 @@ fun MainShell(container: AppContainer) {
     ) {
         NavHost(navController = nav, startDestination = TabsRoute) {
             composable<TabsRoute> {
-                var tab by rememberSaveable { mutableStateOf(MainTab.Home) }
                 Scaffold(
                     containerColor = MaterialTheme.colorScheme.background,
                     topBar = { OjasTopBar(profile, onCounterPositioned = { anchors.counterCenter = it }) },
@@ -159,7 +161,10 @@ fun MainShell(container: AppContainer) {
                                 onOpenAdmin = { nav.navigate(AdminContentRoute) },
                                 onOpenModeration = { nav.navigate(ModerationRoute) },
                                 goals = goals,
-                                onSubmitGoal = { nav.navigate(GoalSubmitRoute(it.id)) }
+                                onSubmitGoal = { nav.navigate(GoalSubmitRoute(it.id)) },
+                                onPickPhoto = vm::changePhoto,
+                                photoUploading = photoUploading,
+                                photoError = photoError
                             )
                         }
                     }

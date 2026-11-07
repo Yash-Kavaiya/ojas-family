@@ -200,4 +200,6 @@
     <string name="moderation_goal_photos">लक्ष्य फ़ोटो</string>
     <string name="moderation_reject">अस्वीकार करें</string>
     <string name="action_back">वापस</string>
+    <string name="error_photo_upload">फ़ोटो अपलोड नहीं हो सकी। कृपया फिर से प्रयास करें।</string>
+    <string name="profile_change_photo">फ़ोटो जोड़ें या बदलें</string>
 </resources>

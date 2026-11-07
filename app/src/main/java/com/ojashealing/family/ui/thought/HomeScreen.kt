@@ -15,9 +15,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.WbSunny
@@ -47,6 +45,7 @@ import com.ojashealing.family.data.social.Author
 import com.ojashealing.family.data.social.Post
 import com.ojashealing.family.data.social.PostStatus
 import com.ojashealing.family.domain.LocalDateLike
+import com.ojashealing.family.ui.components.LikeButton
 import com.ojashealing.family.domain.Role
 import com.ojashealing.family.ui.components.EmptyState
 import com.ojashealing.family.ui.components.LoadingState
@@ -91,13 +90,7 @@ fun HomeScreen(vm: ThoughtViewModel, onSchedule: () -> Unit) {
                         Text(thought.title, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
                         Text(thought.text, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = vm::toggleLike, enabled = state.canLike) {
-                                Icon(
-                                    if (liked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                                    contentDescription = stringResource(R.string.action_like),
-                                    tint = if (liked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
+                            LikeButton(liked = liked, enabled = state.canLike, onToggle = vm::toggleLike)
                             Text(stringResource(R.string.likes_count, thought.likeCount), style = MaterialTheme.typography.labelLarge)
                         }
                         if (!state.canLike) LockHint(stringResource(R.string.home_like_locked))

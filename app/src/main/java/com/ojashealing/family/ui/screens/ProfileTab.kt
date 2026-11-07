@@ -1,6 +1,15 @@
 package com.ojashealing.family.ui.screens
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,7 +66,10 @@ fun ProfileTab(
     onOpenAdmin: () -> Unit = {},
     onOpenModeration: () -> Unit = {},
     goals: ProfileGoalsState = ProfileGoalsState(),
-    onSubmitGoal: (Goal) -> Unit = {}
+    onSubmitGoal: (Goal) -> Unit = {},
+    onPickPhoto: (Uri) -> Unit = {},
+    photoUploading: Boolean = false,
+    @StringRes photoError: Int? = null
 ) {
     if (profile == null) {
         LoadingState()
@@ -73,7 +85,7 @@ fun ProfileTab(
             modifier = Modifier.padding(horizontal = Spacing.l),
             verticalArrangement = Arrangement.spacedBy(Spacing.l)
         ) {
-            IdentityCard(profile, locations)
+            IdentityCard(profile, locations, onPickPhoto, photoUploading, photoError)
             StatsRow(profile)
             OutlinedButton(onClick = onEditProfile, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Outlined.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -95,9 +107,26 @@ fun ProfileTab(
 }
 
 @Composable
-private fun IdentityCard(profile: UserProfile, locations: LocationRepository) {
+private fun IdentityCard(
+    profile: UserProfile,
+    locations: LocationRepository,
+    onPickPhoto: (Uri) -> Unit,
+    uploading: Boolean,
+    @StringRes photoError: Int?
+) {
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> uri?.let(onPickPhoto) }
+    val changePhoto = stringResource(R.string.profile_change_photo)
     OjasCard {
         Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
+            // Tapping the picture changes it; the camera badge says so
+            Box(
+                modifier = Modifier
+                    .size(96.dp)
+                    .clickable(enabled = !uploading, onClickLabel = changePhoto, role = Role.Button) {
+                        picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    },
+                contentAlignment = Alignment.Center
+            ) {
             Box(
                 modifier = Modifier
                     .size(88.dp)
@@ -110,7 +139,23 @@ private fun IdentityCard(profile: UserProfile, locations: LocationRepository) {
                 } else {
                     Icon(Icons.Outlined.Person, contentDescription = null, modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+                if (uploading) CircularProgressIndicator(modifier = Modifier.size(32.dp), strokeWidth = 3.dp)
             }
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Outlined.PhotoCamera, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onPrimary)
+            }
+            }
+            if (profile.photoUrl.isEmpty() && !uploading) {
+                Text(changePhoto, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            }
+            photoError?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
             Text(profile.displayName, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
 
             val age = LocalDateLike.parse(profile.dob)?.let { ageOn(it, LocalDateLike.today()) }

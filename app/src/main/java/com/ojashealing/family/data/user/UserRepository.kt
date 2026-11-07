@@ -1,6 +1,8 @@
 package com.ojashealing.family.data.user
 
+import android.content.ContentResolver
 import android.net.Uri
+import com.ojashealing.family.data.shrunkJpeg
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.storage.FirebaseStorage
@@ -27,7 +29,8 @@ interface UserRepository {
 
 class FirestoreUserRepository(
     private val db: FirebaseFirestore,
-    private val storage: FirebaseStorage
+    private val storage: FirebaseStorage,
+    private val resolver: ContentResolver
 ) : UserRepository {
 
     override fun observe(uid: String): Flow<UserProfile?> = callbackFlow {
@@ -60,7 +63,8 @@ class FirestoreUserRepository(
 
     override suspend fun uploadAvatar(uid: String, uri: Uri): Result<String> = runCatching {
         val ref = storage.reference.child("users/$uid/avatar.jpg")
-        ref.putFile(uri, StorageMetadata.Builder().setContentType("image/jpeg").build()).await()
+        // A profile picture never needs more than this; large camera photos would break the 5 MB rule
+        ref.putBytes(resolver.shrunkJpeg(uri, 1024), StorageMetadata.Builder().setContentType("image/jpeg").build()).await()
         val url = ref.downloadUrl.await().toString()
         db.collection("users").document(uid).set(mapOf("photoUrl" to url), SetOptions.merge()).await()
         url

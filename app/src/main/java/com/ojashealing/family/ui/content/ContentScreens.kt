@@ -44,6 +44,19 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.ojashealing.family.R
+import com.ojashealing.family.ui.theme.BlueLightTint
+import com.ojashealing.family.ui.theme.MorningTint
+import com.ojashealing.family.ui.theme.NightTint
+import com.ojashealing.family.ui.theme.OtherTint
+import com.ojashealing.family.ui.theme.QuickProtectionTint
+import com.ojashealing.family.ui.theme.SectionTint
+import com.ojashealing.family.ui.theme.UnderstandingTint
+import com.ojashealing.family.ui.theme.YogaTint
+import com.ojashealing.family.domain.ContentSection
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.material3.Surface
 import com.ojashealing.family.domain.Access
 import com.ojashealing.family.domain.ContentItem
 import com.ojashealing.family.ui.components.EmptyState
@@ -123,10 +136,24 @@ fun PracticeTab(sections: List<SectionUi>?, onPlay: (ContentItem) -> Unit) {
                 modifier = Modifier.weight(1f)
             )
         }
-        else -> LazyColumn(contentPadding = PaddingValues(bottom = Spacing.xl), verticalArrangement = Arrangement.spacedBy(Spacing.l)) {
+        else -> LazyColumn(contentPadding = PaddingValues(top = Spacing.s, bottom = Spacing.xl), verticalArrangement = Arrangement.spacedBy(Spacing.l)) {
+            item(key = "title", contentType = "title") { SectionHeader(stringResource(R.string.tab_spiritual)) }
             items(sections, key = { it.section.id }, contentType = { "section" }) { section ->
-                Column(verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
-                    SectionHeader(stringResource(section.section.label()))
+                val tint = section.section.tint()
+                val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+                // The whole box carries the section's colour, not just its title
+                Surface(
+                    color = if (dark) tint.boxDark else tint.boxLight,
+                    shape = RoundedCornerShape(24.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.l)
+                ) {
+                Column(modifier = Modifier.padding(vertical = Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
+                    Text(
+                        stringResource(section.section.label()),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = if (dark) tint.titleDark else tint.titleLight,
+                        modifier = Modifier.padding(horizontal = Spacing.l).semantics { heading() }
+                    )
                     LazyRow(
                         contentPadding = PaddingValues(horizontal = Spacing.l),
                         horizontalArrangement = Arrangement.spacedBy(Spacing.m)
@@ -140,6 +167,7 @@ fun PracticeTab(sections: List<SectionUi>?, onPlay: (ContentItem) -> Unit) {
                             )
                         }
                     }
+                }
                 }
             }
         }
@@ -179,4 +207,14 @@ fun UnderstandingTab(items: List<Pair<ContentItem, Access>>?, onPlay: (ContentIt
         }
     }
     locked?.let { LockedDialog(it) { locked = null } }
+}
+
+private fun ContentSection.tint(): SectionTint = when (this) {
+    ContentSection.BlueLight -> BlueLightTint
+    ContentSection.QuickProtection -> QuickProtectionTint
+    ContentSection.Morning -> MorningTint
+    ContentSection.Night -> NightTint
+    ContentSection.Yoga -> YogaTint
+    ContentSection.Other -> OtherTint
+    ContentSection.Understanding -> UnderstandingTint
 }

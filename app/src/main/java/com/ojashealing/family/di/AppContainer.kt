@@ -30,7 +30,7 @@ class AppContainer(context: Context) {
     private val functions = Firebase.functions("asia-south1")
 
     val auth: AuthRepository = FirebaseAuthRepository(Firebase.auth, app.getString(R.string.default_web_client_id))
-    val users: UserRepository = FirestoreUserRepository(Firebase.firestore, Firebase.storage)
+    val users: UserRepository = FirestoreUserRepository(Firebase.firestore, Firebase.storage, app.contentResolver)
     val points: PointsRepository = FirebasePointsRepository(Firebase.firestore, functions)
     val settings = SettingsStore(app)
     val content: ContentRepository = FirestoreContentRepository(Firebase.firestore, functions)

@@ -1,12 +1,8 @@
 package com.ojashealing.family.data.goals
 
 import android.content.ContentResolver
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
-import java.io.ByteArrayOutputStream
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import com.ojashealing.family.data.shrunkJpeg
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -96,7 +92,7 @@ class GoalRepository(
     /** Uploads the photo first; the submission is only written if the upload succeeded. */
     suspend fun submit(uid: String, goalId: String, photo: Uri, note: String): Result<Unit> = runCatching {
         val ref = storage.reference.child("users/$uid/goals/$goalId.jpg")
-        ref.putBytes(shrink(photo), StorageMetadata.Builder().setContentType("image/jpeg").build()).await()
+        ref.putBytes(resolver.shrunkJpeg(photo, 1600), StorageMetadata.Builder().setContentType("image/jpeg").build()).await()
         val url = ref.downloadUrl.await().toString()
         db.document("users/$uid/goalProgress/$goalId").set(
             mapOf("status" to "submitted", "photoUrl" to url, "note" to note.take(500), "submittedAt" to FieldValue.serverTimestamp())
@@ -119,25 +115,5 @@ class GoalRepository(
         db.document("users/$uid/goalProgress/$goalId")
             .update(mapOf("status" to if (approve) "approved" else "rejected", "reviewedAt" to FieldValue.serverTimestamp())).await()
         Unit
-    }
-
-    // Storage rules cap uploads at 5 MB; a phone camera photo can exceed that, and reviewers only need a clear look
-    private suspend fun shrink(photo: Uri): ByteArray = withContext(Dispatchers.IO) {
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        resolver.openInputStream(photo).use { BitmapFactory.decodeStream(it, null, bounds) }
-        var sample = 1
-        while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= MAX_EDGE) sample *= 2
-        val bitmap = resolver.openInputStream(photo).use {
-            BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
-        } ?: error("Could not read the photo")
-        ByteArrayOutputStream().use { out ->
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
-            bitmap.recycle()
-            out.toByteArray()
-        }
-    }
-
-    private companion object {
-        const val MAX_EDGE = 1600
     }
 }

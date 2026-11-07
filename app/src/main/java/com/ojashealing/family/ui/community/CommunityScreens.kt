@@ -17,10 +17,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Campaign
-import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.AlertDialog
@@ -50,6 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ojashealing.family.R
+import com.ojashealing.family.ui.components.LikeButton
 import com.ojashealing.family.data.social.Author
 import com.ojashealing.family.data.social.PostStatus
 import com.ojashealing.family.data.social.Question
@@ -164,9 +163,7 @@ fun QuestionDetailScreen(vm: CommunityViewModel, questionId: String, onBack: () 
                     Text(q.title, style = MaterialTheme.typography.titleLarge)
                     if (q.body.isNotBlank()) Text(q.body, style = MaterialTheme.typography.bodyLarge)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = { vm.setLiked(q.id, !liked) }, enabled = p.canLike) {
-                            Icon(if (liked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder, contentDescription = stringResource(R.string.action_like))
-                        }
+                        LikeButton(liked = liked, enabled = p.canLike, onToggle = { vm.setLiked(q.id, !liked) })
                         Text(stringResource(R.string.likes_count, q.likeCount), style = MaterialTheme.typography.labelLarge)
                     }
                 }

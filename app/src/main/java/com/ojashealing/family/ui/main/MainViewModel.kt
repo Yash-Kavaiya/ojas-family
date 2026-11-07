@@ -1,6 +1,8 @@
 package com.ojashealing.family.ui.main
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
+import com.ojashealing.family.R
 import androidx.lifecycle.viewModelScope
 import com.ojashealing.family.data.auth.AuthRepository
 import com.ojashealing.family.data.points.PointsRepository
@@ -24,8 +26,8 @@ import kotlinx.coroutines.launch
 /** App-wide state for the signed-in shell: the live profile, the daily-open claim and point animations. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class MainViewModel(
-    auth: AuthRepository,
-    users: UserRepository,
+    private val auth: AuthRepository,
+    private val users: UserRepository,
     private val points: PointsRepository,
     private val retryDelaysMs: List<Long> = listOf(2_000, 5_000, 15_000, 30_000)
 ) : ViewModel() {
@@ -56,6 +58,24 @@ class MainViewModel(
                 if (points.claimDailyOpen().isSuccess) return@launch
                 retryDelaysMs.getOrNull(attempt)?.let { delay(it) }
             }
+        }
+    }
+
+    private val _photoUploading = MutableStateFlow(false)
+    val photoUploading: StateFlow<Boolean> = _photoUploading.asStateFlow()
+    private val _photoError = MutableStateFlow<Int?>(null)
+    val photoError: StateFlow<Int?> = _photoError.asStateFlow()
+
+    /** Replaces the profile photo straight from the Profile tab; the live profile picks up the new URL. */
+    fun changePhoto(photo: Uri) {
+        val uid = auth.currentUid.value ?: return
+        if (_photoUploading.value) return
+        _photoUploading.value = true
+        _photoError.value = null
+        viewModelScope.launch {
+            val result = users.uploadAvatar(uid, photo)
+            _photoUploading.value = false
+            if (result.isFailure) _photoError.value = R.string.error_photo_upload
         }
     }
 

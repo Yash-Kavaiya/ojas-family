@@ -25,6 +25,9 @@ enum class Gender(val id: String, @StringRes val label: Int) {
 
     companion object {
         fun fromId(id: String?): Gender? = entries.firstOrNull { it.id == id }
+
+        /** What the profile form offers. Other and Unspecified stay only so older profiles still load. */
+        val choices = listOf(Male, Female)
     }
 }
 
