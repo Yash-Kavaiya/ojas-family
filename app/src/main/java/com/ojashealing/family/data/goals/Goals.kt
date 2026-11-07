@@ -11,6 +11,9 @@ import com.google.firebase.storage.StorageMetadata
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.mapLatest
+import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.tasks.await
 
 enum class GoalKind(val id: String) {
@@ -40,7 +43,14 @@ enum class GoalStatus { Submitted, Approved, Rejected }
 data class GoalProgress(val goalId: String, val status: GoalStatus, val photoUrl: String, val updatedAt: Long)
 
 /** A member's photo waiting for an admin. */
-data class GoalSubmission(val uid: String, val goalId: String, val photoUrl: String, val note: String)
+data class GoalSubmission(
+    val uid: String,
+    val goalId: String,
+    val photoUrl: String,
+    val note: String,
+    val memberName: String = "",
+    val memberPhotoUrl: String = ""
+)
 
 /** The next goal to work on: first active goal by order that is neither approved nor waiting for review. */
 fun suggestGoal(goals: List<Goal>, progress: Map<String, GoalProgress>): Goal? =
@@ -55,6 +65,7 @@ fun achieved(goals: List<Goal>, progress: Map<String, GoalProgress>): List<Goal>
 @Suppress("UNCHECKED_CAST")
 private fun DocumentSnapshot.stringMap(field: String) = (get(field) as? Map<String, Any?>).orEmpty().mapValues { it.value?.toString().orEmpty() }
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class GoalRepository(
     private val db: FirebaseFirestore,
     private val storage: FirebaseStorage,
@@ -109,7 +120,18 @@ class GoalRepository(
             })
         }
         awaitClose { reg.remove() }
-    }
+    }.mapLatest { subs -> subs.map { it.withMember(memberOf(it.uid)) } }
+
+    // Admins may read any profile, so the review card can say who sent the photo; looked up once per member
+    private val members = ConcurrentHashMap<String, Pair<String, String>>()
+
+    private suspend fun memberOf(uid: String): Pair<String, String>? = members[uid] ?: runCatching {
+        val d = db.document("users/$uid").get().await()
+        (d.getString("displayName").orEmpty() to d.getString("photoUrl").orEmpty()).also { members[uid] = it }
+    }.getOrNull()
+
+    private fun GoalSubmission.withMember(m: Pair<String, String>?) =
+        if (m == null) this else copy(memberName = m.first, memberPhotoUrl = m.second)
 
     suspend fun review(uid: String, goalId: String, approve: Boolean): Result<Unit> = runCatching {
         db.document("users/$uid/goalProgress/$goalId")

@@ -1,8 +1,10 @@
 package com.ojashealing.family.ui.onboarding
 
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.Image
 import android.app.Activity
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -33,7 +35,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
@@ -47,8 +48,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ojashealing.family.BuildConfig
 import com.ojashealing.family.R
 import com.ojashealing.family.data.auth.signingSha1
-import com.ojashealing.family.ui.theme.SacredGold
-import com.ojashealing.family.ui.theme.SaffronPrimary
 import com.ojashealing.family.ui.theme.Spacing
 
 @Composable
@@ -108,15 +107,12 @@ fun SignInScreen(vm: SignInViewModel, onPhone: () -> Unit, onEmail: () -> Unit) 
         }
     ) {
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            Box(
-                modifier = Modifier
-                    .size(120.dp)
-                    .clip(CircleShape)
-                    .background(Brush.linearGradient(listOf(SaffronPrimary, SacredGold))),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("ॐ", style = MaterialTheme.typography.displayLarge, color = MaterialTheme.colorScheme.onPrimary)
-            }
+            Image(
+                painter = painterResource(R.drawable.ojas_logo),
+                contentDescription = stringResource(R.string.app_name),
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.size(160.dp).clip(CircleShape)
+            )
         }
     }
 }

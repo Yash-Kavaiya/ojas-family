@@ -205,6 +205,7 @@ S = {
 "error_photo_upload": ('Could not upload the photo. Please try again.', 'फ़ोटो अपलोड नहीं हो सकी। कृपया फिर से प्रयास करें।', 'ફોટો અપલોડ થઈ શક્યો નહીં. કૃપા કરીને ફરી પ્રયાસ કરો.'),
 "profile_change_photo": ('Add or change photo', 'फ़ोटो जोड़ें या बदलें', 'ફોટો ઉમેરો અથવા બદલો'),
 "error_google_setup": ("Google sign-in could not start on this phone. Please install the latest app, or sign in with phone or email.", "इस फ़ोन पर Google साइन-इन शुरू नहीं हो सका। कृपया ऐप का नया संस्करण इंस्टॉल करें, या फ़ोन या ईमेल से साइन इन करें।", "આ ફોન પર Google સાઇન-ઇન શરૂ થઈ શક્યું નહીં. કૃપા કરીને એપનું નવું વર્ઝન ઇન્સ્ટોલ કરો, અથવા ફોન કે ઈમેલથી સાઇન ઇન કરો."),
+"moderation_unknown_member": ("A member", "एक सदस्य", "એક સભ્ય"),
 }
 
 def esc(t):

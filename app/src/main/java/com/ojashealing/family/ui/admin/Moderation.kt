@@ -1,5 +1,11 @@
 package com.ojashealing.family.ui.admin
 
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -147,7 +153,16 @@ fun ModerationScreen(vm: ModerationViewModel, onBack: () -> Unit) {
             if (goalReviews.isEmpty()) item(key = "goalsEmpty", contentType = "empty") { EmptyLine() }
             items(goalReviews, key = { "goal:${it.submission.uid}/${it.submission.goalId}" }, contentType = { "goal" }) { review ->
                 OjasCard {
-                    Text(review.goal?.titleIn(lang) ?: review.submission.goalId, style = MaterialTheme.typography.labelLarge)
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s), verticalAlignment = Alignment.CenterVertically) {
+                        MemberAvatar(review.submission.memberPhotoUrl)
+                        Column {
+                            Text(
+                                review.submission.memberName.ifEmpty { stringResource(R.string.moderation_unknown_member) },
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(review.goal?.titleIn(lang) ?: review.submission.goalId, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
                     AsyncImage(
                         model = review.submission.photoUrl,
                         contentDescription = null,
@@ -180,4 +195,15 @@ fun ModerationScreen(vm: ModerationViewModel, onBack: () -> Unit) {
 @Composable
 private fun EmptyLine() {
     Text(stringResource(R.string.moderation_empty), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+@Composable
+private fun MemberAvatar(photoUrl: String) {
+    Box(
+        modifier = Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
+        contentAlignment = Alignment.Center
+    ) {
+        if (photoUrl.isNotEmpty()) AsyncImage(model = photoUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(40.dp))
+        else Icon(Icons.Outlined.Person, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
 }

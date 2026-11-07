@@ -1,5 +1,7 @@
 package com.ojashealing.family.ui.components
 
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.Image
 import android.content.Context
 import android.os.Build
 import android.os.VibrationEffect
@@ -302,12 +304,10 @@ private fun PaytmBurstEffect(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        Text(
-                            text = "ॐ",
-                            fontSize = 38.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color(0xFF3E1F00),
-                            lineHeight = 38.sp
+                        Image(
+                            painter = painterResource(R.drawable.ojas_lotus),
+                            contentDescription = null,
+                            modifier = Modifier.size(56.dp).clip(CircleShape)
                         )
                         Text(
                             text = "MOKSHA",
@@ -439,11 +439,10 @@ private fun CoinFlyToCounter(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = "ॐ",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = Color(0xFF3E1F00)
+            Image(
+                painter = painterResource(R.drawable.ojas_lotus),
+                contentDescription = null,
+                modifier = Modifier.size(22.dp).clip(CircleShape)
             )
         }
     }

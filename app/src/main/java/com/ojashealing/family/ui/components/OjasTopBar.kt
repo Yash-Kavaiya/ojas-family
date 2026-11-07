@@ -1,5 +1,8 @@
 package com.ojashealing.family.ui.components
 
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.Image
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateIntAsState
@@ -36,7 +39,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onPlaced
@@ -49,7 +51,6 @@ import androidx.compose.ui.unit.dp
 import com.ojashealing.family.R
 import com.ojashealing.family.data.user.UserProfile
 import com.ojashealing.family.ui.theme.SacredGold
-import com.ojashealing.family.ui.theme.SaffronPrimary
 import com.ojashealing.family.ui.theme.Spacing
 import kotlinx.coroutines.delay
 
@@ -87,15 +88,12 @@ fun OjasTopBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.m)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(Brush.linearGradient(listOf(SaffronPrimary, SacredGold))),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("ॐ", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onPrimary)
-            }
+            Image(
+                painter = painterResource(R.drawable.ojas_lotus),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.size(40.dp).clip(CircleShape)
+            )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     stringResource(R.string.app_name),

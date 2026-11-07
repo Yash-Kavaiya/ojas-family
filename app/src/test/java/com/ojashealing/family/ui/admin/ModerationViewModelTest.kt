@@ -33,7 +33,7 @@ class ModerationViewModelTest {
         override suspend fun approve(path: String) = Result.success(Unit).also { calls += "approve:$path" }
         override suspend fun remove(path: String) = Result.success(Unit).also { calls += "remove:$path" }
         override suspend fun dismissReport(id: String) = Result.success(Unit).also { calls += "dismiss:$id" }
-        override val goalSubmissions = MutableStateFlow(listOf(GoalSubmission("u1", "cook", "https://p/1.jpg", "dal")))
+        override val goalSubmissions = MutableStateFlow(listOf(GoalSubmission("u1", "cook", "https://p/1.jpg", "dal", memberName = "Asha")))
         override val goals = MutableStateFlow(listOf(Goal("cook", mapOf("en" to "Cook"), emptyMap(), GoalKind.Photo, 25, 1, true)))
         override suspend fun reviewGoal(uid: String, goalId: String, approve: Boolean) =
             Result.success(Unit).also { calls += "goal:$uid/$goalId:$approve" }
@@ -46,6 +46,7 @@ class ModerationViewModelTest {
         advanceUntilIdle()
         val review = vm.goalReviews.value.single()
         assertEquals("Cook", review.goal?.titleIn("en"))
+        assertEquals("Asha", review.submission.memberName)
         vm.reviewGoal(review.submission, approve = true)
         vm.reviewGoal(review.submission, approve = false)
         advanceUntilIdle()
