@@ -26,6 +26,8 @@ class FirebasePointsRepository(
 
     override suspend fun claimDailyOpen(): Result<Boolean> = runCatching {
         val data = functions.getHttpsCallable("claimDailyOpen").call().await().getData() as? Map<*, *>
+        // On the admin email list: the server just made this account admin; fetch a token with the new role
+        if (data?.get("roleChanged") == true) com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.getIdToken(true)?.await()
         data?.get("awarded") == true
     }
 

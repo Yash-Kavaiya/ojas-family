@@ -24,6 +24,7 @@ import {
 } from "./community";
 import type { Messenger } from "./notify";
 import { istDay } from "./time";
+import { applyAdminList, applyAdminListNow, givePointsFor, statsFor } from "./admin";
 
 initializeApp();
 const db = getFirestore();
@@ -61,7 +62,42 @@ export const claimDailyOpen = onCall({ enforceAppCheck: enforceAppCheck }, async
   const uid = requireUid(req);
   // The profile may not exist yet if this runs before onUserCreate finishes
   await ensureUserDoc(db, uid);
-  return claimDailyOpenFor(db, uid, new Date());
+  // Emails on the admin list become admins the first time they sign in; the app then refreshes its token
+  const roleChanged = await applyAdminList(db, uid, req.auth?.token.email, req.auth?.token.email_verified === true,
+    req.auth?.token.role, (target, claims) => getAuth().setCustomUserClaims(target, claims));
+  return { ...(await claimDailyOpenFor(db, uid, new Date())), roleChanged };
+});
+
+// ---- Admin website ----
+
+export const syncRole = onCall(async (req) => {
+  const uid = requireUid(req);
+  await ensureUserDoc(db, uid);
+  const roleChanged = await applyAdminList(db, uid, req.auth?.token.email, req.auth?.token.email_verified === true,
+    req.auth?.token.role, (target, claims) => getAuth().setCustomUserClaims(target, claims));
+  return { roleChanged };
+});
+
+export const adminGivePoints = onCall(async (req) => {
+  requireUid(req);
+  return givePointsFor(db, req.auth?.token, (req.data ?? {}) as Record<string, unknown>);
+});
+
+export const adminStats = onCall({ timeoutSeconds: 120 }, async (req) => {
+  requireUid(req);
+  return statsFor(db, req.auth?.token, new Date());
+});
+
+export const adminApplyAdminList = onCall(async (req) => {
+  requireUid(req);
+  return applyAdminListNow(db, req.auth?.token, async (email) => {
+    try {
+      const u = await getAuth().getUserByEmail(email);
+      return { uid: u.uid, emailVerified: u.emailVerified };
+    } catch {
+      return null;
+    }
+  }, (target, claims) => getAuth().setCustomUserClaims(target, claims));
 });
 
 export const deleteAccount = onCall({ enforceAppCheck: enforceAppCheck }, async (req) => {

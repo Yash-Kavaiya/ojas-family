@@ -215,3 +215,26 @@ describe("chat and calls", () => {
     expect((await db.doc("users/m1/entitlements/call").get()).get("credits")).toBe(3);
   });
 });
+
+describe("admin website helpers", () => {
+  const { applyAdminList, givePointsFor } = require("../src/admin");
+
+  test("a verified email on the admin list becomes admin once", async () => {
+    await db.doc("config/admins").set({ emails: ["Boss@Example.com"] });
+    const claims: Record<string, unknown>[] = [];
+    const set = async (_: string, c: Record<string, unknown>) => { claims.push(c); };
+    expect(await applyAdminList(db, "m1", "boss@example.com", false, "member", set)).toBe(false);
+    expect(await applyAdminList(db, "m1", "boss@example.com", true, "member", set)).toBe(true);
+    expect(await applyAdminList(db, "m1", "boss@example.com", true, "admin", set)).toBe(false);
+    expect(claims).toEqual([{ role: "admin" }]);
+    expect((await db.doc("users/m1").get()).get("role")).toBe("admin");
+    expect(await applyAdminList(db, "m2", "other@example.com", true, "member", set)).toBe(false);
+  });
+
+  test("admins gift points to several members; others cannot", async () => {
+    const r = await givePointsFor(db, ADMIN, { uids: ["m1", "m2", "nobody"], amount: 25 });
+    expect(r.given).toBe(2);
+    expect((await db.doc("users/m2").get()).get("mokshaPoints")).toBe(25);
+    await expect(givePointsFor(db, { role: "member" }, { uids: ["m1"], amount: 5 })).rejects.toThrow(/Admins/);
+  });
+});

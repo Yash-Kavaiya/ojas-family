@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Ojas Family Admin</title>
+  <link rel="icon" href="logo.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="signin" class="center hidden">
+    <div class="card narrow">
+      <img src="logo.png" alt="" class="logo">
+      <h1>Ojas Family Admin</h1>
+      <p class="muted">Sign in with the Google account that is on the admin list.</p>
+      <button id="btn-signin" class="primary">Sign in with Google</button>
+      <p id="signin-msg" class="error"></p>
+    </div>
+  </div>
+
+  <div id="app" class="hidden">
+    <aside>
+      <div class="brand"><img src="logo.png" alt=""><span>Ojas Admin</span></div>
+      <nav id="nav">
+        <a href="#dashboard">Dashboard</a>
+        <a href="#members">Members &amp; gifts</a>
+        <a href="#thoughts">Thought of the Day</a>
+        <a href="#content">Videos</a>
+        <a href="#moderation">Moderation</a>
+        <a href="#announcements">Announcements</a>
+        <a href="#admins">Admins</a>
+        <a href="#settings">Settings</a>
+      </nav>
+      <div class="me"><span id="me-name"></span><button id="btn-signout" class="link">Sign out</button></div>
+    </aside>
+    <main id="view"></main>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <div id="loading" class="center"><div class="spinner"></div></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
