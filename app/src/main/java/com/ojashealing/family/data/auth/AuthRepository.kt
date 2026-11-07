@@ -2,6 +2,7 @@ package com.ojashealing.family.data.auth
 
 import android.app.Activity
 import android.content.Context
+import android.os.SystemClock
 import android.util.Log
 import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
@@ -29,6 +30,18 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeoutOrNull
+
+/**
+ * The Google account picker closed by itself. Android reports this as a cancel, but it happens when the
+ * APK's signing key or the Google OAuth client does not match Firebase, so it must not be swallowed.
+ */
+class GoogleSetupException(cause: Throwable) : Exception("Google picker closed without the user choosing", cause)
+
+/** A cancel faster than a person could close the picker is Android refusing, not the person deciding. */
+fun isGoogleSetupFailure(e: Throwable, elapsedMs: Long): Boolean =
+    e is GetCredentialCancellationException && elapsedMs < INSTANT_CANCEL_MS
+
+private const val INSTANT_CANCEL_MS = 2_000L
 
 /** Firebase never answered (no code sent, no error), e.g. the reCAPTCHA page was closed. */
 class AuthTimeoutException : Exception("Phone verification timed out")
@@ -68,7 +81,12 @@ class FirebaseAuthRepository(
     override suspend fun signInWithGoogle(activity: Activity): Result<Unit> = runCatching {
         val option = GetSignInWithGoogleOption.Builder(webClientId).build()
         val request = GetCredentialRequest.Builder().addCredentialOption(option).build()
-        val response = CredentialManager.create(activity).getCredential(activity, request)
+        val started = SystemClock.elapsedRealtime()
+        val response = try {
+            CredentialManager.create(activity).getCredential(activity, request)
+        } catch (e: GetCredentialCancellationException) {
+            if (isGoogleSetupFailure(e, SystemClock.elapsedRealtime() - started)) throw GoogleSetupException(e) else throw e
+        }
         val idToken = GoogleIdTokenCredential.createFrom(response.credential.data).idToken
         auth.signInWithCredential(GoogleAuthProvider.getCredential(idToken, null)).await()
         Unit

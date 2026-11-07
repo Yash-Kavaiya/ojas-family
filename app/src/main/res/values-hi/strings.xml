@@ -202,4 +202,5 @@
     <string name="action_back">वापस</string>
     <string name="error_photo_upload">फ़ोटो अपलोड नहीं हो सकी। कृपया फिर से प्रयास करें।</string>
     <string name="profile_change_photo">फ़ोटो जोड़ें या बदलें</string>
+    <string name="error_google_setup">इस फ़ोन पर Google साइन-इन शुरू नहीं हो सका। कृपया ऐप का नया संस्करण इंस्टॉल करें, या फ़ोन या ईमेल से साइन इन करें।</string>
 </resources>

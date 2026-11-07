@@ -8,6 +8,7 @@ import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import com.ojashealing.family.R
 import com.ojashealing.family.data.auth.AuthTimeoutException
+import com.ojashealing.family.data.auth.GoogleSetupException
 
 /** Which input a sign-in error belongs under. */
 enum class ErrorField { Email, Password, Phone, Code }
@@ -24,6 +25,7 @@ fun authErrorFor(e: Throwable, phoneStep: PhoneStep? = null): AuthError {
     return when (e) {
         is FirebaseNetworkException -> AuthError(R.string.error_offline)
         is FirebaseTooManyRequestsException -> AuthError(R.string.error_too_many_attempts)
+        is GoogleSetupException -> AuthError(R.string.error_google_setup, null, "GOOGLE_PICKER_CLOSED")
         is AuthTimeoutException -> AuthError(R.string.error_with_code, phoneStep?.let { codeField }, "TIMEOUT")
         is FirebaseAuthWeakPasswordException -> AuthError(R.string.error_password_weak, ErrorField.Password)
         is FirebaseAuthUserCollisionException -> AuthError(R.string.error_email_in_use, ErrorField.Email)

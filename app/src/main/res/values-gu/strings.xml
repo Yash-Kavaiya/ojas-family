@@ -202,4 +202,5 @@
     <string name="action_back">પાછા</string>
     <string name="error_photo_upload">ફોટો અપલોડ થઈ શક્યો નહીં. કૃપા કરીને ફરી પ્રયાસ કરો.</string>
     <string name="profile_change_photo">ફોટો ઉમેરો અથવા બદલો</string>
+    <string name="error_google_setup">આ ફોન પર Google સાઇન-ઇન શરૂ થઈ શક્યું નહીં. કૃપા કરીને એપનું નવું વર્ઝન ઇન્સ્ટોલ કરો, અથવા ફોન કે ઈમેલથી સાઇન ઇન કરો.</string>
 </resources>

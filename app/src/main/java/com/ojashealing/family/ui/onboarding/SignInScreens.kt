@@ -61,7 +61,7 @@ private fun AuthError?.text(): String? = this?.let { e ->
 // Codes that mean Firebase did not recognise this APK, not a mistake by the person signing in
 private val SIGNING_CODES = setOf(
     "ERROR_APP_NOT_AUTHORIZED", "ERROR_MISSING_CLIENT_IDENTIFIER", "ERROR_INVALID_APP_CREDENTIAL",
-    "ERROR_MISSING_APP_CREDENTIAL", "ERROR_INVALID_CERT_HASH"
+    "ERROR_MISSING_APP_CREDENTIAL", "ERROR_INVALID_CERT_HASH", "GOOGLE_PICKER_CLOSED"
 )
 
 /**
