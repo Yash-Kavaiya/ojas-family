@@ -16,7 +16,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.imePadding
+import com.ojashealing.family.ui.adaptive.ownedInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
@@ -136,7 +136,7 @@ fun AnnouncementCard(
 
 /** An announcement with all its comments and the comment box; opened from the list or its notification. */
 @Composable
-fun AnnouncementDetailScreen(vm: CommunityViewModel, id: String, onBack: () -> Unit) {
+fun AnnouncementDetailScreen(vm: CommunityViewModel, id: String, onBack: () -> Unit, showBack: Boolean = true, embedded: Boolean = false) {
     val perms by vm.permissions.collectAsStateWithLifecycle()
     val notices by vm.announcements.collectAsStateWithLifecycle()
     val liked by remember(id) { vm.announcementLiked(id) }.collectAsStateWithLifecycle(false)
@@ -150,9 +150,9 @@ fun AnnouncementDetailScreen(vm: CommunityViewModel, id: String, onBack: () -> U
 
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
       // The comment box sits under the list, pinned above the keyboard
-      Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+      Column(Modifier.fillMaxSize().ownedInsets(embedded)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(Spacing.xs)) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
+            if (showBack) IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
             Text(stringResource(R.string.announcement_label), style = MaterialTheme.typography.titleLarge)
         }
         LazyColumn(
@@ -237,7 +237,7 @@ fun ComposeAnnouncementScreen(vm: CommunityViewModel, onBack: () -> Unit) {
     val audioPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent(), pick(MediaKind.Audio))
 
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).imePadding()) {
+        Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(Spacing.s)) {
                 IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
                 Text(stringResource(R.string.community_post_notice), style = MaterialTheme.typography.titleLarge)

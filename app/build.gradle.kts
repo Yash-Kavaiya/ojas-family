@@ -10,7 +10,8 @@ plugins {
 
 android {
   namespace = "com.ojashealing.family"
-  compileSdk { version = release(36) { minorApiLevel = 1 } }
+  // 37 to compile: material3-adaptive needs it. targetSdk stays 36, so behaviour on phones is unchanged
+  compileSdk { version = release(37) }
 
   defaultConfig {
     applicationId = "com.ojashealing.family"
@@ -41,7 +42,7 @@ android {
   buildTypes {
     release {
       isCrunchPngs = false
-      isMinifyEnabled = false
+      isMinifyEnabled = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       signingConfig = signingConfigs.getByName("release")
     }
@@ -83,6 +84,10 @@ dependencies {
   implementation(libs.androidx.lifecycle.runtime.ktx)
   implementation(libs.androidx.lifecycle.viewmodel.compose)
   implementation(libs.androidx.navigation.compose)
+  implementation(libs.androidx.navigation3.runtime)
+  implementation(libs.androidx.navigation3.ui)
+  implementation(libs.androidx.adaptive.navigation3)
+  implementation(libs.androidx.material3.adaptive.navigation.suite)
   implementation(libs.coil.compose)
   implementation(libs.youtube.player)
   implementation(libs.firebase.auth)

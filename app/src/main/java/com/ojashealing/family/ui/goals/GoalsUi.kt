@@ -241,7 +241,6 @@ fun GoalSubmitScreen(goal: Goal?, vm: GoalSubmitViewModel, onBack: () -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing)
-                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = Spacing.l, vertical = Spacing.s),
             verticalArrangement = Arrangement.spacedBy(Spacing.m)

@@ -26,7 +26,7 @@ class FirestoreContentRepository(
 ) : ContentRepository {
 
     override fun observe(): Flow<List<ContentItem>> = callbackFlow {
-        val registration = db.collection("content").addSnapshotListener { snap, error ->
+        val registration = db.collection("content").limit(500).addSnapshotListener { snap, error ->
             if (error != null || snap == null) return@addSnapshotListener
             val items = snap.documents.mapNotNull { it.toContentItem() }
                 .sortedWith(compareBy<ContentItem>({ it.section.ordinal }, { it.order }))

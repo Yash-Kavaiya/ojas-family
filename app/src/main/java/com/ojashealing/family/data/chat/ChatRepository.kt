@@ -4,11 +4,13 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
+import com.ojashealing.family.data.paging.LiveTailPager
 import com.ojashealing.family.domain.Role
 import com.ojashealing.family.domain.Viewer
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.tasks.await
 
 /** One member's private chat with Swamiji (or the senior member Swamiji assigned). Doc id = member uid. */
@@ -85,8 +87,12 @@ data class StaffContact(val swamijiUid: String, val supportUid: String = "", val
 
 class ChatRepository(private val db: FirebaseFirestore, private val channel: ChatChannel = ChatChannel.Swamiji) {
 
-    /** The same repository for the other conversation. */
-    fun on(c: ChatChannel) = if (c == channel) this else ChatRepository(db, c)
+    private val other by lazy { ChatRepository(db, if (channel == ChatChannel.Swamiji) ChatChannel.Admin else ChatChannel.Swamiji) }
+    private val inboxPager = LiveTailPager<ChatThread>(idOf = { it.memberUid })
+    val inboxHasMore = inboxPager.hasMore
+
+    /** The same repository for the other conversation. One instance, so its page cursor stays put. */
+    fun on(c: ChatChannel) = if (c == channel) this else other
     private val col get() = channel.collection
 
     private fun thread(d: com.google.firebase.firestore.DocumentSnapshot) = ChatThread(
@@ -120,9 +126,11 @@ class ChatRepository(private val db: FirebaseFirestore, private val channel: Cha
         val base = db.collection(col)
         val q = if (viewer.role == Role.SeniorMember && this@ChatRepository.channel == ChatChannel.Swamiji) base.whereEqualTo("assigneeUid", uid).orderBy("lastAt", Query.Direction.DESCENDING)
         else base.orderBy("lastAt", Query.Direction.DESCENDING)
-        val reg = q.limit(200).addSnapshotListener { snap, _ -> if (snap != null) trySend(snap.documents.map(::thread)) }
-        awaitClose { reg.remove() }
+        inboxPager.observe(q, ::thread).collect { trySend(it) }
+        awaitClose { }
     }
+
+    suspend fun loadOlderInbox() = inboxPager.loadMore()
 
     fun observeMessages(memberUid: String): Flow<List<ChatMessage>> = callbackFlow {
         val reg = db.collection("$col/$memberUid/messages").orderBy("createdAt", Query.Direction.ASCENDING).limitToLast(300)

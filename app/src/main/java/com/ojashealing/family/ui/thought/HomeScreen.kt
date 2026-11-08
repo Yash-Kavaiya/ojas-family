@@ -192,7 +192,7 @@ fun ScheduledThoughtsScreen(vm: ThoughtViewModel, onEdit: (String) -> Unit, onBa
                 items == null -> LoadingState()
                 items.isEmpty() -> EmptyState(Icons.Outlined.Event, stringResource(R.string.home_scheduled_none), "")
                 else -> LazyColumn(contentPadding = PaddingValues(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
-                    items(items, key = { it.id }) { t ->
+                    items(items, key = { it.id }, contentType = { "thought" }) { t ->
                         OjasCard(onClick = { onEdit(t.id) }) {
                             Text(dayLabel(t.id), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                             Text(t.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)

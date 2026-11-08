@@ -148,6 +148,8 @@
     <string name="community_empty_qa">હજી કોઈ પ્રશ્ન નથી</string>
     <string name="community_empty_notices">હજી કોઈ જાહેરાત નથી</string>
     <string name="action_more">વધુ વિકલ્પો</string>
+    <string name="list_pick">એક વસ્તુ પસંદ કરો</string>
+    <string name="feed_older">જૂના</string>
     <string name="moderation_title">મોડરેશન</string>
     <string name="moderation_pending">મંજૂરી માટે</string>
     <string name="moderation_reports">રિપોર્ટ</string>

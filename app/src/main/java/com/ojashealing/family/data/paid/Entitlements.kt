@@ -37,7 +37,7 @@ enum class Product(val id: String, val subscription: Boolean, val access: PaidAc
 class PaidRepository(private val db: FirebaseFirestore, private val functions: FirebaseFunctions) {
 
     fun observe(uid: String): Flow<Entitlements> = callbackFlow {
-        val reg = db.collection("users/$uid/entitlements").addSnapshotListener { snap, _ ->
+        val reg = db.collection("users/$uid/entitlements").limit(20).addSnapshotListener { snap, _ ->
             if (snap == null) return@addSnapshotListener
             val map = snap.documents.mapNotNull { d ->
                 val access = PaidAccess.entries.firstOrNull { it.id == d.id } ?: return@mapNotNull null

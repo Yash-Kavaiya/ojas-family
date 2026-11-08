@@ -19,6 +19,8 @@ interface PointsRepository {
     suspend fun deleteAccount(): Result<Unit>
     /** Every award, newest first: how each Moksha Point was earned. */
     fun observeHistory(uid: String): Flow<List<PointHistoryItem>> = kotlinx.coroutines.flow.flowOf(emptyList())
+    fun historyHasMore(uid: String): Flow<Boolean> = kotlinx.coroutines.flow.flowOf(false)
+    suspend fun loadOlderHistory(uid: String) {}
     /** Level 2 to 4 targets from config/levels (spec defaults until loaded). */
     fun observeLevelTargets(): Flow<LevelTargets> = kotlinx.coroutines.flow.flowOf(LevelTargets())
 }
@@ -63,23 +65,28 @@ class FirebasePointsRepository(
         awaitClose { registration.remove() }
     }
 
-    override fun observeHistory(uid: String): Flow<List<PointHistoryItem>> = callbackFlow {
-        val registration = db.collection("users").document(uid).collection("pointEvents")
+    private var historyUid: String? = null
+    private val historyPager = com.ojashealing.family.data.paging.LiveTailPager<PointHistoryItem>(idOf = { it.key })
+
+    override fun historyHasMore(uid: String): Flow<Boolean> = historyPager.hasMore
+
+    override suspend fun loadOlderHistory(uid: String) {
+        if (historyUid == uid) historyPager.loadMore()
+    }
+
+    override fun observeHistory(uid: String): Flow<List<PointHistoryItem>> {
+        historyUid = uid
+        val query = db.collection("users").document(uid).collection("pointEvents")
             .orderBy("createdAt", Query.Direction.DESCENDING)
-            .limit(500)
-            .addSnapshotListener { snap, _ ->
-                if (snap == null) return@addSnapshotListener
-                trySend(snap.documents.map { d ->
-                    PointHistoryItem(
-                        key = d.id,
-                        amount = d.getLong("amount")?.toInt() ?: 0,
-                        reason = d.getString("reason").orEmpty(),
-                        at = d.getTimestamp("createdAt", com.google.firebase.firestore.DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)?.toDate()?.time ?: 0L,
-                        note = d.getString("note").orEmpty()
-                    )
-                })
-            }
-        awaitClose { registration.remove() }
+        return historyPager.observe(query) { d ->
+            PointHistoryItem(
+                key = d.id,
+                amount = d.getLong("amount")?.toInt() ?: 0,
+                reason = d.getString("reason").orEmpty(),
+                at = d.getTimestamp("createdAt", com.google.firebase.firestore.DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)?.toDate()?.time ?: 0L,
+                note = d.getString("note").orEmpty()
+            )
+        }
     }
 
     override fun observeLevelTargets(): Flow<LevelTargets> = callbackFlow {

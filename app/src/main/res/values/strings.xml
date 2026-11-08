@@ -149,6 +149,8 @@
     <string name="community_empty_qa">No questions yet</string>
     <string name="community_empty_notices">No announcements yet</string>
     <string name="action_more">More options</string>
+    <string name="list_pick">Choose an item</string>
+    <string name="feed_older">Older</string>
     <string name="moderation_title">Moderation</string>
     <string name="moderation_pending">Waiting for approval</string>
     <string name="moderation_reports">Reports</string>

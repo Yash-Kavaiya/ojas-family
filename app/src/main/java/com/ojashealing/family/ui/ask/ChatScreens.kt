@@ -106,6 +106,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import com.ojashealing.family.ui.adaptive.DraftScroll
+import com.ojashealing.family.ui.adaptive.DraftScrollSaver
+import com.ojashealing.family.ui.adaptive.LoadOlderWhenEnd
+import com.ojashealing.family.ui.adaptive.loadOlderRow
+import com.ojashealing.family.ui.adaptive.ownedInsets
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -337,18 +343,26 @@ fun ChatScreen(
     onBack: () -> Unit,
     onRenew: () -> Unit,
     onCall: ((memberUid: String, video: Boolean) -> Unit)?,
-    onSchedule: (() -> Unit)? = null
+    onSchedule: (() -> Unit)? = null,
+    showBack: Boolean = true,
+    embedded: Boolean = false,
+    saveKey: String = "chat",
 ) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val sending by vm.sending.collectAsStateWithLifecycle()
     val failed by vm.failed.collectAsStateWithLifecycle()
     val seniors by vm.seniors.collectAsStateWithLifecycle()
-    var draft by rememberSaveable { mutableStateOf("") }
+    var held by rememberSaveable(saveKey, stateSaver = DraftScrollSaver) { mutableStateOf(DraftScroll("", 0, 0)) }
+    var draft by remember(saveKey) { mutableStateOf(held.draft) }
     var assigning by remember { mutableStateOf(false) }
     var attaching by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
     var editingReplies by remember { mutableStateOf(false) }
-    val list = rememberLazyListState()
+    val list = rememberLazyListState(held.index, held.offset)
+    LaunchedEffect(saveKey, list) {
+        snapshotFlow { DraftScroll(draft, list.firstVisibleItemIndex, list.firstVisibleItemScrollOffset) }
+            .collect { held = it }
+    }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val u = ui
@@ -402,9 +416,9 @@ fun ChatScreen(
     LaunchedEffect(atBottom) { if (atBottom) unseenBelow = 0 }
 
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+        Column(Modifier.fillMaxSize().ownedInsets(embedded)) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(Spacing.xs)) {
-                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
+                if (showBack) IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
                 val title = if (u?.iAmStaff == true) u.thread?.memberName.orEmpty()
                 else stringResource(if (vm.channel == ChatChannel.Admin) R.string.chat_title_admin else R.string.chat_title)
                 Column(Modifier.weight(1f)) {
@@ -475,7 +489,7 @@ fun ChatScreen(
                     if (u.messages.isEmpty()) item(key = "empty") {
                         Text(stringResource(R.string.chat_empty), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    items(rows, key = { it.key }) { row ->
+                    items(rows, key = { it.key }, contentType = { row -> if (row is ChatRow.Day) "day" else "message" }) { row ->
                         when (row) {
                             is ChatRow.Day -> DayChip(dayHeader(row.at))
                             is ChatRow.Message -> {
@@ -510,14 +524,14 @@ fun ChatScreen(
                 }
             }
             Column(
-                Modifier.background(MaterialTheme.colorScheme.surface).imePadding().padding(horizontal = Spacing.s, vertical = Spacing.xs)
+                Modifier.background(MaterialTheme.colorScheme.surface).padding(horizontal = Spacing.s, vertical = Spacing.xs)
             ) {
                 if (failed) Text(stringResource(R.string.chat_file_failed), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = Spacing.s))
                 if (u.canWrite) {
                     // Staff quick replies: one tap fills the box
                     if (u.iAmStaff && u.quickReplies.isNotEmpty() && !recording) {
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.xs), contentPadding = PaddingValues(horizontal = Spacing.xs, vertical = Spacing.xs)) {
-                            items(u.quickReplies) { q ->
+                            items(u.quickReplies, key = { it }, contentType = { "reply" }) { q ->
                                 SuggestionChip(onClick = { draft = q }, label = { Text(q, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 200.dp)) })
                             }
                         }
@@ -764,10 +778,17 @@ class InboxViewModel(private val repo: ChatRepository, profile: Flow<UserProfile
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
     val threads: StateFlow<List<ChatThread>?> = me.flatMapLatest { p -> repo.observeInbox(p.viewer, p.uid) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val threadsHasMore: StateFlow<Boolean> = repo.inboxHasMore
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    fun loadOlderThreads() { viewModelScope.launch { repo.loadOlderInbox() } }
     /** Admin-team conversations (admins only). */
+    private val adminRepo = repo.on(ChatChannel.Admin)
     val adminThreads: StateFlow<List<ChatThread>?> = me.flatMapLatest { p ->
-        if (p.viewer.role == Role.Admin) repo.on(ChatChannel.Admin).observeInbox(p.viewer, p.uid) else flowOf(emptyList())
+        if (p.viewer.role == Role.Admin) adminRepo.observeInbox(p.viewer, p.uid) else flowOf(emptyList())
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val adminHasMore: StateFlow<Boolean> = adminRepo.inboxHasMore
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    fun loadOlderAdmin() { viewModelScope.launch { adminRepo.loadOlderInbox() } }
 }
 
 /** Staff: member conversations. Admins also get an Admin-team tab. Call requests and history sit on top. */
@@ -778,7 +799,9 @@ fun InboxScreen(
     onBack: () -> Unit,
     onOpen: (memberUid: String, channel: ChatChannel) -> Unit,
     onRequests: () -> Unit = {},
-    onHistory: () -> Unit = {}
+    onHistory: () -> Unit = {},
+    showBack: Boolean = true,
+    embedded: Boolean = false,
 ) {
     val threads by vm.threads.collectAsStateWithLifecycle()
     val adminThreads by vm.adminThreads.collectAsStateWithLifecycle()
@@ -787,9 +810,9 @@ fun InboxScreen(
     var tab by rememberSaveable { mutableStateOf(0) }
     var menuFor by remember { mutableStateOf<String?>(null) }
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+        Column(Modifier.fillMaxSize().ownedInsets(embedded)) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(Spacing.s)) {
-                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
+                if (showBack) IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
                 Text(stringResource(R.string.ask_staff_inbox), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
             }
             Row(Modifier.padding(horizontal = Spacing.l), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
@@ -809,14 +832,19 @@ fun InboxScreen(
                 }
             }
             val channel = if (isAdmin && tab == 1) ChatChannel.Admin else ChatChannel.Swamiji
+            val more by (if (channel == ChatChannel.Admin) vm.adminHasMore else vm.threadsHasMore).collectAsStateWithLifecycle()
+            val loadOlder = if (channel == ChatChannel.Admin) vm::loadOlderAdmin else vm::loadOlderThreads
             // Pinned first, then newest
             val list = (if (channel == ChatChannel.Admin) adminThreads else threads)
                 ?.sortedWith(compareByDescending<ChatThread> { prefs[prefKey(channel, it.memberUid)]?.pinned == true }.thenByDescending { it.lastAt })
             when {
                 list == null -> LoadingState()
                 list.isEmpty() -> EmptyState(Icons.Outlined.Forum, stringResource(R.string.chat_inbox_empty), "", Modifier.weight(1f))
-                else -> LazyColumn(contentPadding = PaddingValues(Spacing.m), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
-                    items(list, key = { it.memberUid }) { t ->
+                else -> {
+                    val inboxState = rememberLazyListState()
+                    LoadOlderWhenEnd(inboxState, more, list.size, loadOlder)
+                    LazyColumn(state = inboxState, contentPadding = PaddingValues(Spacing.m), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
+                    items(list, key = { it.memberUid }, contentType = { "thread" }) { t ->
                         val pref = prefs[prefKey(channel, t.memberUid)] ?: ChatPref()
                         val unread = unreadFor(t, iAmStaff = true)
                         Box {
@@ -859,6 +887,8 @@ fun InboxScreen(
                                 )
                             }
                         }
+                    }
+                    loadOlderRow(more, loadOlder)
                     }
                 }
             }

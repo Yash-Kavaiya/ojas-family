@@ -148,6 +148,8 @@
     <string name="community_empty_qa">अभी कोई प्रश्न नहीं</string>
     <string name="community_empty_notices">अभी कोई घोषणा नहीं</string>
     <string name="action_more">और विकल्प</string>
+    <string name="list_pick">एक चीज़ चुनें</string>
+    <string name="feed_older">पुराने</string>
     <string name="moderation_title">मॉडरेशन</string>
     <string name="moderation_pending">मंज़ूरी के लिए</string>
     <string name="moderation_reports">रिपोर्ट</string>

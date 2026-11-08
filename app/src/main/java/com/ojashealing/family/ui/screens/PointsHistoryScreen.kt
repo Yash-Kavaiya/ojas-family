@@ -18,6 +18,9 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import com.ojashealing.family.ui.adaptive.LoadOlderWhenEnd
+import com.ojashealing.family.ui.adaptive.loadOlderRow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -88,7 +91,9 @@ fun PointsHistoryScreen(
     profile: UserProfile?,
     history: List<PointHistoryItem>?,
     targets: LevelTargets,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    hasMore: Boolean = false,
+    onLoadOlder: () -> Unit = {},
 ) {
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
@@ -100,15 +105,18 @@ fun PointsHistoryScreen(
                 LoadingState(Modifier.weight(1f))
                 return@Column
             }
+            val historyState = rememberLazyListState()
+            LoadOlderWhenEnd(historyState, hasMore, history.size, onLoadOlder)
             LazyColumn(
+                state = historyState,
                 contentPadding = PaddingValues(start = Spacing.l, end = Spacing.l, bottom = Spacing.xl),
                 verticalArrangement = Arrangement.spacedBy(Spacing.s)
             ) {
-                item(key = "hero") { PointsHero(profile, targets) }
+                item(key = "hero", contentType = "hero") { PointsHero(profile, targets) }
                 val totals = totalsBySource(history)
-                if (totals.isNotEmpty()) item(key = "totals") {
+                if (totals.isNotEmpty()) item(key = "totals", contentType = "totals") {
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s), modifier = Modifier.padding(vertical = Spacing.s)) {
-                        items(totals, key = { it.first.name }) { (src, sum) -> TotalChip(src, sum) }
+                        items(totals, key = { it.first.name }, contentType = { "total" }) { (src, sum) -> TotalChip(src, sum) }
                     }
                 }
                 if (history.isEmpty()) item(key = "empty") {
@@ -123,8 +131,9 @@ fun PointsHistoryScreen(
                             modifier = Modifier.padding(top = Spacing.m, bottom = Spacing.xs)
                         )
                     }
-                    items(items, key = { it.key }) { HistoryRow(it) }
+                    items(items, key = { it.key }, contentType = { "event" }) { HistoryRow(it) }
                 }
+                loadOlderRow(hasMore, onLoadOlder)
             }
         }
     }

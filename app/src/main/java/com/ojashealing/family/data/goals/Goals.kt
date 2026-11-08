@@ -73,7 +73,7 @@ class GoalRepository(
 ) {
 
     fun observeGoals(): Flow<List<Goal>> = callbackFlow {
-        val reg = db.collection("goals").addSnapshotListener { snap, _ ->
+        val reg = db.collection("goals").limit(200).addSnapshotListener { snap, _ ->
             if (snap == null) return@addSnapshotListener
             trySend(snap.documents.mapNotNull { d ->
                 val kind = GoalKind.fromId(d.getString("kind")) ?: return@mapNotNull null
@@ -85,7 +85,7 @@ class GoalRepository(
     }
 
     fun observeProgress(uid: String): Flow<Map<String, GoalProgress>> = callbackFlow {
-        val reg = db.collection("users/$uid/goalProgress").addSnapshotListener { snap, _ ->
+        val reg = db.collection("users/$uid/goalProgress").limit(200).addSnapshotListener { snap, _ ->
             if (snap == null) return@addSnapshotListener
             trySend(snap.documents.associate { d ->
                 val status = when (d.getString("status")) {
@@ -112,7 +112,7 @@ class GoalRepository(
     }
 
     fun observeSubmissions(): Flow<List<GoalSubmission>> = callbackFlow {
-        val reg = db.collectionGroup("goalProgress").whereEqualTo("status", "submitted").addSnapshotListener { snap, _ ->
+        val reg = db.collectionGroup("goalProgress").whereEqualTo("status", "submitted").limit(100).addSnapshotListener { snap, _ ->
             if (snap == null) return@addSnapshotListener
             trySend(snap.documents.map { d ->
                 GoalSubmission(uid = d.reference.parent.parent?.id.orEmpty(), goalId = d.id,

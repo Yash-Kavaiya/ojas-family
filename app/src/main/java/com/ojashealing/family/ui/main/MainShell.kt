@@ -15,9 +15,29 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Icon
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
+import coil.compose.AsyncImage
+import com.ojashealing.family.ui.adaptive.DetailMode
+import com.ojashealing.family.ui.adaptive.PrimaryNav
+import com.ojashealing.family.ui.adaptive.rememberWindowChrome
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -111,7 +131,6 @@ import com.ojashealing.family.ui.goals.GoalSubmitScreen
 import com.ojashealing.family.ui.goals.GoalSubmitViewModel
 import com.ojashealing.family.ui.goals.ProfileGoalsViewModel
 import com.ojashealing.family.ui.navigation.MainTab
-import com.ojashealing.family.ui.navigation.OjasBottomBar
 import com.ojashealing.family.ui.onboarding.ProfileSetupScreen
 import com.ojashealing.family.ui.onboarding.ProfileSetupViewModel
 import com.ojashealing.family.ui.paid.PaidViewModel
@@ -279,6 +298,8 @@ fun MainShell(container: AppContainer) {
     var tab by rememberSaveable { mutableStateOf(MainTab.Home) }
     // Q&A, Daily or Announcements inside Community; held here so notifications can pick it
     var communityTab by rememberSaveable { mutableStateOf(0) }
+    var communityJump by rememberSaveable { mutableStateOf<String?>(null) }
+    var askJump by rememberSaveable { mutableStateOf<String?>(null) }
     val appLanguage = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language
     val about by remember(appLanguage) {
         container.about.observe(appLanguage)
@@ -382,7 +403,13 @@ fun MainShell(container: AppContainer) {
         val t = target ?: return@LaunchedEffect
         if (p == null) return@LaunchedEffect
         DeepLinks.consume()
-        openTarget(nav, t, p.uid, selectCommunityTab = { communityTab = it }) { tab = it }
+        openTarget(
+            nav, t, p.uid,
+            selectCommunityTab = { communityTab = it },
+            selectTab = { tab = it },
+            setCommunityJump = { communityJump = it },
+            setAskJump = { askJump = it },
+        )
     }
 
     LaunchedEffect(practiceMessage) {
@@ -441,81 +468,139 @@ fun MainShell(container: AppContainer) {
             popExitTransition = { slideOutHorizontally(tween(NAV_MS, easing = FastOutSlowInEasing)) { it / 4 } + fadeOut(tween(NAV_MS / 2)) }
         ) {
             composable<TabsRoute> {
-                Scaffold(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    topBar = { OjasTopBar(profile, onCounterPositioned = { anchors.counterCenter = it }, onOpenPoints = { nav.navigate(PointsHistoryRoute) }) },
-                    bottomBar = { OjasBottomBar(current = tab, onSelect = { tab = it }, photoUrl = profile?.photoUrl.orEmpty(), badges = mapOf(MainTab.Ask to askUnread)) }
-                ) { padding ->
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(padding)
-                            .consumeWindowInsets(padding)
-                    ) {
-                        AnimatedContent(targetState = tab, transitionSpec = { tabTransition(initialState, targetState) }, label = "tab") { shown ->
-                        when (shown) {
-                            MainTab.Community -> CommunityScreen(
-                                communityVm,
-                                onOpenQuestion = { nav.navigate(QuestionRoute(it)) },
-                                onAsk = { nav.navigate(AskRoute) },
-                                onAnnounce = { nav.navigate(AnnounceRoute) },
-                                daily = { canPost ->
-                                    DailyFeed(
-                                        dailyVm, canPost,
-                                        onOpen = { nav.navigate(DailyPostRoute(it)) },
-                                        onCompose = { nav.navigate(ComposeDailyRoute) },
-                                        onJoin = { openPlans(PaidAccess.Membership) }
+                val chrome = rememberWindowChrome()
+                val beside = chrome.detail == DetailMode.BesideList
+                NavigationSuiteScaffold(
+                    layoutType = if (chrome.primaryNav == PrimaryNav.BottomBar) NavigationSuiteType.NavigationBar else NavigationSuiteType.NavigationRail,
+                    navigationSuiteItems = {
+                        MainTab.entries.forEach { item ->
+                            item(
+                                selected = tab == item,
+                                onClick = { tab = item },
+                                modifier = Modifier.testTag("nav_${item.name}"),
+                                icon = { SuiteIcon(item, tab == item, profile?.photoUrl.orEmpty(), askUnread) },
+                                label = {
+                                    Text(
+                                        stringResource(item.label),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
                                     )
                                 },
-                                onOpenAnnouncement = { nav.navigate(AnnouncementRoute(it)) },
-                                tab = communityTab,
-                                onTab = { communityTab = it }
-                            )
-                            MainTab.Spiritual -> PracticeTab(
-                                practice, onPlay = play, practice = practiceStatus, practiceBusy = practiceBusy, onMarkPractice = practiceVm::mark,
-                                guided = guided,
-                                onOpenGuided = { nav.navigate(PracticeSessionRoute(it.id)) }
-                            )
-                            MainTab.Home -> HomeScreen(
-                                thoughtVm,
-                                onSchedule = { nav.navigate(ScheduleThoughtRoute()) },
-                                onOpenThought = { nav.navigate(ThoughtRoute(it)) },
-                                about = about,
-                                onOpenAbout = { nav.navigate(AboutRoute(it)) },
-                                onOpenScheduled = { nav.navigate(ScheduledThoughtsRoute) }
-                            )
-                            MainTab.Ask -> AskTab(
-                                profile = profile,
-                                entitlements = entitlements,
-                                understanding = understanding,
-                                onPlay = play,
-                                onOpenChat = { nav.navigate(ChatRoute(channel = it.id)) },
-                                onCall = { channel, video -> callStaff(channel, video, "") },
-                                onPlans = { openPlans(it) },
-                                onInbox = { nav.navigate(InboxRoute) },
-                                onOpenAi = { nav.navigate(SwamijiAiRoute) },
-                                onSchedule = { nav.navigate(ScheduleCallRoute(it.id)) },
-                                onHistory = { nav.navigate(CallHistoryRoute) },
-                                onMyCalls = { nav.navigate(MyCallsRoute) },
-                                adminCallsReady = staffContact?.supportUid?.isNotEmpty() == true
-                            )
-                            MainTab.Profile -> ProfileTab(
-                                profile = profile,
-                                locations = container.locations,
-                                onEditProfile = { nav.navigate(EditProfileRoute) },
-                                onOpenSettings = { nav.navigate(SettingsRoute) },
-                                onOpenAdmin = { nav.navigate(AdminContentRoute) },
-                                onOpenModeration = { nav.navigate(ModerationRoute) },
-                                goals = goals,
-                                onSubmitGoal = { nav.navigate(GoalSubmitRoute(it.id)) },
-                                onPickPhoto = vm::changePhoto,
-                                photoUploading = photoUploading,
-                                photoError = photoError,
-                                entitlements = entitlements,
-                                onPlans = { openPlans(null) },
-                                onOpenMembers = { nav.navigate(MembersRoute) }
                             )
                         }
+                    },
+                ) {
+                    Column(Modifier.fillMaxSize()) {
+                        OjasTopBar(profile, onCounterPositioned = { anchors.counterCenter = it }, onOpenPoints = { nav.navigate(PointsHistoryRoute) })
+                        Box(Modifier.weight(1f).fillMaxWidth()) {
+                            AnimatedContent(targetState = tab, transitionSpec = { tabTransition(initialState, targetState) }, label = "tab") { shown ->
+                                when (shown) {
+                                    MainTab.Community -> CommunityPanes(
+                                        beside = beside,
+                                        jump = communityJump,
+                                        onJumpConsumed = { communityJump = null },
+                                        list = { onOpen ->
+                                            CommunityScreen(
+                                                communityVm,
+                                                onOpenQuestion = { onOpen("question", it) },
+                                                onAsk = { nav.navigate(AskRoute) },
+                                                onAnnounce = { nav.navigate(AnnounceRoute) },
+                                                daily = { canPost ->
+                                                    DailyFeed(
+                                                        dailyVm, canPost,
+                                                        onOpen = { onOpen("daily", it) },
+                                                        onCompose = { nav.navigate(ComposeDailyRoute) },
+                                                        onJoin = { openPlans(PaidAccess.Membership) },
+                                                    )
+                                                },
+                                                onOpenAnnouncement = { onOpen("announcement", it) },
+                                                tab = communityTab,
+                                                onTab = { communityTab = it },
+                                            )
+                                        },
+                                        detail = { kind, id, onBack, showBack ->
+                                            when (kind) {
+                                                "daily" -> DailyPostScreen(dailyVm, id, onBack, showBack, embedded = true)
+                                                "announcement" -> AnnouncementDetailScreen(communityVm, id, onBack, showBack, embedded = true)
+                                                else -> QuestionDetailScreen(communityVm, id, onBack, showBack, embedded = true)
+                                            }
+                                        },
+                                    )
+                                    MainTab.Spiritual -> PracticeTab(
+                                        practice, onPlay = play, practice = practiceStatus, practiceBusy = practiceBusy, onMarkPractice = practiceVm::mark,
+                                        guided = guided,
+                                        onOpenGuided = { nav.navigate(PracticeSessionRoute(it.id)) },
+                                    )
+                                    MainTab.Home -> HomeScreen(
+                                        thoughtVm,
+                                        onSchedule = { nav.navigate(ScheduleThoughtRoute()) },
+                                        onOpenThought = { nav.navigate(ThoughtRoute(it)) },
+                                        about = about,
+                                        onOpenAbout = { nav.navigate(AboutRoute(it)) },
+                                        onOpenScheduled = { nav.navigate(ScheduledThoughtsRoute) },
+                                    )
+                                    MainTab.Ask -> AskPanes(
+                                        beside = beside,
+                                        jump = askJump,
+                                        onJumpConsumed = { askJump = null },
+                                        hub = { openChat, openInbox ->
+                                            AskTab(
+                                                profile = profile,
+                                                entitlements = entitlements,
+                                                understanding = understanding,
+                                                onPlay = play,
+                                                onOpenChat = { openChat(it.id) },
+                                                onCall = { channel, video -> callStaff(channel, video, "") },
+                                                onPlans = { openPlans(it) },
+                                                onInbox = openInbox,
+                                                onOpenAi = { nav.navigate(SwamijiAiRoute) },
+                                                onSchedule = { nav.navigate(ScheduleCallRoute(it.id)) },
+                                                onHistory = { nav.navigate(CallHistoryRoute) },
+                                                onMyCalls = { nav.navigate(MyCallsRoute) },
+                                                adminCallsReady = staffContact?.supportUid?.isNotEmpty() == true,
+                                            )
+                                        },
+                                        inbox = { onOpen, showBack, onBack ->
+                                            val inboxVm: InboxViewModel = viewModel(factory = viewModelFactory { initializer { InboxViewModel(container.chat, vm.profile) } })
+                                            InboxScreen(
+                                                inboxVm,
+                                                onBack = onBack,
+                                                onOpen = { member, channel -> onOpen(member, channel.id) },
+                                                onRequests = { nav.navigate(StaffRequestsRoute) },
+                                                onHistory = { nav.navigate(CallHistoryRoute) },
+                                                showBack = showBack,
+                                                embedded = true,
+                                            )
+                                        },
+                                        chat = { memberUid, channel, onBack, showBack ->
+                                            ChatDestination(
+                                                container, vm, profile, entitlements, entitlementsFlow, staffContact,
+                                                memberUid, channel, showBack, embedded = true, onBack,
+                                                onRenew = { openPlans(PaidAccess.Membership) },
+                                                onSchedule = { nav.navigate(ScheduleCallRoute(channel)) },
+                                                callStaff, callMember,
+                                            )
+                                        },
+                                    )
+                                    MainTab.Profile -> ProfileTab(
+                                        profile = profile,
+                                        locations = container.locations,
+                                        onEditProfile = { nav.navigate(EditProfileRoute) },
+                                        onOpenSettings = { nav.navigate(SettingsRoute) },
+                                        onOpenAdmin = { nav.navigate(AdminContentRoute) },
+                                        onOpenModeration = { nav.navigate(ModerationRoute) },
+                                        goals = goals,
+                                        onSubmitGoal = { nav.navigate(GoalSubmitRoute(it.id)) },
+                                        onPickPhoto = vm::changePhoto,
+                                        photoUploading = photoUploading,
+                                        photoError = photoError,
+                                        entitlements = entitlements,
+                                        onPlans = { openPlans(null) },
+                                        onOpenMembers = { nav.navigate(MembersRoute) },
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -602,32 +687,13 @@ fun MainShell(container: AppContainer) {
             }
             composable<ChatRoute> { entry ->
                 val route = entry.toRoute<ChatRoute>()
-                val memberUid = route.memberUid.ifEmpty { null }
-                val channel = com.ojashealing.family.data.chat.ChatChannel.fromId(route.channel)
-                val chatVm: ChatViewModel = viewModel(key = "chat-${channel.id}-${memberUid.orEmpty()}", factory = viewModelFactory {
-                    initializer {
-                        ChatViewModel(
-                            container.chat, vm.profile, entitlementsFlow, memberUid, channel, container.images::uploadChatFile,
-                            presence = container.presence::observe,
-                            staffContact = container.chat.observeStaffContact().catch { emit(null) }
-                        )
-                    }
-                })
-                val me = p
-                val iAmStaff = me != null && Permissions.isChatStaff(me.viewer) && memberUid != null && memberUid != me.uid
-                val calls: ((String, Boolean) -> Unit)? = when {
-                    me == null -> null
-                    iAmStaff -> { member, video -> callMember(member, chatVm.ui.value?.thread?.memberName.orEmpty(), video, channel.id, "") }
-                    else -> {
-                        val audioOk = Permissions.canAudioCall(me.viewer, entitlements[PaidAccess.Call]?.canCall() == true)
-                        val videoOk = Permissions.canVideoCall(me.viewer)
-                        val ready = channel == com.ojashealing.family.data.chat.ChatChannel.Swamiji || staffContact?.supportUid?.isNotEmpty() == true
-                        if (!ready) null else { _, video -> if (if (video) videoOk else audioOk) callStaff(channel, video, "") else openPlans(PaidAccess.Membership) }
-                    }
-                }
-                ChatScreen(
-                    chatVm, onBack = { nav.popBackStack() }, onRenew = { openPlans(PaidAccess.Membership) }, onCall = calls,
-                    onSchedule = if (iAmStaff) null else ({ nav.navigate(ScheduleCallRoute(channel.id)) })
+                ChatDestination(
+                    container, vm, profile, entitlements, entitlementsFlow, staffContact,
+                    route.memberUid, route.channel, showBack = true, embedded = false,
+                    onBack = { nav.popBackStack() },
+                    onRenew = { openPlans(PaidAccess.Membership) },
+                    onSchedule = { nav.navigate(ScheduleCallRoute(route.channel)) },
+                    callStaff, callMember,
                 )
             }
             composable<InboxRoute> {
@@ -711,7 +777,14 @@ fun MainShell(container: AppContainer) {
                 val history by remember(uid) { uid?.let { container.points.observeHistory(it).catch { emit(emptyList()) } } ?: flowOf(null) }
                     .collectAsStateWithLifecycle(null)
                 val targets by remember { container.points.observeLevelTargets().catch { emit(LevelTargets()) } }.collectAsStateWithLifecycle(LevelTargets())
-                PointsHistoryScreen(profile, history, targets, onBack = { nav.popBackStack() })
+                val historyMore by remember(uid) { uid?.let { container.points.historyHasMore(it) } ?: flowOf(false) }.collectAsStateWithLifecycle(false)
+                val scope = rememberCoroutineScope()
+                PointsHistoryScreen(
+                    profile, history, targets,
+                    onBack = { nav.popBackStack() },
+                    hasMore = historyMore,
+                    onLoadOlder = { uid?.let { id -> scope.launch { container.points.loadOlderHistory(id) } } },
+                )
             }
             composable<SwamijiAiRoute> {
                 SwamijiAiScreen(onBack = { nav.popBackStack() }, onAskSwamiji = { nav.popBackStack(); tab = MainTab.Ask })
@@ -775,21 +848,48 @@ private fun tabTransition(from: MainTab, to: MainTab): ContentTransform {
     return enter togetherWith exit
 }
 
+private fun revealTabs(nav: NavHostController) {
+    val route = nav.currentBackStackEntry?.destination?.route.orEmpty()
+    if (!route.contains("CallRoute")) nav.popBackStack(TabsRoute, inclusive = false)
+}
+
 /** Opens what a notification points at. */
 private fun openTarget(
     nav: NavHostController,
     target: String,
     myUid: String,
     selectCommunityTab: (Int) -> Unit = {},
-    selectTab: (MainTab) -> Unit
+    selectTab: (MainTab) -> Unit,
+    setCommunityJump: (String) -> Unit = {},
+    setAskJump: (String) -> Unit = {},
 ) {
     val (kind, id) = target.split("/", limit = 2).let { it[0] to it.getOrElse(1) { "" } }
     // Put the right tab underneath, then open the item itself, so Back lands where it belongs
     when (kind) {
-        "questions" -> { selectTab(MainTab.Community); selectCommunityTab(com.ojashealing.family.ui.community.CommunityTab.QA); nav.navigate(QuestionRoute(id)) }
-        "dailyPosts" -> { selectTab(MainTab.Community); selectCommunityTab(com.ojashealing.family.ui.community.CommunityTab.DAILY); nav.navigate(DailyPostRoute(id)) }
-        "chats" -> nav.navigate(ChatRoute(if (id == myUid) "" else id))
-        "adminChats" -> nav.navigate(ChatRoute(if (id == myUid) "" else id, "admin"))
+        "questions" -> {
+            selectTab(MainTab.Community)
+            selectCommunityTab(com.ojashealing.family.ui.community.CommunityTab.QA)
+            setCommunityJump("question/$id")
+            revealTabs(nav)
+        }
+        "dailyPosts" -> {
+            selectTab(MainTab.Community)
+            selectCommunityTab(com.ojashealing.family.ui.community.CommunityTab.DAILY)
+            setCommunityJump("daily/$id")
+            revealTabs(nav)
+        }
+        "chats" -> {
+            selectTab(MainTab.Ask)
+            val uid = if (id == myUid) "" else id
+            setAskJump(if (uid.isEmpty()) "chat:swamiji:" else "inbox:swamiji:$uid")
+            revealTabs(nav)
+        }
+        "adminChats" -> {
+            selectTab(MainTab.Ask)
+            val uid = if (id == myUid) "" else id
+            setAskJump(if (uid.isEmpty()) "chat:admin:" else "inbox:admin:$uid")
+            revealTabs(nav)
+        }
         "callRequests" -> if (id.isNotEmpty()) nav.navigate(CallRequestRoute(id))
         // The ringing-call listener may already have opened it
         // "calls/<id>" shows the ringing call; "calls/<id>/answer" (the notification's Answer) answers it too
@@ -802,10 +902,84 @@ private fun openTarget(
         }
         "thoughts" -> { selectTab(MainTab.Home); if (id.isNotEmpty()) nav.navigate(ThoughtRoute(id)) }
         "announcements" -> {
-            selectTab(MainTab.Community); selectCommunityTab(com.ojashealing.family.ui.community.CommunityTab.NOTICES)
-            if (id.isNotEmpty()) nav.navigate(AnnouncementRoute(id))
+            selectTab(MainTab.Community)
+            selectCommunityTab(com.ojashealing.family.ui.community.CommunityTab.NOTICES)
+            if (id.isNotEmpty()) setCommunityJump("announcement/$id")
+            revealTabs(nav)
         }
         "practice" -> selectTab(MainTab.Spiritual)
+    }
+}
+
+@Composable
+private fun ChatDestination(
+    container: AppContainer,
+    mainVm: MainViewModel,
+    profile: com.ojashealing.family.data.user.UserProfile?,
+    entitlements: Entitlements,
+    entitlementsFlow: kotlinx.coroutines.flow.Flow<Entitlements>,
+    staffContact: com.ojashealing.family.data.chat.StaffContact?,
+    memberUid: String,
+    channelId: String,
+    showBack: Boolean,
+    embedded: Boolean,
+    onBack: () -> Unit,
+    onRenew: () -> Unit,
+    onSchedule: () -> Unit,
+    callStaff: (com.ojashealing.family.data.chat.ChatChannel, Boolean, String) -> Unit,
+    callMember: (String, String, Boolean, String, String) -> Unit,
+) {
+    val other = memberUid.ifEmpty { null }
+    val channel = com.ojashealing.family.data.chat.ChatChannel.fromId(channelId)
+    val chatVm: ChatViewModel = viewModel(key = "chat-${channel.id}-${other.orEmpty()}", factory = viewModelFactory {
+        initializer {
+            ChatViewModel(
+                container.chat, mainVm.profile, entitlementsFlow, other, channel, container.images::uploadChatFile,
+                presence = container.presence::observe,
+                staffContact = container.chat.observeStaffContact().catch { emit(null) },
+            )
+        }
+    })
+    val me = profile
+    val iAmStaff = me != null && Permissions.isChatStaff(me.viewer) && other != null && other != me.uid
+    val calls: ((String, Boolean) -> Unit)? = when {
+        me == null -> null
+        iAmStaff -> { member, video -> callMember(member, chatVm.ui.value?.thread?.memberName.orEmpty(), video, channel.id, "") }
+        else -> {
+            val audioOk = Permissions.canAudioCall(me.viewer, entitlements[PaidAccess.Call]?.canCall() == true)
+            val videoOk = Permissions.canVideoCall(me.viewer)
+            val ready = channel == com.ojashealing.family.data.chat.ChatChannel.Swamiji || staffContact?.supportUid?.isNotEmpty() == true
+            if (!ready) null else { _, video -> if (if (video) videoOk else audioOk) callStaff(channel, video, "") else onRenew() }
+        }
+    }
+    ChatScreen(
+        chatVm,
+        onBack = onBack,
+        onRenew = onRenew,
+        onCall = calls,
+        onSchedule = if (iAmStaff) null else onSchedule,
+        showBack = showBack,
+        embedded = embedded,
+        saveKey = "chat-${channel.id}-${other.orEmpty()}",
+    )
+}
+
+@Composable
+private fun SuiteIcon(tab: MainTab, selected: Boolean, photoUrl: String, askUnread: Int) {
+    BadgedBox(badge = {
+        val count = if (tab == MainTab.Ask) askUnread else 0
+        if (count > 0) Badge { Text(if (count > 99) "99+" else "$count") }
+    }) {
+        if (tab == MainTab.Profile && photoUrl.isNotEmpty()) {
+            AsyncImage(
+                model = photoUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.size(24.dp).clip(CircleShape).border(1.dp, MaterialTheme.colorScheme.outline, CircleShape),
+            )
+        } else {
+            Icon(if (selected) tab.selectedIcon else tab.icon, contentDescription = null)
+        }
     }
 }
 

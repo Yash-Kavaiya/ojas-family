@@ -129,7 +129,7 @@ fun SwamijiAiScreen(onBack: () -> Unit, onAskSwamiji: () -> Unit) {
     }
 
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).imePadding()) {
+        Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(Spacing.s)) {
                 IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
                 AiAvatar(36)
@@ -145,7 +145,7 @@ fun SwamijiAiScreen(onBack: () -> Unit, onAskSwamiji: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(Spacing.m)
             ) {
                 item(key = "intro") { IntroCard(onAskSwamiji) }
-                items(messages, key = { it.id }) { m -> AiBubble(m) }
+                items(messages, key = { it.id }, contentType = { "message" }) { m -> AiBubble(m) }
                 if (thinking) item(key = "thinking") { ThinkingDots() }
             }
             if (messages.isEmpty()) {
@@ -154,7 +154,7 @@ fun SwamijiAiScreen(onBack: () -> Unit, onAskSwamiji: () -> Unit) {
                     horizontalArrangement = Arrangement.spacedBy(Spacing.s),
                     modifier = Modifier.padding(bottom = Spacing.s)
                 ) {
-                    items(suggestions) { s ->
+                    items(suggestions, key = { it }, contentType = { "suggestion" }) { s ->
                         Text(
                             s,
                             style = MaterialTheme.typography.labelMedium,
