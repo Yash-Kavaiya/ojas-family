@@ -1,5 +1,14 @@
 package com.ojashealing.family.ui.main
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material.icons.outlined.Call
+import androidx.compose.material.icons.outlined.Videocam
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.Alignment
+import com.ojashealing.family.data.call.isOver
+import androidx.navigation.compose.currentBackStackEntryAsState
 import android.Manifest
 import android.os.Build
 import android.widget.Toast
@@ -158,7 +167,9 @@ import kotlinx.serialization.Serializable
     val channel: String = "swamiji",
     val requestId: String = "",
     /** From the ringing notification's Answer button. */
-    val autoAnswer: Boolean = false
+    val autoAnswer: Boolean = false,
+    /** Back to the call already on, from the ongoing-call bar. */
+    val resume: Boolean = false
 )
 @Serializable object CallHistoryRoute
 @Serializable object MyCallsRoute
@@ -416,6 +427,10 @@ fun MainShell(container: AppContainer) {
                 }
             }
     ) {
+        // A call left running while chatting or browsing: a green bar back to it, like WhatsApp
+        val call by container.callManager.ui.collectAsStateWithLifecycle()
+        val onCallScreen = nav.currentBackStackEntryAsState().value?.destination?.route?.contains("CallRoute") == true
+        val ongoing = call?.takeIf { it.phase.let { ph -> ph != com.ojashealing.family.data.call.CallPhase.Incoming && !ph.isOver } }
         NavHost(
             navController = nav,
             startDestination = TabsRoute,
@@ -662,7 +677,7 @@ fun MainShell(container: AppContainer) {
             composable<CallRoute> { entry ->
                 val r = entry.toRoute<CallRoute>()
                 val me = p ?: return@composable
-                val start = if (r.callId.isNotEmpty()) CallStart.Incoming(r.callId, r.video)
+                val start = if (r.resume) null else if (r.callId.isNotEmpty()) CallStart.Incoming(r.callId, r.video)
                 else CallStart.Outgoing(
                     r.calleeUid, r.memberUid, r.staffUid, r.peerName,
                     com.ojashealing.family.data.call.CallOptions(
@@ -682,7 +697,7 @@ fun MainShell(container: AppContainer) {
                         )
                     }
                 })
-                CallScreen(callVm, onClose = { nav.popBackStack() })
+                CallScreen(callVm, onClose = { nav.popBackStack() }, onMinimise = { nav.popBackStack() })
             }
             composable<MemberProfileRoute> { entry ->
                 val uid = entry.toRoute<MemberProfileRoute>().uid
@@ -741,6 +756,9 @@ fun MainShell(container: AppContainer) {
             }
         }
 
+        if (ongoing != null && !onCallScreen) {
+            OngoingCallBar(ongoing, Modifier.align(Alignment.TopCenter)) { nav.navigate(CallRoute(resume = true)) { launchSingleTop = true } }
+        }
         PaytmCoinOverlay(rewardEvent = reward, anchors = anchors, onDismiss = vm::clearReward)
     }
     }
@@ -815,4 +833,36 @@ private fun AskNotificationPermission() {
             TextButton(onClick = { asked = true; prefs.edit().putBoolean("notifAsked", true).apply() }) { Text(stringResource(R.string.action_not_now)) }
         }
     )
+}
+
+/** "Ongoing call · 04:12": tap to go back to the call. */
+@Composable
+private fun OngoingCallBar(call: com.ojashealing.family.data.call.CallUi, modifier: Modifier = Modifier, onReturn: () -> Unit) {
+    val now by androidx.compose.runtime.produceState(System.currentTimeMillis()) {
+        while (true) { value = System.currentTimeMillis(); kotlinx.coroutines.delay(1_000) }
+    }
+    val time = if (call.connectedAt > 0) com.ojashealing.family.data.call.callClock(now - call.connectedAt) else "…"
+    androidx.compose.material3.Surface(
+        onClick = onReturn,
+        color = androidx.compose.ui.graphics.Color(0xFF2E7D32),
+        contentColor = androidx.compose.ui.graphics.Color.White,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        androidx.compose.foundation.layout.Row(
+            Modifier.windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.statusBars)
+                .padding(horizontal = com.ojashealing.family.ui.theme.Spacing.l, vertical = com.ojashealing.family.ui.theme.Spacing.s),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(com.ojashealing.family.ui.theme.Spacing.s)
+        ) {
+            androidx.compose.material3.Icon(
+                if (call.video) androidx.compose.material.icons.Icons.Outlined.Videocam else androidx.compose.material.icons.Icons.Outlined.Call,
+                contentDescription = null
+            )
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.call_ongoing_bar, call.peerName.ifBlank { time }), style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                Text(stringResource(R.string.call_ongoing_return), style = MaterialTheme.typography.labelSmall, maxLines = 1)
+            }
+            Text(time, style = MaterialTheme.typography.labelLarge)
+        }
+    }
 }

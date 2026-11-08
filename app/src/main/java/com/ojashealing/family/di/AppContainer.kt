@@ -54,7 +54,7 @@ class AppContainer(context: Context) {
     val billing by lazy { PlayBilling(app, paid) }
     val daily = DailyRepository(Firebase.firestore)
     val chat = ChatRepository(Firebase.firestore)
-    val calls = CallRepository(Firebase.firestore)
+    val calls = CallRepository(Firebase.firestore, functions)
     // The one live call for the whole app, so leaving the call screen does not end it
     val callManager by lazy { com.ojashealing.family.data.call.CallManager(app, calls) }
     val publicProfiles = PublicProfileRepository(Firebase.firestore)

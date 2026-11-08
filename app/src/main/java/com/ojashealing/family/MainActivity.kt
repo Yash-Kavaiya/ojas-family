@@ -49,6 +49,16 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
+    /** Before Android 12, leaving the app during a video call shrinks it into picture-in-picture by hand. */
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (android.os.Build.VERSION.SDK_INT !in android.os.Build.VERSION_CODES.O until android.os.Build.VERSION_CODES.S) return
+        val call = (application as OjasApp).container.callManager.ui.value ?: return
+        if (call.video && (call.phase == com.ojashealing.family.data.call.CallPhase.Connected || call.phase == com.ojashealing.family.data.call.CallPhase.Reconnecting)) {
+            runCatching { enterPictureInPictureMode(android.app.PictureInPictureParams.Builder().setAspectRatio(android.util.Rational(9, 16)).build()) }
+        }
+    }
+
     // singleTop: a notification tapped while the app is open arrives here
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)

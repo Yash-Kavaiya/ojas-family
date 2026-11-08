@@ -15,6 +15,7 @@ import { onMessagePublished } from "firebase-functions/v2/pubsub";
 import { getMessaging } from "firebase-admin/messaging";
 import { logPracticeFor } from "./practice";
 import { completePracticeFor, startPracticeFor } from "./practiceMedia";
+import { turnCredentialsFor } from "./turn";
 import { adminGrantFor, countPaidDay, onSubscriptionNotice, verifyPurchaseFor } from "./billing";
 import { playApi } from "./playApi";
 import { refreshAuthorSnapshots, syncPublicProfile } from "./profiles";
@@ -285,6 +286,12 @@ export const callReminders = onSchedule({ schedule: "every 5 minutes", timeZone:
 
 export const callUpdated = onDocumentUpdated("calls/{id}", (e) =>
   onCallUpdated(db, e.params.id, e.data?.before.data(), e.data?.after.data(), messenger));
+
+// Short-lived relay credentials so calls get through networks that block direct connections
+export const turnCredentials = onCall({ enforceAppCheck: enforceAppCheck }, async (req) => {
+  requireUid(req);
+  return turnCredentialsFor(db, (url, init) => fetch(url, init));
+});
 
 // A ring nobody answered within a minute becomes a missed call
 export const sweepCalls = onSchedule({ schedule: "every 1 minutes", timeZone: "Asia/Kolkata" }, async () => {

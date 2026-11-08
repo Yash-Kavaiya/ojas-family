@@ -1,5 +1,14 @@
 package com.ojashealing.family.ui.ask
 
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.PhoneInTalk
+import androidx.compose.material.icons.outlined.Headphones
+import androidx.compose.material.icons.outlined.Bluetooth
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import com.ojashealing.family.data.call.callClock
 import com.ojashealing.family.data.call.CallUi
 import com.ojashealing.family.data.call.CallStart
@@ -88,7 +97,8 @@ import kotlinx.coroutines.launch
  */
 class CallViewModel(
     private val manager: CallManager,
-    start: CallStart,
+    /** Null: back to the call already on (from the ongoing-call bar). */
+    start: CallStart?,
     myUid: String,
     nameOf: suspend (uid: String) -> String?,
     fallbackName: String,
@@ -97,7 +107,7 @@ class CallViewModel(
 ) : ViewModel() {
 
     /** False when another call is already on; the screen then shows that call. */
-    val opened = manager.open(start, myUid, nameOf, fallbackName)
+    val opened = start?.let { manager.open(it, myUid, nameOf, fallbackName) } ?: manager.active
     val ui: StateFlow<CallUi?> = manager.ui
     val session = manager.session
 
@@ -109,6 +119,7 @@ class CallViewModel(
     fun toggleCamera() = manager.toggleCamera()
     fun switchCamera() = manager.switchCamera()
     fun toggleSpeaker() = manager.toggleSpeaker()
+    fun selectRoute(route: com.ojashealing.family.data.call.AudioRoute) = manager.selectRoute(route)
 
     override fun onCleared() {
         manager.dismiss()
@@ -116,15 +127,37 @@ class CallViewModel(
 }
 
 @Composable
-fun CallScreen(vm: CallViewModel, onClose: () -> Unit) {
+fun CallScreen(vm: CallViewModel, onClose: () -> Unit, onMinimise: () -> Unit = onClose) {
     val maybeUi by vm.ui.collectAsStateWithLifecycle()
     val context = LocalContext.current
     // Nothing to show (the call was cleared): leave
     val ui = maybeUi ?: run { LaunchedEffect(Unit) { onClose() }; return }
     val session by vm.session.collectAsStateWithLifecycle()
 
-    // Only while a call is on screen may the app show over the lock screen and wake it
+    // Picture-in-picture: a video call keeps showing in a small window when leaving the app
     val activity = context as? android.app.Activity
+    var inPip by remember { mutableStateOf(false) }
+    val componentActivity = activity as? androidx.activity.ComponentActivity
+    DisposableEffect(componentActivity) {
+        val listener = androidx.core.util.Consumer<androidx.core.app.PictureInPictureModeChangedInfo> { inPip = it.isInPictureInPictureMode }
+        componentActivity?.addOnPictureInPictureModeChangedListener(listener)
+        onDispose { componentActivity?.removeOnPictureInPictureModeChangedListener(listener) }
+    }
+    val pipReady = ui.video && (ui.phase == CallPhase.Connected || ui.phase == CallPhase.Reconnecting)
+    DisposableEffect(activity, pipReady) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) runCatching {
+            activity?.setPictureInPictureParams(
+                android.app.PictureInPictureParams.Builder().setAspectRatio(android.util.Rational(9, 16)).setAutoEnterEnabled(pipReady).build()
+            )
+        }
+        onDispose {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) runCatching {
+                activity?.setPictureInPictureParams(android.app.PictureInPictureParams.Builder().setAutoEnterEnabled(false).build())
+            }
+        }
+    }
+
+    // Only while a call is on screen may the app show over the lock screen and wake it
     DisposableEffect(activity) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) { activity?.setShowWhenLocked(true); activity?.setTurnScreenOn(true) }
         else @Suppress("DEPRECATION") activity?.window?.addFlags(
@@ -165,6 +198,13 @@ fun CallScreen(vm: CallViewModel, onClose: () -> Unit) {
     LaunchedEffect(ended) { if (ended) { delay(1_500); onClose() } }
 
     val showVideo = ui.video && (ui.phase == CallPhase.Connected || ui.phase == CallPhase.Reconnecting || ui.phase == CallPhase.Connecting)
+    if (inPip) {
+        Box(Modifier.fillMaxSize().background(Color.Black)) {
+            if (egl != null) remote?.let { VideoView(it, egl, mirror = false, modifier = Modifier.fillMaxSize()) }
+        }
+        return
+    }
+    var routing by remember { mutableStateOf(false) }
     Surface(color = if (showVideo) Color.Black else MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
         if (showVideo) Box(Modifier.fillMaxSize()) {
             if (egl != null) remote?.let { VideoView(it, egl, mirror = false, modifier = Modifier.fillMaxSize()) }
@@ -182,7 +222,20 @@ fun CallScreen(vm: CallViewModel, onClose: () -> Unit) {
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
-                Spacer(Modifier.height(if (showVideo) Spacing.s else Spacing.xxl))
+                // Leave the screen and keep talking: the bar at the top of the app brings you back
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    if (!ended && ui.phase != CallPhase.Incoming) {
+                        IconButton(onClick = onMinimise) {
+                            Icon(
+                                Icons.Outlined.KeyboardArrowDown, contentDescription = stringResource(R.string.call_minimise),
+                                tint = if (showVideo) Color.White else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                    Spacer(Modifier.weight(1f))
+                    if (ui.phase == CallPhase.Connected || ui.phase == CallPhase.Reconnecting) QualityBars(ui.quality, light = showVideo)
+                }
+                Spacer(Modifier.height(if (showVideo) 0.dp else Spacing.xl))
                 if (!showVideo) {
                     Icon(
                         if (ui.video) Icons.Outlined.Videocam else Icons.Outlined.SelfImprovement,
@@ -213,6 +266,9 @@ fun CallScreen(vm: CallViewModel, onClose: () -> Unit) {
                     ),
                     style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center
                 )
+                if (ui.phase == CallPhase.Connected && ui.quality == 1) {
+                    Text(stringResource(R.string.call_poor_connection), style = MaterialTheme.typography.labelMedium, color = Color(0xFFE65100))
+                }
             }
             if (!ended) Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xl), verticalAlignment = Alignment.CenterVertically) {
                 if (ui.phase == CallPhase.Incoming) {
@@ -230,14 +286,59 @@ fun CallScreen(vm: CallViewModel, onClose: () -> Unit) {
                         FilledTonalIconToggleButton(checked = false, onCheckedChange = { vm.switchCamera() }, modifier = Modifier.size(56.dp)) {
                             Icon(Icons.Outlined.Cameraswitch, contentDescription = stringResource(R.string.call_switch_camera))
                         }
-                    } else {
-                        FilledTonalIconToggleButton(checked = ui.speaker, onCheckedChange = { vm.toggleSpeaker() }, modifier = Modifier.size(56.dp)) {
-                            Icon(Icons.Outlined.VolumeUp, contentDescription = stringResource(R.string.call_speaker))
+                    }
+                    // Speaker / earpiece, or a menu when a Bluetooth or wired headset is there too
+                    Box {
+                        val many = ui.routes.size > 2
+                        FilledTonalIconToggleButton(
+                            checked = ui.route == com.ojashealing.family.data.call.AudioRoute.Speaker,
+                            onCheckedChange = { if (many) routing = true else vm.toggleSpeaker() },
+                            modifier = Modifier.size(56.dp)
+                        ) {
+                            Icon(routeIcon(ui.route), contentDescription = stringResource(if (many) R.string.call_audio_route else R.string.call_speaker))
+                        }
+                        androidx.compose.material3.DropdownMenu(expanded = routing, onDismissRequest = { routing = false }) {
+                            ui.routes.forEach { r ->
+                                androidx.compose.material3.DropdownMenuItem(
+                                    text = { Text(stringResource(routeLabel(r))) },
+                                    leadingIcon = { Icon(routeIcon(r), contentDescription = null) },
+                                    trailingIcon = { if (r == ui.route) Icon(Icons.Outlined.Check, contentDescription = null) },
+                                    onClick = { routing = false; vm.selectRoute(r) }
+                                )
+                            }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+private fun routeIcon(r: com.ojashealing.family.data.call.AudioRoute?) = when (r) {
+    com.ojashealing.family.data.call.AudioRoute.Speaker -> Icons.Outlined.VolumeUp
+    com.ojashealing.family.data.call.AudioRoute.Bluetooth -> Icons.Outlined.Bluetooth
+    com.ojashealing.family.data.call.AudioRoute.Wired -> Icons.Outlined.Headphones
+    else -> Icons.Outlined.PhoneInTalk
+}
+
+private fun routeLabel(r: com.ojashealing.family.data.call.AudioRoute) = when (r) {
+    com.ojashealing.family.data.call.AudioRoute.Earpiece -> R.string.call_route_earpiece
+    com.ojashealing.family.data.call.AudioRoute.Speaker -> R.string.call_route_speaker
+    com.ojashealing.family.data.call.AudioRoute.Bluetooth -> R.string.call_route_bluetooth
+    com.ojashealing.family.data.call.AudioRoute.Wired -> R.string.call_route_wired
+}
+
+/** Three bars, like a phone's signal: green good, amber fair, red poor. */
+@Composable
+private fun QualityBars(quality: Int, light: Boolean) {
+    val on = when (quality) { 3 -> Color(0xFF43A047); 2 -> Color(0xFFF9A825); else -> Color(0xFFE53935) }
+    val off = if (light) Color.White.copy(alpha = 0.3f) else MaterialTheme.colorScheme.outline
+    val label = stringResource(R.string.call_quality, quality)
+    Row(
+        Modifier.padding(end = Spacing.s).semantics { contentDescription = label },
+        horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.Bottom
+    ) {
+        (1..3).forEach { i -> Box(Modifier.size(width = 4.dp, height = (5 + i * 4).dp).background(if (i <= quality) on else off, RoundedCornerShape(1.dp))) }
     }
 }
 

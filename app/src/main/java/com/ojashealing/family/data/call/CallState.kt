@@ -14,7 +14,12 @@ data class CallUi(
     /** The other phone is ringing (it showed the call), so the caller sees "Ringing…" and hears ringback. */
     val delivered: Boolean = false,
     /** When the call connected on this phone, for the timer; 0 before. */
-    val connectedAt: Long = 0
+    val connectedAt: Long = 0,
+    /** Where the voice comes out, and what else can be chosen. */
+    val route: AudioRoute? = null,
+    val routes: List<AudioRoute> = emptyList(),
+    /** 3 good, 2 fair, 1 poor. */
+    val quality: Int = 3
 )
 
 /** How the call screen was opened: placing a call, or answering one that is ringing. */

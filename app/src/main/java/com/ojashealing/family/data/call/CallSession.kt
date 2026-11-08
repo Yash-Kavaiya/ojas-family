@@ -85,8 +85,13 @@ class CallSession(context: Context, private val repo: CallRepository, private va
         factory = f
 
         val ice = mutableListOf(PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer())
-        repo.turnServer()?.let { t -> ice += PeerConnection.IceServer.builder(t.urls).setUsername(t.username).setPassword(t.credential).createIceServer() }
-        val config = PeerConnection.RTCConfiguration(ice).apply { sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN }
+        repo.turnServers().forEach { t -> ice += PeerConnection.IceServer.builder(t.urls).setUsername(t.username).setPassword(t.credential).createIceServer() }
+        val config = PeerConnection.RTCConfiguration(ice).apply {
+            sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
+            // Keep gathering so a new network (Wi-Fi to mobile data) gets candidates without waiting
+            continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY
+        }
+        watchNetwork()
 
         pc = f.createPeerConnection(config, object : PeerConnection.Observer {
             // Candidates found before the call document exists are sent once it does
@@ -97,13 +102,7 @@ class CallSession(context: Context, private val repo: CallRepository, private va
                 }
             }
             override fun onConnectionChange(state: PeerConnection.PeerConnectionState) {
-                _connection.value = when (state) {
-                    PeerConnection.PeerConnectionState.CONNECTED -> Connection.Connected
-                    PeerConnection.PeerConnectionState.DISCONNECTED -> Connection.Reconnecting
-                    PeerConnection.PeerConnectionState.FAILED -> Connection.Failed
-                    PeerConnection.PeerConnectionState.CLOSED -> Connection.Closed
-                    else -> _connection.value
-                }
+                scope.launch { onState(state) }
             }
             override fun onSignalingChange(s: PeerConnection.SignalingState) {}
             override fun onIceConnectionChange(s: PeerConnection.IceConnectionState) {}
@@ -127,6 +126,124 @@ class CallSession(context: Context, private val repo: CallRepository, private va
     }
 
     private val pendingLocal = mutableListOf<IceCandidate>()
+
+    // ---- Repairing the connection (ICE restart) ----
+    private var isCaller = false
+    private var restarts = 0
+    private var answeredRestart = 0
+    private var lostAt = 0L
+    private var repairJob: kotlinx.coroutines.Job? = null
+    private var giveUpJob: kotlinx.coroutines.Job? = null
+    private var network: android.net.ConnectivityManager.NetworkCallback? = null
+
+    private fun onState(state: PeerConnection.PeerConnectionState) {
+        when (state) {
+            PeerConnection.PeerConnectionState.CONNECTED -> {
+                lostAt = 0
+                repairJob?.cancel(); giveUpJob?.cancel()
+                _connection.value = Connection.Connected
+            }
+            PeerConnection.PeerConnectionState.DISCONNECTED, PeerConnection.PeerConnectionState.FAILED -> {
+                // Only after it had connected; before that the ring timeout handles it
+                if (_connection.value != Connection.Connected && _connection.value != Connection.Reconnecting) {
+                    if (state == PeerConnection.PeerConnectionState.FAILED) _connection.value = Connection.Failed
+                    return
+                }
+                if (lostAt == 0L) lostAt = System.currentTimeMillis()
+                _connection.value = Connection.Reconnecting
+                val failed = state == PeerConnection.PeerConnectionState.FAILED
+                repairJob?.cancel()
+                repairJob = scope.launch {
+                    if (!failed) kotlinx.coroutines.delay(RESTART_AFTER_MS)
+                    if (_connection.value == Connection.Reconnecting &&
+                        shouldRestart(isCaller, failed, System.currentTimeMillis() - lostAt, networkChanged = false)) restartIce()
+                }
+                if (giveUpJob?.isActive != true) giveUpJob = scope.launch {
+                    kotlinx.coroutines.delay(GIVE_UP_AFTER_MS)
+                    if (_connection.value == Connection.Reconnecting) _connection.value = Connection.Failed
+                }
+            }
+            PeerConnection.PeerConnectionState.CLOSED -> _connection.value = Connection.Closed
+            else -> Unit
+        }
+    }
+
+    /** A new network (Wi-Fi to mobile data, or back): repair at once rather than waiting to drop. */
+    private fun watchNetwork() {
+        val cm = app.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+        var first = true
+        val cb = object : android.net.ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(n: android.net.Network) {
+                if (first) { first = false; return }
+                scope.launch {
+                    val live = _connection.value == Connection.Connected || _connection.value == Connection.Reconnecting
+                    if (live && shouldRestart(isCaller, failed = false, disconnectedForMs = 0, networkChanged = true)) restartIce()
+                }
+            }
+        }
+        runCatching { cm.registerDefaultNetworkCallback(cb); network = cb }
+    }
+
+    /** Caller: a fresh offer with new network paths; the callee answers it through the call document. */
+    private suspend fun restartIce() {
+        val id = callId ?: return
+        val p = pc ?: return
+        runCatching {
+            val offer = p.awaitCreate(offer = true, video = video, iceRestart = true)
+            p.awaitSet(offer, local = true)
+            restarts++
+            repo.sendRestartOffer(id, restarts, offer.description)
+        }
+    }
+
+    /** Both sides watch the call for the other's repair messages. */
+    private fun watchRestarts(id: String) {
+        scope.launch {
+            repo.observe(id).filterNotNull().collect { c ->
+                val p = pc ?: return@collect
+                if (!isCaller) c.restartOffer?.takeIf { it.n > answeredRestart }?.let { o ->
+                    answeredRestart = o.n
+                    runCatching {
+                        p.awaitSet(SessionDescription(SessionDescription.Type.OFFER, o.sdp), local = false)
+                        val answer = p.awaitCreate(offer = false, video = video)
+                        p.awaitSet(answer, local = true)
+                        repo.sendRestartAnswer(id, o.n, answer.description)
+                    }
+                }
+                if (isCaller) c.restartAnswer?.takeIf { it.n == restarts && it.n > answeredRestart }?.let { a ->
+                    answeredRestart = a.n
+                    runCatching { p.awaitSet(SessionDescription(SessionDescription.Type.ANSWER, a.sdp), local = false) }
+                }
+            }
+        }
+    }
+
+    /** Round trip, loss and jitter since the last reading, for the quality bars. */
+    private var lastLost = 0L
+    private var lastReceived = 0L
+
+    suspend fun lineStats(): LineStats? {
+        val p = pc ?: return null
+        val report = suspendCancellableCoroutine<org.webrtc.RTCStatsReport?> { cont -> p.getStats { r -> if (cont.isActive) cont.resume(r) } } ?: return null
+        var rtt: Double? = null
+        var lost = 0L
+        var received = 0L
+        var jitter: Double? = null
+        for (s in report.statsMap.values) {
+            val m = s.members
+            when (s.type) {
+                "candidate-pair" -> if (m["nominated"] == true || m["state"] == "succeeded") (m["currentRoundTripTime"] as? Number)?.let { rtt = it.toDouble() * 1000 }
+                "inbound-rtp" -> if (m["kind"] == "audio") {
+                    lost += (m["packetsLost"] as? Number)?.toLong() ?: 0
+                    received += (m["packetsReceived"] as? Number)?.toLong() ?: 0
+                    (m["jitter"] as? Number)?.let { jitter = it.toDouble() * 1000 }
+                }
+            }
+        }
+        val loss = lossPercent(lastLost, lost, lastReceived, received)
+        lastLost = lost; lastReceived = received
+        return LineStats(rtt, loss, jitter)
+    }
 
     /** Front camera at 640x480, 24 fps: clear enough for a face, light on mobile data. */
     private fun startCamera(f: PeerConnectionFactory) {
@@ -180,7 +297,9 @@ class CallSession(context: Context, private val repo: CallRepository, private va
         val offer = pc!!.awaitCreate(offer = true, video = video)
         pc!!.awaitSet(offer, local = true)
         val id = repo.create(myUid, calleeUid, memberUid, staffUid, Sdp("offer", offer.description), options).getOrThrow()
+        isCaller = true
         listen(id)
+        watchRestarts(id)
         scope.launch {
             val answered = repo.observe(id).filterNotNull().first { it.answer != null || it.status.isOver }
             answered.answer?.let { setRemote(it) }
@@ -194,6 +313,7 @@ class CallSession(context: Context, private val repo: CallRepository, private va
         video = call.video
         setUp()
         listen(call.id)
+        watchRestarts(call.id)
         setRemote(offer)
         val answer = pc!!.awaitCreate(offer = false, video = video)
         pc!!.awaitSet(answer, local = true)
@@ -211,6 +331,9 @@ class CallSession(context: Context, private val repo: CallRepository, private va
 
     fun close() {
         candidates?.remove()
+        repairJob?.cancel(); giveUpJob?.cancel()
+        network?.let { cb -> runCatching { (app.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager).unregisterNetworkCallback(cb) } }
+        network = null
         runCatching { capturer?.stopCapture() }
         runCatching { capturer?.dispose() }
         runCatching { videoSource?.dispose() }
@@ -232,7 +355,7 @@ class CallSession(context: Context, private val repo: CallRepository, private va
     }
 }
 
-private suspend fun PeerConnection.awaitCreate(offer: Boolean, video: Boolean = false): SessionDescription = suspendCancellableCoroutine { cont ->
+private suspend fun PeerConnection.awaitCreate(offer: Boolean, video: Boolean = false, iceRestart: Boolean = false): SessionDescription = suspendCancellableCoroutine { cont ->
     val observer = object : SdpObserver {
         override fun onCreateSuccess(sdp: SessionDescription) { if (cont.isActive) cont.resume(sdp) }
         override fun onCreateFailure(error: String?) { if (cont.isActive) cont.resumeWithException(IllegalStateException(error)) }
@@ -242,6 +365,7 @@ private suspend fun PeerConnection.awaitCreate(offer: Boolean, video: Boolean = 
     val constraints = MediaConstraints().apply {
         mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
         mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", if (video) "true" else "false"))
+        if (iceRestart) mandatory.add(MediaConstraints.KeyValuePair("IceRestart", "true"))
     }
     if (offer) createOffer(observer, constraints) else createAnswer(observer, constraints)
 }

@@ -37,8 +37,14 @@ data class Call(
     val callerName: String = "",
     val calleeName: String = "",
     /** The callee's phone has shown the ringing call. */
-    val delivered: Boolean = false
+    val delivered: Boolean = false,
+    /** A repair of the connection after a network change: the caller's new offer and the callee's answer. */
+    val restartOffer: Restart? = null,
+    val restartAnswer: Restart? = null
 )
+
+/** One connection repair: [n] counts them so each side answers each offer once. */
+data class Restart(val n: Int, val sdp: String)
 
 /** What a call-history row says: missed, declined or how long it lasted. */
 fun callOutcome(c: Call): String = when {
@@ -71,7 +77,7 @@ data class IceCandidateData(val from: String, val sdpMid: String, val sdpMLineIn
 data class TurnServer(val urls: List<String>, val username: String, val credential: String)
 
 /** Firestore signalling for one-to-one WebRTC calls (design §11 Q4: free WebRTC). */
-class CallRepository(private val db: FirebaseFirestore) {
+class CallRepository(private val db: FirebaseFirestore, private val functions: com.google.firebase.functions.FirebaseFunctions? = null) {
 
     private fun sdp(v: Any?): Sdp? = (v as? Map<*, *>)?.let { m ->
         val type = m["type"] as? String ?: return null
@@ -93,8 +99,15 @@ class CallRepository(private val db: FirebaseFirestore) {
         seconds = d.getLong("seconds")?.toInt() ?: 0,
         callerName = d.getString("callerName").orEmpty(),
         calleeName = d.getString("calleeName").orEmpty(),
-        delivered = d.get("deliveredAt") != null
+        delivered = d.get("deliveredAt") != null,
+        restartOffer = restart(d.get("restartOffer")),
+        restartAnswer = restart(d.get("restartAnswer"))
     )
+
+    private fun restart(v: Any?): Restart? = (v as? Map<*, *>)?.let { m ->
+        val n = (m["n"] as? Number)?.toInt() ?: return null
+        Restart(n, (m["sdp"] as? String) ?: return null)
+    }
 
     /**
      * Call history, newest first: a member sees their own calls, staff the calls they took part in,
@@ -156,6 +169,16 @@ class CallRepository(private val db: FirebaseFirestore) {
         Unit
     }
 
+    suspend fun sendRestartOffer(callId: String, n: Int, sdp: String): Result<Unit> = runCatching {
+        db.document("calls/$callId").update("restartOffer", mapOf("n" to n, "sdp" to sdp)).await()
+        Unit
+    }
+
+    suspend fun sendRestartAnswer(callId: String, n: Int, sdp: String): Result<Unit> = runCatching {
+        db.document("calls/$callId").update("restartAnswer", mapOf("n" to n, "sdp" to sdp)).await()
+        Unit
+    }
+
     /** The callee's phone says it is ringing, so the caller can show "Ringing" and play ringback. */
     suspend fun markDelivered(callId: String): Result<Unit> = runCatching {
         db.document("calls/$callId").update("deliveredAt", FieldValue.serverTimestamp()).await()
@@ -179,6 +202,22 @@ class CallRepository(private val db: FirebaseFirestore) {
                 )
             }
         }
+
+    /**
+     * Relays for networks that block direct calls: short-lived credentials from the server
+     * (turnCredentials), else the fixed ones an admin put in config/turn.
+     */
+    suspend fun turnServers(): List<TurnServer> {
+        val fromServer = runCatching {
+            val data = functions?.getHttpsCallable("turnCredentials")?.call()?.await()?.getData() as? Map<*, *>
+            (data?.get("iceServers") as? List<*>).orEmpty().mapNotNull { s ->
+                val m = s as? Map<*, *> ?: return@mapNotNull null
+                val urls = when (val u = m["urls"]) { is String -> listOf(u); is List<*> -> u.mapNotNull { it as? String }; else -> emptyList() }
+                if (urls.isEmpty()) null else TurnServer(urls, (m["username"] as? String).orEmpty(), (m["credential"] as? String).orEmpty())
+            }
+        }.getOrDefault(emptyList())
+        return fromServer.ifEmpty { listOfNotNull(turnServer()) }
+    }
 
     suspend fun turnServer(): TurnServer? = runCatching {
         val d = db.document("config/turn").get().await()

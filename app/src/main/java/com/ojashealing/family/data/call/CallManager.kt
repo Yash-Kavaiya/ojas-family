@@ -25,7 +25,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.webrtc.EglBase
-import org.webrtc.VideoTrack
 
 /**
  * The one call this phone is on, for the whole app. It lives here rather than in a screen so the
@@ -50,6 +49,7 @@ class CallManager(context: Context, private val repo: CallRepository) {
     private var nameOf: suspend (String) -> String? = { null }
     private var jobs = mutableListOf<Job>()
     private var begun = false
+    private var audio: CallAudio? = null
 
     /** The call id once known (always for an incoming call; after placing for an outgoing one). */
     val callId: String? get() = _session.value?.callId ?: start?.knownCallId
@@ -72,6 +72,7 @@ class CallManager(context: Context, private val repo: CallRepository) {
         this.nameOf = nameOf
         val video = when (start) { is CallStart.Outgoing -> start.options.video; is CallStart.Incoming -> start.video }
         _session.value = CallSession(app, repo, myUid).apply { this.video = video }
+        audio = CallAudio(app)
         _ui.value = CallUi(CallPhase.NeedsMic, (start as? CallStart.Outgoing)?.peerName ?: fallbackName, video = video, speaker = video)
         // Ringing shows at once, before the microphone is allowed
         if (start is CallStart.Incoming) {
@@ -97,10 +98,16 @@ class CallManager(context: Context, private val repo: CallRepository) {
                 if (!active) return@collect
                 when (c) {
                     Connection.Connected -> {
-                        if (_ui.value?.connectedAt == 0L) _ui.update { it?.copy(connectedAt = System.currentTimeMillis()) }
+                        val first = _ui.value?.connectedAt == 0L
+                        if (first) _ui.update { it?.copy(connectedAt = System.currentTimeMillis()) }
                         phase(CallPhase.Connected)
-                        CallService.start(app, s.callId.orEmpty(), _ui.value?.peerName.orEmpty(), s.video)
-                        if (s.video) s.setSpeaker(true)
+                        if (first) {
+                            CallService.start(app, s.callId.orEmpty(), _ui.value?.peerName.orEmpty(), s.video)
+                            // A headset if one is on, otherwise the earpiece (audio) or speaker (video)
+                            selectRoute(audio?.preferred(s.video) ?: AudioRoute.Earpiece)
+                            watchLine(s)
+                        }
+                        nearEar()
                     }
                     Connection.Reconnecting -> phase(CallPhase.Reconnecting)
                     Connection.Failed -> finish(CallPhase.Failed, CallStatus.Ended)
@@ -182,10 +189,39 @@ class CallManager(context: Context, private val repo: CallRepository) {
 
     fun switchCamera() = _session.value?.switchCamera()
 
+    /** The speaker button: speaker on, or back to the headset / earpiece. */
     fun toggleSpeaker() {
-        val s = !(_ui.value?.speaker ?: false)
-        _session.value?.setSpeaker(s)
-        _ui.update { it?.copy(speaker = s) }
+        val onSpeaker = _ui.value?.route == AudioRoute.Speaker
+        selectRoute(if (onSpeaker) audio?.preferred(video = false)?.takeIf { it != AudioRoute.Speaker } ?: AudioRoute.Earpiece else AudioRoute.Speaker)
+    }
+
+    fun selectRoute(route: AudioRoute) {
+        audio?.select(route)
+        _ui.update { it?.copy(route = route, speaker = route == AudioRoute.Speaker, routes = audio?.available().orEmpty()) }
+        nearEar()
+    }
+
+    /** The screen goes off near the ear on an audio call through the earpiece. */
+    private fun nearEar() {
+        val u = _ui.value
+        audio?.nearEar(u != null && !u.video && u.route == AudioRoute.Earpiece && (u.phase == CallPhase.Connected || u.phase == CallPhase.Reconnecting))
+    }
+
+    /** Every 2 s: the line's quality, and whether a headset came or went. */
+    private fun watchLine(s: CallSession) {
+        jobs += scope.launch {
+            while (active) {
+                delay(2_000)
+                s.lineStats()?.let { st -> _ui.update { it?.copy(quality = qualityFrom(st)) } }
+                val routes = audio?.available().orEmpty()
+                if (routes != _ui.value?.routes) {
+                    _ui.update { it?.copy(routes = routes) }
+                    // The headset in use was switched off: fall back like a phone does
+                    val current = _ui.value?.route
+                    if (current != null && current !in routes) selectRoute(audio?.preferred(s.video) ?: AudioRoute.Earpiece)
+                }
+            }
+        }
     }
 
     /** The call screen was closed after the call ended: forget it so the next call starts fresh. */
@@ -201,6 +237,7 @@ class CallManager(context: Context, private val repo: CallRepository) {
         id?.let { IncomingCallNotifier.cancel(app, it) }
         CallService.stop(app)
         _session.value?.close()
+        audio?.release()
         jobs.forEach { it.cancel() }
         jobs.clear()
         sounds()
@@ -275,10 +312,6 @@ class CallManager(context: Context, private val repo: CallRepository) {
     private fun vibrator(): Vibrator? =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) (app.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)?.defaultVibrator
         else @Suppress("DEPRECATION") (app.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator)
-
-    /** The local and remote video of the live call, or null. */
-    val localVideo: VideoTrack? get() = _session.value?.localVideo?.value
-    val remoteVideo: VideoTrack? get() = _session.value?.remoteVideo?.value
 
     companion object {
         /** Ring pattern: wait, buzz, pause, buzz; repeats. */

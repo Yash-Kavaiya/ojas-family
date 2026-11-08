@@ -235,6 +235,12 @@ describe("rich chat", () => {
     await assertFails(getDoc(doc(as("free"), "presence", "paid")));
   });
 
+  test("the TURN key is server-only", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => setDoc(doc(ctx.firestore(), "serverConfig", "turn"), { keyId: "k", apiToken: "t" }));
+    await assertFails(getDoc(doc(as("adm"), "serverConfig", "turn")));
+    await assertFails(setDoc(doc(as("adm"), "serverConfig", "turn"), { keyId: "x" }));
+  });
+
   test("chat preferences are private", async () => {
     await assertSucceeds(setDoc(doc(as("sw"), "users", "sw", "chatPrefs", "swamiji_paid"), { pinned: true, muted: false }));
     await assertFails(getDoc(doc(as("paid"), "users", "sw", "chatPrefs", "swamiji_paid")));
