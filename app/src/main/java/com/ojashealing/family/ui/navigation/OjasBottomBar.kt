@@ -42,7 +42,7 @@ enum class MainTab(@StringRes val label: Int, val selectedIcon: ImageVector, val
 }
 
 @Composable
-fun OjasBottomBar(current: MainTab, onSelect: (MainTab) -> Unit, modifier: Modifier = Modifier, photoUrl: String = "") {
+fun OjasBottomBar(current: MainTab, onSelect: (MainTab) -> Unit, modifier: Modifier = Modifier, photoUrl: String = "", badges: Map<MainTab, Int> = emptyMap()) {
     NavigationBar(
         containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
@@ -55,6 +55,11 @@ fun OjasBottomBar(current: MainTab, onSelect: (MainTab) -> Unit, modifier: Modif
                 selected = selected,
                 onClick = { onSelect(tab) },
                 icon = {
+                  // Unread messages show as a count on the tab, like WhatsApp
+                  val count = badges[tab] ?: 0
+                  androidx.compose.material3.BadgedBox(badge = {
+                      if (count > 0) androidx.compose.material3.Badge { Text(if (count > 99) "99+" else "$count") }
+                  }) {
                     // The member's own photo stands in for the Profile icon
                     if (tab == MainTab.Profile && photoUrl.isNotEmpty()) {
                         coil.compose.AsyncImage(
@@ -65,6 +70,7 @@ fun OjasBottomBar(current: MainTab, onSelect: (MainTab) -> Unit, modifier: Modif
                                 .border(if (selected) 2.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, CircleShape)
                         )
                     } else Icon(if (selected) tab.selectedIcon else tab.icon, contentDescription = null, modifier = Modifier.size(22.dp))
+                  }
                 },
                 label = {
                     // Hindi and Gujarati labels can be wider than English; never wrap to a second line

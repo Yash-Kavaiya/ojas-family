@@ -1,7 +1,7 @@
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { assertFails, assertSucceeds, initializeTestEnvironment, RulesTestEnvironment } from "@firebase/rules-unit-testing";
-import { doc, getDoc, setDoc, Timestamp, updateDoc } from "firebase/firestore";
+import { doc, getDoc, serverTimestamp, setDoc, Timestamp, updateDoc } from "firebase/firestore";
 
 let env: RulesTestEnvironment;
 const FUTURE = Timestamp.fromDate(new Date(Date.now() + 7 * 24 * 3600 * 1000));
@@ -188,6 +188,48 @@ describe("profile text fields", () => {
     await assertSucceeds(updateDoc(doc(as("free"), "users", "free"), { about: "Seeker", city: "Rajkot", village: "Gondal" }));
     await assertFails(updateDoc(doc(as("free"), "users", "free"), { about: "x".repeat(501) }));
     await assertFails(updateDoc(doc(as("free"), "users", "free"), { village: 5 }));
+  });
+});
+
+describe("rich chat", () => {
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) =>
+      setDoc(doc(ctx.firestore(), "chats", "paid"), { memberUid: "paid", unreadCountMember: 3, unreadCountStaff: 2 }));
+  });
+
+  test("each side marks its own reading and typing, and clears only its own count", async () => {
+    await assertSucceeds(updateDoc(doc(as("paid"), "chats", "paid"), { memberReadAt: serverTimestamp(), unreadCountMember: 0, unreadByMember: false }));
+    await assertSucceeds(updateDoc(doc(as("paid"), "chats", "paid"), { typingMember: serverTimestamp() }));
+    await assertSucceeds(updateDoc(doc(as("sw"), "chats", "paid"), { staffReadAt: serverTimestamp(), unreadCountStaff: 0, typingStaff: serverTimestamp() }));
+    // Not the other side's fields
+    await assertFails(updateDoc(doc(as("paid"), "chats", "paid"), { staffReadAt: serverTimestamp() }));
+    await assertFails(updateDoc(doc(as("sw"), "chats", "paid"), { memberReadAt: serverTimestamp() }));
+  });
+
+  test("counts can only be cleared and times must be the server's", async () => {
+    await assertFails(updateDoc(doc(as("paid"), "chats", "paid"), { unreadCountMember: 9 }));
+    await assertFails(updateDoc(doc(as("paid"), "chats", "paid"), { memberReadAt: Timestamp.fromDate(new Date(2030, 1, 1)) }));
+  });
+
+  test("a voice note carries its length and waveform", async () => {
+    const voice = (extra: Record<string, unknown>) => ({ senderUid: "paid", text: "", attachment: { url: "https://x/v.m4a", name: "voice.m4a", mime: "audio/mp4", size: 10, ...extra } });
+    await assertSucceeds(setDoc(doc(as("paid"), "chats", "paid", "messages", "v1"), voice({ durationMs: 4200, waveform: [1, 5, 9] })));
+    await assertFails(setDoc(doc(as("paid"), "chats", "paid", "messages", "v2"), voice({ durationMs: 999999 })));
+    await assertFails(setDoc(doc(as("paid"), "chats", "paid", "messages", "v3"), voice({ waveform: new Array(65).fill(1) })));
+  });
+
+  test("presence: own heartbeat only; members see staff, staff see members", async () => {
+    await assertSucceeds(setDoc(doc(as("paid"), "presence", "paid"), { lastActiveAt: serverTimestamp() }));
+    await assertFails(setDoc(doc(as("paid"), "presence", "sw"), { lastActiveAt: serverTimestamp() }));
+    await assertSucceeds(setDoc(doc(as("sw"), "presence", "sw"), { lastActiveAt: serverTimestamp() }));
+    await assertSucceeds(getDoc(doc(as("paid"), "presence", "sw")));
+    await assertSucceeds(getDoc(doc(as("sw"), "presence", "paid")));
+    await assertFails(getDoc(doc(as("free"), "presence", "paid")));
+  });
+
+  test("chat preferences are private", async () => {
+    await assertSucceeds(setDoc(doc(as("sw"), "users", "sw", "chatPrefs", "swamiji_paid"), { pinned: true, muted: false }));
+    await assertFails(getDoc(doc(as("paid"), "users", "sw", "chatPrefs", "swamiji_paid")));
   });
 });
 

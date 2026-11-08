@@ -47,6 +47,7 @@ class AppContainer(context: Context) {
     val moderation = ModerationRepository(Firebase.firestore)
     val goals = GoalRepository(Firebase.firestore, Firebase.storage, app.contentResolver)
     val practice = PracticeRepository(Firebase.firestore, functions)
+    val presence = com.ojashealing.family.data.presence.PresenceRepository(Firebase.firestore)
     val commentLikes = com.ojashealing.family.data.social.CommentLikeRepository(Firebase.firestore)
     val practiceMedia = com.ojashealing.family.data.practice.PracticeMediaRepository(Firebase.firestore, functions)
     val paid = PaidRepository(Firebase.firestore, functions)

@@ -533,4 +533,26 @@
     <string name="session_back">અભ્યાસ પર પાછા</string>
     <string name="session_loading">અભ્યાસ તૈયાર થઈ રહ્યો છે…</string>
     <string name="points_src_practice">માર્ગદર્શિત અભ્યાસ</string>
+    <string name="voice_hold">વૉઇસ મેસેજ રેકોર્ડ કરવા દબાવી રાખો</string>
+    <string name="voice_slide_cancel">રદ કરવા સરકાવો</string>
+    <string name="voice_speed">વગાડવાની ઝડપ બદલો</string>
+    <string name="voice_too_short">રેકોર્ડ કરવા માઇક બટન દબાવી રાખો</string>
+    <string name="chat_today">આજે</string>
+    <string name="chat_yesterday">ગઈકાલે</string>
+    <string name="chat_typing">લખી રહ્યા છે…</string>
+    <string name="chat_online">ઑનલાઇન</string>
+    <string name="chat_last_seen_min">%1$d મિનિટ પહેલાં જોયું</string>
+    <string name="chat_last_seen_at">છેલ્લે %1$s જોયું</string>
+    <string name="chat_muted">મ્યૂટ</string>
+    <string name="chat_pinned">પિન કરેલું</string>
+    <string name="chat_pin">ચેટ પિન કરો</string>
+    <string name="chat_unpin">પિન હટાવો</string>
+    <string name="chat_mute">સૂચનાઓ મ્યૂટ કરો</string>
+    <string name="chat_unmute">સૂચનાઓ ચાલુ કરો</string>
+    <string name="chat_quick_replies">ઝડપી જવાબ</string>
+    <string name="chat_quick_replies_hint">દરેક લાઇનમાં એક જવાબ. મેસેજ બૉક્સ ઉપર ટૅપ કરીને વાપરો.</string>
+    <string name="chat_seen">જોયું</string>
+    <string name="chat_sent">મોકલ્યું</string>
+    <string name="chat_sending">મોકલાઈ રહ્યું છે</string>
+    <string name="chat_scroll_down">નવા મેસેજ પર જાઓ</string>
 </resources>

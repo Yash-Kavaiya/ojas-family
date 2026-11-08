@@ -120,6 +120,8 @@ import com.ojashealing.family.ui.thought.ScheduleThoughtScreen
 import com.ojashealing.family.ui.thought.ThoughtViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -227,6 +229,37 @@ fun MainShell(container: AppContainer) {
     val myThread by remember {
         container.auth.currentUid.flatMapLatest { uid -> uid?.let { container.chat.observeThread(it).catch { emit(null) } } ?: flowOf(null) }
     }.collectAsStateWithLifecycle(null)
+    // Unread messages for the Ask tab badge: my own chats as a member, the inbox as staff
+    val askUnread by remember(profile?.uid, profile?.viewer) {
+        val p0 = profile
+        when {
+            p0 == null -> flowOf(0)
+            Permissions.isChatStaff(p0.viewer) -> {
+                val swamiji = container.chat.observeInbox(p0.viewer, p0.uid).map { l -> l.sumOf { com.ojashealing.family.data.chat.unreadFor(it, iAmStaff = true) } }
+                val admin = if (p0.viewer.role == com.ojashealing.family.domain.Role.Admin)
+                    container.chat.on(com.ojashealing.family.data.chat.ChatChannel.Admin).observeInbox(p0.viewer, p0.uid)
+                        .map { l -> l.sumOf { com.ojashealing.family.data.chat.unreadFor(it, iAmStaff = true) } }
+                else flowOf(0)
+                combine(swamiji, admin) { a, b -> a + b }
+            }
+            else -> combine(
+                container.chat.observeThread(p0.uid),
+                container.chat.on(com.ojashealing.family.data.chat.ChatChannel.Admin).observeThread(p0.uid)
+            ) { a, b -> (a?.unreadCountMember ?: 0) + (b?.unreadCountMember ?: 0) }
+        }.catch { emit(0) }
+    }.collectAsStateWithLifecycle(0)
+
+    // Online / last seen: a heartbeat while the app is in front
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    LaunchedEffect(profile?.uid) {
+        val uid = profile?.uid ?: return@LaunchedEffect
+        lifecycleOwner.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+            while (true) {
+                container.presence.heartbeat(uid)
+                kotlinx.coroutines.delay(com.ojashealing.family.data.presence.HEARTBEAT_MS)
+            }
+        }
+    }
     val play: (ContentItem) -> Unit = { nav.navigate(VideoRoute(it.videoId, it.title, it.section.id)) }
     val anchors = remember { RewardAnchors() }
     // Held above the NavHost so sub-screens keep the tab, but not saved: every fresh open starts on Home
@@ -365,7 +398,7 @@ fun MainShell(container: AppContainer) {
                 Scaffold(
                     containerColor = MaterialTheme.colorScheme.background,
                     topBar = { OjasTopBar(profile, onCounterPositioned = { anchors.counterCenter = it }, onOpenPoints = { nav.navigate(PointsHistoryRoute) }) },
-                    bottomBar = { OjasBottomBar(current = tab, onSelect = { tab = it }, photoUrl = profile?.photoUrl.orEmpty()) }
+                    bottomBar = { OjasBottomBar(current = tab, onSelect = { tab = it }, photoUrl = profile?.photoUrl.orEmpty(), badges = mapOf(MainTab.Ask to askUnread)) }
                 ) { padding ->
                     Box(
                         modifier = Modifier
@@ -526,7 +559,13 @@ fun MainShell(container: AppContainer) {
                 val memberUid = route.memberUid.ifEmpty { null }
                 val channel = com.ojashealing.family.data.chat.ChatChannel.fromId(route.channel)
                 val chatVm: ChatViewModel = viewModel(key = "chat-${channel.id}-${memberUid.orEmpty()}", factory = viewModelFactory {
-                    initializer { ChatViewModel(container.chat, vm.profile, entitlementsFlow, memberUid, channel, container.images::uploadChatFile) }
+                    initializer {
+                        ChatViewModel(
+                            container.chat, vm.profile, entitlementsFlow, memberUid, channel, container.images::uploadChatFile,
+                            presence = container.presence::observe,
+                            staffContact = container.chat.observeStaffContact().catch { emit(null) }
+                        )
+                    }
                 })
                 val me = p
                 val iAmStaff = me != null && Permissions.isChatStaff(me.viewer) && memberUid != null && memberUid != me.uid

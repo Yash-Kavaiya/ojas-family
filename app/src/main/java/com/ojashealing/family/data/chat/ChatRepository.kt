@@ -21,7 +21,15 @@ data class ChatThread(
     val lastMessage: String,
     val lastAt: Long,
     val unreadByStaff: Boolean,
-    val unreadByMember: Boolean
+    val unreadByMember: Boolean,
+    val unreadCountStaff: Int = 0,
+    val unreadCountMember: Int = 0,
+    /** When each side last had the chat open; a message is "seen" once the other side's time passes it. */
+    val memberReadAt: Long = 0,
+    val staffReadAt: Long = 0,
+    /** When each side last typed; "typing" shows for a few seconds after. */
+    val typingMember: Long = 0,
+    val typingStaff: Long = 0
 )
 
 /** Which conversation: with Swamiji (chats/) or with the Admin team (adminChats/). */
@@ -34,9 +42,18 @@ enum class ChatChannel(val id: String, val collection: String) {
 }
 
 /** A photo, PDF or audio file sent in chat. */
-data class Attachment(val url: String, val name: String, val mime: String, val size: Long) {
+data class Attachment(
+    val url: String,
+    val name: String,
+    val mime: String,
+    val size: Long,
+    /** Voice notes only: their length and a few dozen loudness bars (0..31) for the waveform. */
+    val durationMs: Long = 0,
+    val waveform: List<Int> = emptyList()
+) {
     val isImage get() = mime.startsWith("image/")
     val isAudio get() = mime.startsWith("audio/")
+    val isVoice get() = isAudio && waveform.isNotEmpty()
     val isPdf get() = mime == "application/pdf"
 }
 
@@ -49,8 +66,16 @@ data class ChatMessage(
     val text: String,
     val createdAt: Long,
     val attachment: Attachment? = null,
-    val call: CallLog? = null
+    val call: CallLog? = null,
+    /** Still on its way to the server (offline or just sent). */
+    val pending: Boolean = false
 )
+
+/** A member or staff member's pinned/muted choice for one conversation. */
+data class ChatPref(val pinned: Boolean = false, val muted: Boolean = false)
+
+/** The key for a conversation's pref and its mute check on the server: "swamiji_<memberUid>". */
+fun prefKey(channel: ChatChannel, memberUid: String) = "${channel.id}_$memberUid"
 
 /** A staff member Swamiji can hand a chat to; staff may read every profile. */
 data class StaffMember(val uid: String, val name: String, val role: Role)
@@ -73,8 +98,17 @@ class ChatRepository(private val db: FirebaseFirestore, private val channel: Cha
         lastMessage = d.getString("lastMessage").orEmpty(),
         lastAt = d.getTimestamp("lastAt")?.toDate()?.time ?: 0L,
         unreadByStaff = d.getBoolean("unreadByStaff") == true,
-        unreadByMember = d.getBoolean("unreadByMember") == true
+        unreadByMember = d.getBoolean("unreadByMember") == true,
+        unreadCountStaff = d.getLong("unreadCountStaff")?.toInt() ?: if (d.getBoolean("unreadByStaff") == true) 1 else 0,
+        unreadCountMember = d.getLong("unreadCountMember")?.toInt() ?: if (d.getBoolean("unreadByMember") == true) 1 else 0,
+        memberReadAt = d.millisOf("memberReadAt"),
+        staffReadAt = d.millisOf("staffReadAt"),
+        typingMember = d.millisOf("typingMember"),
+        typingStaff = d.millisOf("typingStaff")
     )
+
+    private fun com.google.firebase.firestore.DocumentSnapshot.millisOf(field: String) =
+        getTimestamp(field, com.google.firebase.firestore.DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)?.toDate()?.time ?: 0L
 
     fun observeThread(memberUid: String): Flow<ChatThread?> = callbackFlow {
         val reg = db.document("$col/$memberUid").addSnapshotListener { s, _ -> trySend(s?.takeIf { it.exists() }?.let(::thread)) }
@@ -92,16 +126,21 @@ class ChatRepository(private val db: FirebaseFirestore, private val channel: Cha
 
     fun observeMessages(memberUid: String): Flow<List<ChatMessage>> = callbackFlow {
         val reg = db.collection("$col/$memberUid/messages").orderBy("createdAt", Query.Direction.ASCENDING).limitToLast(300)
-            .addSnapshotListener { snap, _ ->
+            // Pending writes too, so a message shows a clock until the server has it
+            .addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE) { snap, _ ->
                 if (snap == null) return@addSnapshotListener
                 trySend(snap.documents.map { d ->
                     val att = (d.get("attachment") as? Map<*, *>)?.let { a ->
-                        Attachment((a["url"] as? String).orEmpty(), (a["name"] as? String).orEmpty(), (a["mime"] as? String).orEmpty(), (a["size"] as? Number)?.toLong() ?: 0L)
+                        Attachment(
+                            (a["url"] as? String).orEmpty(), (a["name"] as? String).orEmpty(), (a["mime"] as? String).orEmpty(), (a["size"] as? Number)?.toLong() ?: 0L,
+                            durationMs = (a["durationMs"] as? Number)?.toLong() ?: 0L,
+                            waveform = (a["waveform"] as? List<*>).orEmpty().mapNotNull { (it as? Number)?.toInt() }
+                        )
                     }?.takeIf { it.url.startsWith("https://") }
                     val call = if (d.getString("kind") == "call") CallLog(d.getBoolean("video") == true, d.getString("status").orEmpty(), d.getLong("seconds")?.toInt() ?: 0) else null
                     ChatMessage(d.id, d.getString("senderUid").orEmpty(), d.getString("text").orEmpty(),
                         d.getTimestamp("createdAt", com.google.firebase.firestore.DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)?.toDate()?.time ?: 0L,
-                        att, call)
+                        att, call, pending = d.metadata.hasPendingWrites())
                 })
             }
         awaitClose { reg.remove() }
@@ -115,13 +154,59 @@ class ChatRepository(private val db: FirebaseFirestore, private val channel: Cha
         }
         db.collection("$col/$memberUid/messages").add(buildMap<String, Any> {
             put("senderUid", senderUid); put("text", text.trim().take(2000)); put("createdAt", FieldValue.serverTimestamp())
-            attachment?.let { put("attachment", mapOf("url" to it.url, "name" to it.name.take(200), "mime" to it.mime, "size" to it.size)) }
+            attachment?.let {
+                put("attachment", buildMap<String, Any> {
+                    put("url", it.url); put("name", it.name.take(200)); put("mime", it.mime); put("size", it.size)
+                    if (it.durationMs > 0) put("durationMs", it.durationMs.coerceAtMost(300_000))
+                    if (it.waveform.isNotEmpty()) put("waveform", it.waveform.take(64))
+                })
+            }
         }).await()
         Unit
     }
 
+    /** Clears my unread count and records when I read, which turns the other side's ticks blue. */
     suspend fun markRead(memberUid: String, byStaff: Boolean): Result<Unit> = runCatching {
-        db.document("$col/$memberUid").set(mapOf((if (byStaff) "unreadByStaff" else "unreadByMember") to false), SetOptions.merge()).await()
+        val side = if (byStaff) "Staff" else "Member"
+        db.document("$col/$memberUid").update(
+            mapOf(
+                "unreadBy$side" to false,
+                "unreadCount$side" to 0,
+                (if (byStaff) "staffReadAt" else "memberReadAt") to FieldValue.serverTimestamp()
+            )
+        ).await()
+        Unit
+    }
+
+    /** "typing" for the other side; the screen calls this at most every few seconds while typing. */
+    suspend fun setTyping(memberUid: String, byStaff: Boolean): Result<Unit> = runCatching {
+        db.document("$col/$memberUid").update(if (byStaff) "typingStaff" else "typingMember", FieldValue.serverTimestamp()).await()
+        Unit
+    }
+
+    /** My pinned and muted conversations, by [prefKey]. */
+    fun observePrefs(uid: String): Flow<Map<String, ChatPref>> = callbackFlow {
+        val reg = db.collection("users/$uid/chatPrefs").addSnapshotListener { snap, _ ->
+            if (snap != null) trySend(snap.documents.filter { it.id != QUICK_REPLIES }.associate { it.id to ChatPref(it.getBoolean("pinned") == true, it.getBoolean("muted") == true) })
+        }
+        awaitClose { reg.remove() }
+    }
+
+    suspend fun setPref(uid: String, key: String, pref: ChatPref): Result<Unit> = runCatching {
+        db.document("users/$uid/chatPrefs/$key").set(mapOf("pinned" to pref.pinned, "muted" to pref.muted)).await()
+        Unit
+    }
+
+    /** A staff member's saved replies, shown as chips above the message box. */
+    fun observeQuickReplies(uid: String): Flow<List<String>> = callbackFlow {
+        val reg = db.document("users/$uid/chatPrefs/$QUICK_REPLIES").addSnapshotListener { s, _ ->
+            trySend((s?.get("items") as? List<*>).orEmpty().mapNotNull { it as? String })
+        }
+        awaitClose { reg.remove() }
+    }
+
+    suspend fun setQuickReplies(uid: String, items: List<String>): Result<Unit> = runCatching {
+        db.document("users/$uid/chatPrefs/$QUICK_REPLIES").set(mapOf("items" to items.map { it.take(300) }.take(20))).await()
         Unit
     }
 
@@ -134,6 +219,10 @@ class ChatRepository(private val db: FirebaseFirestore, private val channel: Cha
     suspend fun seniorMembers(): Result<List<StaffMember>> = runCatching {
         db.collection("users").whereEqualTo("role", "senior_member").get().await().documents
             .map { StaffMember(it.id, it.getString("displayName").orEmpty(), Role.SeniorMember) }
+    }
+
+    private companion object {
+        const val QUICK_REPLIES = "quickReplies"
     }
 
     fun observeStaffContact(): Flow<StaffContact?> = callbackFlow {
