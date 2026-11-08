@@ -130,6 +130,14 @@ describe("calls", () => {
     await assertSucceeds(updateDoc(doc(as("free"), "calls", "c2"), { status: "active", answer: { sdp: "y", type: "answer" } }));
     await assertFails(updateDoc(doc(as("free"), "calls", "c2"), { calleeUid: "m3" }));
   });
+
+  test("only the callee's phone marks a call as ringing; both may send a reconnect offer", async () => {
+    await assertSucceeds(setDoc(doc(as("sw"), "calls", "c3"), call("sw", "free", "free", "sw")));
+    await assertSucceeds(updateDoc(doc(as("free"), "calls", "c3"), { deliveredAt: serverTimestamp() }));
+    await assertFails(updateDoc(doc(as("sw"), "calls", "c3"), { deliveredAt: serverTimestamp() }));
+    await assertSucceeds(updateDoc(doc(as("sw"), "calls", "c3"), { restartOffer: { n: 1, sdp: "x" } }));
+    await assertSucceeds(updateDoc(doc(as("free"), "calls", "c3"), { restartAnswer: { n: 1, sdp: "y" } }));
+  });
 });
 
 describe("server-only data", () => {

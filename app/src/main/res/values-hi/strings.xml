@@ -555,4 +555,21 @@
     <string name="chat_sent">भेजा गया</string>
     <string name="chat_sending">भेजा जा रहा है</string>
     <string name="chat_scroll_down">नए मैसेज पर जाएँ</string>
+    <string name="channel_incoming_call">आने वाले कॉल</string>
+    <string name="call_ringing">घंटी बज रही है…</string>
+    <string name="push_missed_call">%1$s का मिस्ड कॉल</string>
+    <string name="push_missed_video_call">%1$s का मिस्ड वीडियो कॉल</string>
+    <string name="push_missed_call_body">चैट खोलकर वापस कॉल करने के लिए टैप करें</string>
+    <string name="call_fullscreen_title">फ़ोन कॉल जैसी घंटी?</string>
+    <string name="call_fullscreen_body">Ojas Family को फ़ोन लॉक होने पर भी कॉल पूरी स्क्रीन पर दिखाने दें, ताकि स्वामीजी का कोई कॉल न छूटे।</string>
+    <string name="call_minimise">ऐप पर वापस (कॉल चलता रहेगा)</string>
+    <string name="call_ongoing_bar">कॉल चल रहा है · %1$s</string>
+    <string name="call_ongoing_return">कॉल पर लौटने के लिए टैप करें</string>
+    <string name="call_audio_route">आवाज़ कहाँ सुनें</string>
+    <string name="call_route_earpiece">फ़ोन</string>
+    <string name="call_route_speaker">स्पीकर</string>
+    <string name="call_route_bluetooth">ब्लूटूथ</string>
+    <string name="call_route_wired">हेडफ़ोन</string>
+    <string name="call_poor_connection">कमज़ोर कनेक्शन</string>
+    <string name="call_quality">कनेक्शन की गुणवत्ता: 3 में से %1$d</string>
 </resources>

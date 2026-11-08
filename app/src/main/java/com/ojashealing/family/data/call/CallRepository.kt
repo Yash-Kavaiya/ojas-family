@@ -35,7 +35,9 @@ data class Call(
     /** Seconds the call was connected, set by the server when it ends (0 = never connected). */
     val seconds: Int = 0,
     val callerName: String = "",
-    val calleeName: String = ""
+    val calleeName: String = "",
+    /** The callee's phone has shown the ringing call. */
+    val delivered: Boolean = false
 )
 
 /** What a call-history row says: missed, declined or how long it lasted. */
@@ -90,7 +92,8 @@ class CallRepository(private val db: FirebaseFirestore) {
         createdAt = d.getTimestamp("createdAt")?.toDate()?.time ?: 0L,
         seconds = d.getLong("seconds")?.toInt() ?: 0,
         callerName = d.getString("callerName").orEmpty(),
-        calleeName = d.getString("calleeName").orEmpty()
+        calleeName = d.getString("calleeName").orEmpty(),
+        delivered = d.get("deliveredAt") != null
     )
 
     /**
@@ -150,6 +153,12 @@ class CallRepository(private val db: FirebaseFirestore) {
             if (status.isOver) put("endedAt", FieldValue.serverTimestamp())
         }
         db.document("calls/$callId").update(fields).await()
+        Unit
+    }
+
+    /** The callee's phone says it is ringing, so the caller can show "Ringing" and play ringback. */
+    suspend fun markDelivered(callId: String): Result<Unit> = runCatching {
+        db.document("calls/$callId").update("deliveredAt", FieldValue.serverTimestamp()).await()
         Unit
     }
 

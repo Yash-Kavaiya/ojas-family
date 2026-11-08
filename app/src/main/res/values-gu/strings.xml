@@ -555,4 +555,21 @@
     <string name="chat_sent">મોકલ્યું</string>
     <string name="chat_sending">મોકલાઈ રહ્યું છે</string>
     <string name="chat_scroll_down">નવા મેસેજ પર જાઓ</string>
+    <string name="channel_incoming_call">આવતા કૉલ</string>
+    <string name="call_ringing">રિંગ વાગે છે…</string>
+    <string name="push_missed_call">%1$s નો મિસ્ડ કૉલ</string>
+    <string name="push_missed_video_call">%1$s નો મિસ્ડ વિડિયો કૉલ</string>
+    <string name="push_missed_call_body">ચેટ ખોલીને પાછો કૉલ કરવા ટૅપ કરો</string>
+    <string name="call_fullscreen_title">ફોન કૉલ જેવી રિંગ?</string>
+    <string name="call_fullscreen_body">Ojas Family ને ફોન લૉક હોય ત્યારે પણ કૉલ આખી સ્ક્રીન પર બતાવવા દો, જેથી સ્વામીજીનો કોઈ કૉલ ચૂકી ન જાવ.</string>
+    <string name="call_minimise">ઍપ પર પાછા (કૉલ ચાલુ રહેશે)</string>
+    <string name="call_ongoing_bar">કૉલ ચાલુ છે · %1$s</string>
+    <string name="call_ongoing_return">કૉલ પર પાછા જવા ટૅપ કરો</string>
+    <string name="call_audio_route">અવાજ ક્યાં સાંભળવો</string>
+    <string name="call_route_earpiece">ફોન</string>
+    <string name="call_route_speaker">સ્પીકર</string>
+    <string name="call_route_bluetooth">બ્લૂટૂથ</string>
+    <string name="call_route_wired">હેડફોન</string>
+    <string name="call_poor_connection">નબળું કનેક્શન</string>
+    <string name="call_quality">કનેક્શનની ગુણવત્તા: 3 માંથી %1$d</string>
 </resources>

@@ -68,7 +68,7 @@ import com.ojashealing.family.ui.admin.ModerationViewModel
 import com.ojashealing.family.ui.admin.asActions
 import com.ojashealing.family.ui.ask.AskTab
 import com.ojashealing.family.ui.ask.CallScreen
-import com.ojashealing.family.ui.ask.CallStart
+import com.ojashealing.family.data.call.CallStart
 import com.ojashealing.family.ui.ask.CallViewModel
 import com.ojashealing.family.ui.ask.ChatScreen
 import com.ojashealing.family.ui.ask.ChatViewModel
@@ -156,7 +156,9 @@ import kotlinx.serialization.Serializable
     val peerName: String = "",
     val video: Boolean = false,
     val channel: String = "swamiji",
-    val requestId: String = ""
+    val requestId: String = "",
+    /** From the ringing notification's Answer button. */
+    val autoAnswer: Boolean = false
 )
 @Serializable object CallHistoryRoute
 @Serializable object MyCallsRoute
@@ -332,6 +334,35 @@ fun MainShell(container: AppContainer) {
             val onCall = nav.currentBackStackEntry?.destination?.route?.contains("CallRoute") == true
             if (!onCall) nav.navigate(CallRoute(callId = call.id, video = call.video))
         }
+    }
+
+    // Android 14+: calls ring full screen only if the user allows it; ask once
+    var askFullScreen by remember { mutableStateOf(false) }
+    LaunchedEffect(p?.uid) {
+        val me = p ?: return@LaunchedEffect
+        val prefs = context.getSharedPreferences("ojas", android.content.Context.MODE_PRIVATE)
+        if (!com.ojashealing.family.push.IncomingCallNotifier.canRingFullScreen(context) && !prefs.getBoolean("askedFullScreen", false)) {
+            prefs.edit().putBoolean("askedFullScreen", true).apply()
+            askFullScreen = true
+        }
+    }
+    if (askFullScreen) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { askFullScreen = false },
+            title = { Text(stringResource(R.string.call_fullscreen_title)) },
+            text = { Text(stringResource(R.string.call_fullscreen_body)) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    askFullScreen = false
+                    runCatching {
+                        context.startActivity(
+                            android.content.Intent(android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, android.net.Uri.parse("package:" + context.packageName))
+                        )
+                    }
+                }) { Text(stringResource(R.string.action_allow)) }
+            },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { askFullScreen = false }) { Text(stringResource(R.string.action_not_now)) } }
+        )
     }
 
     // Notification taps
@@ -643,10 +674,11 @@ fun MainShell(container: AppContainer) {
                 val callVm: CallViewModel = viewModel(factory = viewModelFactory {
                     initializer {
                         CallViewModel(
-                            app, container.calls, me.uid, start,
+                            container.callManager, start, me.uid,
                             // Staff may read profiles, so they see who is calling; members see "Swamiji"
                             nameOf = { uid -> runCatching { container.users.observe(uid).first()?.displayName }.getOrNull() },
-                            fallbackName = if (Permissions.isChatStaff(me.viewer)) "" else swamijiName
+                            fallbackName = if (Permissions.isChatStaff(me.viewer)) "" else swamijiName,
+                            autoAnswer = r.autoAnswer
                         )
                     }
                 })
@@ -742,7 +774,14 @@ private fun openTarget(
         "adminChats" -> nav.navigate(ChatRoute(if (id == myUid) "" else id, "admin"))
         "callRequests" -> if (id.isNotEmpty()) nav.navigate(CallRequestRoute(id))
         // The ringing-call listener may already have opened it
-        "calls" -> if (nav.currentBackStackEntry?.destination?.route?.contains("CallRoute") != true) nav.navigate(CallRoute(callId = id))
+        // "calls/<id>" shows the ringing call; "calls/<id>/answer" (the notification's Answer) answers it too
+        "calls" -> {
+            val callId = id.substringBefore('/')
+            val answer = id.endsWith("/answer")
+            if (callId.isNotEmpty() && (answer || nav.currentBackStackEntry?.destination?.route?.contains("CallRoute") != true)) {
+                nav.navigate(CallRoute(callId = callId, autoAnswer = answer)) { launchSingleTop = true }
+            }
+        }
         "thoughts" -> { selectTab(MainTab.Home); if (id.isNotEmpty()) nav.navigate(ThoughtRoute(id)) }
         "announcements" -> {
             selectTab(MainTab.Community); selectCommunityTab(com.ojashealing.family.ui.community.CommunityTab.NOTICES)

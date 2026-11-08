@@ -18,7 +18,7 @@ import { completePracticeFor, startPracticeFor } from "./practiceMedia";
 import { adminGrantFor, countPaidDay, onSubscriptionNotice, verifyPurchaseFor } from "./billing";
 import { playApi } from "./playApi";
 import { refreshAuthorSnapshots, syncPublicProfile } from "./profiles";
-import { onCallCreated, onCallUpdated, onChatMessage } from "./chat";
+import { onCallCreated, onCallUpdated, onChatMessage, sweepRingingCalls } from "./chat";
 import { onCallRequestWritten, sendCallReminders } from "./schedule";
 import {
   onAnnouncementCommentNotify, onAnnouncementCountChanged, onCommentLikeChanged, onAnnouncementCreated, onAnswerNotify, onDailyLikeChanged, onDailyPostWritten, onDailyReplyWritten,
@@ -284,4 +284,9 @@ export const callReminders = onSchedule({ schedule: "every 5 minutes", timeZone:
 });
 
 export const callUpdated = onDocumentUpdated("calls/{id}", (e) =>
-  onCallUpdated(db, e.params.id, e.data?.before.data(), e.data?.after.data()));
+  onCallUpdated(db, e.params.id, e.data?.before.data(), e.data?.after.data(), messenger));
+
+// A ring nobody answered within a minute becomes a missed call
+export const sweepCalls = onSchedule({ schedule: "every 1 minutes", timeZone: "Asia/Kolkata" }, async () => {
+  await sweepRingingCalls(db, new Date());
+});

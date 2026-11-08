@@ -101,7 +101,7 @@ export function callSeconds(startedAt: unknown, endedAt: unknown): number {
  * call as part of membership and never use a pack. When the call ends, a call-log line is added
  * to that conversation and a scheduled request becomes "done".
  */
-export async function onCallUpdated(db: Firestore, callId: string, before: Data, after: Data): Promise<void> {
+export async function onCallUpdated(db: Firestore, callId: string, before: Data, after: Data, m?: Messenger): Promise<void> {
   const memberUid = str(after?.memberUid);
   if (after?.status === "active" && before?.status !== "active" && after?.creditUsed !== true) {
     const ent = db.doc(`users/${memberUid}/entitlements/call`);
@@ -140,6 +140,32 @@ export async function onCallUpdated(db: Firestore, callId: string, before: Data,
     createdAt: FieldValue.serverTimestamp(),
   });
   await ref.set({ logged: true, seconds }, { merge: true });
+  // Never answered (it timed out, or the caller gave up): the person called sees a missed call
+  if (m && seconds === 0 && str(fresh.status) !== "declined") {
+    const caller = str(fresh.callerUid);
+    const callerName = str((await db.doc(`users/${caller}`).get()).get("displayName")) || str(fresh.callerName);
+    await notifyUser(db, m, str(fresh.calleeUid), "call", {
+      type: "missedCall", title: callerName, target: `${chatCollection(channel)}/${memberUid}`, fromUid: caller,
+      video: fresh.video === true ? "1" : "0",
+    });
+  }
   const requestId = str(fresh.requestId);
   if (requestId && seconds > 0) await db.doc(`callRequests/${requestId}`).set({ status: "done" }, { merge: true });
+}
+
+/** Calls still ringing after this long are missed, even if the caller's phone lost signal. */
+export const RING_GIVE_UP_MS = 60_000;
+
+/** Marks stale ringing calls missed; onCallUpdated then logs them and tells the person called. */
+export async function sweepRingingCalls(db: Firestore, now: Date): Promise<number> {
+  const ringing = await db.collection("calls").where("status", "==", "ringing").get();
+  let n = 0;
+  for (const d of ringing.docs) {
+    const created = millis(d.get("createdAt"));
+    if (created > 0 && now.getTime() - created > RING_GIVE_UP_MS) {
+      await d.ref.update({ status: "missed", endedAt: FieldValue.serverTimestamp() });
+      n++;
+    }
+  }
+  return n;
 }

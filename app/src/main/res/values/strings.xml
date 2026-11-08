@@ -556,4 +556,21 @@
     <string name="chat_sent">Sent</string>
     <string name="chat_sending">Sending</string>
     <string name="chat_scroll_down">Go to newest message</string>
+    <string name="channel_incoming_call">Incoming calls</string>
+    <string name="call_ringing">Ringing…</string>
+    <string name="push_missed_call">Missed call from %1$s</string>
+    <string name="push_missed_video_call">Missed video call from %1$s</string>
+    <string name="push_missed_call_body">Tap to open the chat and call back</string>
+    <string name="call_fullscreen_title">Ring like a phone call?</string>
+    <string name="call_fullscreen_body">Allow Ojas Family to show calls on the full screen, even when your phone is locked, so you never miss a call from Swamiji.</string>
+    <string name="call_minimise">Back to the app (the call continues)</string>
+    <string name="call_ongoing_bar">Ongoing call · %1$s</string>
+    <string name="call_ongoing_return">Tap to return to the call</string>
+    <string name="call_audio_route">Audio output</string>
+    <string name="call_route_earpiece">Phone</string>
+    <string name="call_route_speaker">Speaker</string>
+    <string name="call_route_bluetooth">Bluetooth</string>
+    <string name="call_route_wired">Headphones</string>
+    <string name="call_poor_connection">Poor connection</string>
+    <string name="call_quality">Connection quality: %1$d of 3</string>
 </resources>

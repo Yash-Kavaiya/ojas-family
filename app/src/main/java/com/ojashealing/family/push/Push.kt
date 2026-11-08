@@ -43,6 +43,7 @@ object Channels {
                 ch(CALL, R.string.channel_call, NotificationManager.IMPORTANCE_HIGH)
             )
         )
+        IncomingCallNotifier.createChannel(context)
     }
 }
 
@@ -95,6 +96,20 @@ class OjasMessagingService : FirebaseMessagingService() {
         if (me == null || d["fromUid"] == me) return // my own post coming back on a topic
         val who = d["title"].orEmpty()
         val text = d["body"].orEmpty()
+        // A ringing call gets the full ringing screen, not a plain notification
+        if (d["type"] == "call") {
+            val callId = d["callId"] ?: d["target"]?.removePrefix("calls/") ?: return
+            val calls = (application as com.ojashealing.family.OjasApp).container.callManager
+            if (calls.active && calls.callId != callId) {
+                // Already on a call: the caller hears that it was declined
+                Firebase.firestore.document("calls/$callId").update(mapOf("status" to "declined", "endedAt" to FieldValue.serverTimestamp()))
+                return
+            }
+            IncomingCallNotifier.show(this, callId, who, video = d["video"] == "1")
+            // Tells the caller this phone is ringing ("Ringing…" and ringback on their side)
+            Firebase.firestore.document("calls/$callId").update("deliveredAt", FieldValue.serverTimestamp())
+            return
+        }
         val (channel, title, body) = when (d["type"]) {
             "announcement" -> Triple(Channels.COMMUNITY, getString(R.string.push_announcement), who.ifEmpty { text })
             "thought" -> Triple(Channels.COMMUNITY, getString(R.string.push_thought), who.ifEmpty { text })
@@ -105,6 +120,7 @@ class OjasMessagingService : FirebaseMessagingService() {
             "dailyReply" -> Triple(Channels.COMMUNITY, getString(R.string.push_daily_reply, who), text)
             "commentReply" -> Triple(Channels.COMMUNITY, getString(R.string.push_comment_reply, who), text)
             "chat" -> Triple(Channels.CHAT, getString(R.string.push_chat, who), text)
+            "missedCall" -> Triple(Channels.CALL, getString(if (d["video"] == "1") R.string.push_missed_video_call else R.string.push_missed_call, who), getString(R.string.push_missed_call_body))
             "call" -> Triple(Channels.CALL, getString(if (d["video"] == "1") R.string.push_video_call else R.string.push_call, who), getString(R.string.call_tap_to_answer))
             // Scheduled calls: body is the time ("7 Nov, 4:30 pm"), title the other person
             "callRequest" -> Triple(Channels.CHAT, getString(R.string.push_call_request, who), text)

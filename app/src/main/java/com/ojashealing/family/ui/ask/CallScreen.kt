@@ -1,5 +1,15 @@
 package com.ojashealing.family.ui.ask
 
+import com.ojashealing.family.data.call.callClock
+import com.ojashealing.family.data.call.CallUi
+import com.ojashealing.family.data.call.CallStart
+import com.ojashealing.family.data.call.CallPhase
+import com.ojashealing.family.data.call.CallManager
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.DisposableEffect
+import android.os.Build
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -72,193 +82,95 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-enum class CallPhase { NeedsMic, Calling, Incoming, Connecting, Connected, Reconnecting, Ended, Declined, Missed, Failed }
-
-data class CallUi(
-    val phase: CallPhase,
-    val peerName: String,
-    val muted: Boolean = false,
-    val speaker: Boolean = false,
-    val video: Boolean = false,
-    val cameraOff: Boolean = false
-)
-
-/** How the call screen was opened: placing a call, or answering one that is ringing. */
-sealed interface CallStart {
-    data class Outgoing(
-        val calleeUid: String, val memberUid: String, val staffUid: String, val peerName: String,
-        val options: com.ojashealing.family.data.call.CallOptions = com.ojashealing.family.data.call.CallOptions()
-    ) : CallStart
-    data class Incoming(val callId: String, val video: Boolean = false) : CallStart
-}
-
+/**
+ * The call screen's view of the app's one call ([CallManager]). Closing the screen does not end the
+ * call; only Hang up, Decline, the other side or the ring timeout do.
+ */
 class CallViewModel(
-    private val context: Context,
-    private val repo: CallRepository,
-    private val myUid: String,
-    private val start: CallStart,
-    private val nameOf: suspend (uid: String) -> String?,
-    fallbackName: String
+    private val manager: CallManager,
+    start: CallStart,
+    myUid: String,
+    nameOf: suspend (uid: String) -> String?,
+    fallbackName: String,
+    /** Opened from the notification's Answer button: answer as soon as the microphone is allowed. */
+    val autoAnswer: Boolean = false
 ) : ViewModel() {
 
-    private val session = CallSession(context, repo, myUid).apply {
-        video = when (start) { is CallStart.Outgoing -> start.options.video; is CallStart.Incoming -> start.video }
-    }
-    private val _ui = MutableStateFlow(
-        CallUi(CallPhase.NeedsMic, (start as? CallStart.Outgoing)?.peerName ?: fallbackName, video = session.video, speaker = session.video)
-    )
-    val egl get() = session.egl
-    val localVideo = session.localVideo
-    val remoteVideo = session.remoteVideo
-    val ui: StateFlow<CallUi> = _ui.asStateFlow()
-    private var watch: Job? = null
-    private var started = false
+    /** False when another call is already on; the screen then shows that call. */
+    val opened = manager.open(start, myUid, nameOf, fallbackName)
+    val ui: StateFlow<CallUi?> = manager.ui
+    val session = manager.session
 
-    private fun phase(p: CallPhase) = _ui.update { it.copy(phase = p) }
-    private val over get() = _ui.value.phase in setOf(CallPhase.Ended, CallPhase.Declined, CallPhase.Missed, CallPhase.Failed)
+    fun begin() = manager.begin()
+    fun answer() = manager.answer()
+    fun decline() = manager.decline()
+    fun hangUp() = manager.hangUp()
+    fun toggleMute() = manager.toggleMute()
+    fun toggleCamera() = manager.toggleCamera()
+    fun switchCamera() = manager.switchCamera()
+    fun toggleSpeaker() = manager.toggleSpeaker()
 
-    /** Called once the microphone is allowed. */
-    fun begin() {
-        if (started) return
-        started = true
-        viewModelScope.launch {
-            session.connection.collect { c ->
-                if (over) return@collect
-                when (c) {
-                    Connection.Connected -> {
-                        phase(CallPhase.Connected)
-                        CallService.start(context, session.callId.orEmpty(), _ui.value.peerName, session.video)
-                        if (session.video) session.setSpeaker(true)
-                    }
-                    Connection.Reconnecting -> phase(CallPhase.Reconnecting)
-                    Connection.Failed -> finish(CallPhase.Failed, CallStatus.Ended)
-                    else -> Unit
-                }
-            }
-        }
-        when (start) {
-            is CallStart.Outgoing -> viewModelScope.launch {
-                phase(CallPhase.Calling)
-                session.call(start.calleeUid, start.memberUid, start.staffUid, start.options)
-                    .onSuccess { id ->
-                        watchCall(id)
-                        // Nobody answered in 45 s: stop ringing their phone
-                        delay(45_000)
-                        if (_ui.value.phase == CallPhase.Calling) finish(CallPhase.Missed, CallStatus.Missed)
-                    }
-                    .onFailure { phase(CallPhase.Failed) }
-            }
-            is CallStart.Incoming -> {
-                phase(CallPhase.Incoming)
-                watchCall(start.callId)
-            }
-        }
-    }
-
-    private fun watchCall(id: String) {
-        watch?.cancel()
-        watch = viewModelScope.launch {
-            repo.observe(id).filterNotNull().collect { call ->
-                val other = if (call.callerUid == myUid) call.calleeUid else call.callerUid
-                if (start is CallStart.Incoming) nameOf(other)?.takeIf { it.isNotBlank() }?.let { n -> _ui.update { it.copy(peerName = n) } }
-                if (call.video && !_ui.value.video) _ui.update { it.copy(video = true, speaker = true) }
-                when (call.status) {
-                    CallStatus.Active -> if (_ui.value.phase == CallPhase.Calling) phase(CallPhase.Connecting)
-                    CallStatus.Declined -> finish(CallPhase.Declined, null)
-                    CallStatus.Missed -> finish(CallPhase.Missed, null)
-                    CallStatus.Ended -> finish(CallPhase.Ended, null)
-                    CallStatus.Ringing -> Unit
-                }
-            }
-        }
-    }
-
-    fun answer() {
-        val s = start as? CallStart.Incoming ?: return
-        if (_ui.value.phase != CallPhase.Incoming) return
-        phase(CallPhase.Connecting)
-        viewModelScope.launch {
-            val call = repo.observe(s.callId).filterNotNull().first()
-            if (call.status != CallStatus.Ringing) return@launch finish(CallPhase.Missed, null)
-            session.answer(call).onFailure { finish(CallPhase.Failed, CallStatus.Ended) }
-        }
-    }
-
-    fun decline() = finish(CallPhase.Declined, CallStatus.Declined)
-
-    fun hangUp() = finish(CallPhase.Ended, CallStatus.Ended)
-
-    fun toggleMute() {
-        val m = !_ui.value.muted
-        session.setMuted(m)
-        _ui.update { it.copy(muted = m) }
-    }
-
-    fun toggleCamera() {
-        val off = !_ui.value.cameraOff
-        session.setCamera(!off)
-        _ui.update { it.copy(cameraOff = off) }
-    }
-
-    fun switchCamera() = session.switchCamera()
-
-    fun toggleSpeaker() {
-        val s = !_ui.value.speaker
-        session.setSpeaker(s)
-        _ui.update { it.copy(speaker = s) }
-    }
-
-    private fun finish(p: CallPhase, write: CallStatus?) {
-        if (over) return
-        phase(p)
-        val id = session.callId ?: (start as? CallStart.Incoming)?.callId
-        if (write != null && id != null) viewModelScope.launch { repo.setStatus(id, write) }
-        CallService.stop(context)
-        session.close()
-    }
-
-    @OptIn(DelicateCoroutinesApi::class)
     override fun onCleared() {
-        if (!over) {
-            val id = session.callId ?: (start as? CallStart.Incoming)?.callId
-            // The screen is gone: end the call so the other phone stops ringing or talking to nobody
-            if (id != null) GlobalScope.launch { repo.setStatus(id, if (_ui.value.phase == CallPhase.Incoming) CallStatus.Declined else CallStatus.Ended) }
-            CallService.stop(context)
-            session.close()
-        }
+        manager.dismiss()
     }
 }
 
 @Composable
 fun CallScreen(vm: CallViewModel, onClose: () -> Unit) {
-    val ui by vm.ui.collectAsStateWithLifecycle()
+    val maybeUi by vm.ui.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    // Nothing to show (the call was cleared): leave
+    val ui = maybeUi ?: run { LaunchedEffect(Unit) { onClose() }; return }
+    val session by vm.session.collectAsStateWithLifecycle()
+
+    // Only while a call is on screen may the app show over the lock screen and wake it
+    val activity = context as? android.app.Activity
+    DisposableEffect(activity) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) { activity?.setShowWhenLocked(true); activity?.setTurnScreenOn(true) }
+        else @Suppress("DEPRECATION") activity?.window?.addFlags(
+            android.view.WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or android.view.WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+        )
+        onDispose {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) { activity?.setShowWhenLocked(false); activity?.setTurnScreenOn(false) }
+            else @Suppress("DEPRECATION") activity?.window?.clearFlags(
+                android.view.WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or android.view.WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+            )
+        }
+    }
     val needed = remember(ui.video) {
         if (ui.video) arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.CAMERA) else arrayOf(Manifest.permission.RECORD_AUDIO)
     }
+    var micOk by remember { mutableStateOf(false) }
     val perms = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { r ->
-        if (r[Manifest.permission.RECORD_AUDIO] == true) vm.begin()
+        if (r[Manifest.permission.RECORD_AUDIO] == true) { micOk = true; vm.begin() }
     }
     LaunchedEffect(Unit) {
-        if (needed.all { ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED }) vm.begin()
+        if (needed.all { ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED }) { micOk = true; vm.begin() }
         else perms.launch(needed)
     }
+    // Answer tapped on the notification: answer as soon as the microphone may be used
+    LaunchedEffect(micOk, ui.phase) {
+        if (vm.autoAnswer && micOk && ui.phase == CallPhase.Incoming) vm.answer()
+    }
+    // The call timer
+    val now by produceState(System.currentTimeMillis(), ui.connectedAt) { while (true) { value = System.currentTimeMillis(); delay(1_000) } }
     // A video call opened from a notification learns it is video a moment later: ask for the camera then
     LaunchedEffect(ui.video) {
         if (ui.video && ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) perms.launch(needed)
     }
-    val remote by vm.remoteVideo.collectAsStateWithLifecycle()
-    val local by vm.localVideo.collectAsStateWithLifecycle()
+    val remote = session?.remoteVideo?.collectAsStateWithLifecycle()?.value
+    val local = session?.localVideo?.collectAsStateWithLifecycle()?.value
+    val egl = session?.egl
     val ended = ui.phase in setOf(CallPhase.Ended, CallPhase.Declined, CallPhase.Missed, CallPhase.Failed)
     LaunchedEffect(ended) { if (ended) { delay(1_500); onClose() } }
 
     val showVideo = ui.video && (ui.phase == CallPhase.Connected || ui.phase == CallPhase.Reconnecting || ui.phase == CallPhase.Connecting)
     Surface(color = if (showVideo) Color.Black else MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
         if (showVideo) Box(Modifier.fillMaxSize()) {
-            remote?.let { VideoView(it, vm.egl, mirror = false, modifier = Modifier.fillMaxSize()) }
-            local?.takeIf { !ui.cameraOff }?.let {
+            if (egl != null) remote?.let { VideoView(it, egl, mirror = false, modifier = Modifier.fillMaxSize()) }
+            if (egl != null) local?.takeIf { !ui.cameraOff }?.let {
                 VideoView(
-                    it, vm.egl, mirror = true,
+                    it, egl, mirror = true,
                     modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing).padding(Spacing.l).align(Alignment.TopEnd)
                         .size(width = 110.dp, height = 150.dp).clip(RoundedCornerShape(16.dp))
                 )
@@ -283,11 +195,12 @@ fun CallScreen(vm: CallViewModel, onClose: () -> Unit) {
                     color = if (showVideo) Color.White else MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center
                 )
+                val connectedFor = if (ui.connectedAt > 0) callClock(now - ui.connectedAt) else null
                 Text(
-                    stringResource(
+                    if (ui.phase == CallPhase.Connected && connectedFor != null) connectedFor else stringResource(
                         when (ui.phase) {
                             CallPhase.NeedsMic -> R.string.call_mic_needed
-                            CallPhase.Calling -> R.string.call_calling
+                            CallPhase.Calling -> if (ui.delivered) R.string.call_ringing else R.string.call_calling
                             CallPhase.Incoming -> R.string.call_incoming
                             CallPhase.Connecting -> R.string.call_connecting
                             CallPhase.Connected -> R.string.call_connected

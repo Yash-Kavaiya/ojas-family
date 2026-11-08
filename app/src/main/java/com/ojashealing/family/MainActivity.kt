@@ -18,6 +18,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        showOverLockScreenForCall(intent)
         DeepLinks.from(intent)
         val settings = (application as OjasApp).container.settings
 
@@ -34,9 +35,24 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * A ringing call opened from its full-screen notification shows over the lock screen and wakes it.
+     * Only for calls: otherwise the app stays behind the lock screen. The call screen turns it off again.
+     */
+    private fun showOverLockScreenForCall(intent: Intent?) {
+        if (intent?.getStringExtra(com.ojashealing.family.push.EXTRA_TARGET)?.startsWith("calls/") != true) return
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+        } else @Suppress("DEPRECATION") window.addFlags(
+            android.view.WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or android.view.WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+        )
+    }
+
     // singleTop: a notification tapped while the app is open arrives here
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        showOverLockScreenForCall(intent)
         DeepLinks.from(intent)
     }
 }

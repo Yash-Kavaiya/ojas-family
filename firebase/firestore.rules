@@ -553,8 +553,11 @@ service cloud.firestore {
               && request.resource.data.staffUid == request.resource.data.calleeUid
               && isStaffUid(request.resource.data.calleeUid)
               && (request.resource.data.get('video', false) ? canVideoNow() : canAudioNow())));
+      // Either side: status and answer; the callee's phone marks it delivered (ringing); restart fields
+      // carry a new offer/answer when the connection is repaired after a network change
       allow update: if inCall(resource.data)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'answer', 'endedAt'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'answer', 'endedAt', 'deliveredAt', 'restartOffer', 'restartAnswer'])
+        && (!('deliveredAt' in request.resource.data.diff(resource.data).affectedKeys()) || request.auth.uid == resource.data.calleeUid)
         && request.resource.data.status in ['ringing', 'active', 'ended', 'declined', 'missed'];
       allow delete: if false;
 

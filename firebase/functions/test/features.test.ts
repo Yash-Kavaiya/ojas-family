@@ -1,7 +1,7 @@
 import { Timestamp } from "firebase-admin/firestore";
 import { ensureUserDoc } from "../src/auth";
 import { adminGrantFor, countPaidDay, memberLevelFor, verifyPurchaseFor, type PlayApi } from "../src/billing";
-import { onCallUpdated, onChatMessage } from "../src/chat";
+import { onCallUpdated, onChatMessage, sweepRingingCalls } from "../src/chat";
 import { onAnswerNotify, onCommentLikeChanged, onDailyReplyWritten, onQuestionNotify, onThoughtCommentNotify } from "../src/community";
 import { onGoalProgressWritten } from "../src/goals";
 import { wantsPersonal, type Messenger } from "../src/notify";
@@ -283,6 +283,30 @@ describe("chat and calls", () => {
     const { m, sent } = fakeMessenger();
     await onChatMessage(db, m, "m1", { senderUid: "m1", text: "Hi" });
     expect(sent.map((s) => s.to)).toEqual(["tok-senior"]);
+  });
+
+  test("a ring nobody answered for a minute becomes missed; a fresh one keeps ringing", async () => {
+    await db.doc("calls/old").set({ status: "ringing", createdAt: Timestamp.fromDate(new Date(NOW.getTime() - 90_000)) });
+    await db.doc("calls/new").set({ status: "ringing", createdAt: Timestamp.fromDate(new Date(NOW.getTime() - 10_000)) });
+    expect(await sweepRingingCalls(db, NOW)).toBe(1);
+    expect((await db.doc("calls/old").get()).get("status")).toBe("missed");
+    expect((await db.doc("calls/new").get()).get("status")).toBe("ringing");
+  });
+
+  test("an unanswered call tells the person called; a declined one does not", async () => {
+    await db.doc("users/staff").set({ role: "swamiji", displayName: "Swamiji" }, { merge: true });
+    await db.doc("users/m1").set({ displayName: "Riya", fcmTokens: ["tok-m1"] }, { merge: true });
+    const missed = { status: "missed", callerUid: "staff", calleeUid: "m1", memberUid: "m1", staffUid: "staff", video: true };
+    await db.doc("calls/x1").set(missed);
+    const a = fakeMessenger();
+    await onCallUpdated(db, "x1", { status: "ringing" }, missed, a.m);
+    expect(a.sent.map((s) => [s.to, s.data.type, s.data.video])).toEqual([["tok-m1", "missedCall", "1"]]);
+
+    const declined = { ...missed, status: "declined" };
+    await db.doc("calls/x2").set(declined);
+    const b = fakeMessenger();
+    await onCallUpdated(db, "x2", { status: "ringing" }, declined, b.m);
+    expect(b.sent).toHaveLength(0);
   });
 
   test("a connected call uses one credit from a weekly pack, once", async () => {
