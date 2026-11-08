@@ -103,6 +103,7 @@ class OjasMessagingService : FirebaseMessagingService() {
             "mention" -> Triple(Channels.COMMUNITY, getString(R.string.push_mention, who), text)
             "daily" -> Triple(Channels.COMMUNITY, getString(R.string.push_daily, who), text)
             "dailyReply" -> Triple(Channels.COMMUNITY, getString(R.string.push_daily_reply, who), text)
+            "commentReply" -> Triple(Channels.COMMUNITY, getString(R.string.push_comment_reply, who), text)
             "chat" -> Triple(Channels.CHAT, getString(R.string.push_chat, who), text)
             "call" -> Triple(Channels.CALL, getString(if (d["video"] == "1") R.string.push_video_call else R.string.push_call, who), getString(R.string.call_tap_to_answer))
             // Scheduled calls: body is the time ("7 Nov, 4:30 pm"), title the other person

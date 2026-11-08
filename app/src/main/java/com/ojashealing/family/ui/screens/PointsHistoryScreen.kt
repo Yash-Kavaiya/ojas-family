@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.HelpCenter
 import androidx.compose.material.icons.filled.QuestionAnswer
 import androidx.compose.material.icons.filled.Stars
+import androidx.compose.material.icons.filled.SelfImprovement
 import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.Icon
@@ -76,6 +77,7 @@ private fun look(source: PointSource): SourceLook = when (source) {
     PointSource.Question -> SourceLook(Icons.Filled.HelpCenter, Color(0xFF7C3AED), R.string.points_src_question)
     PointSource.Answer -> SourceLook(Icons.Filled.QuestionAnswer, Color(0xFF0F9D8A), R.string.points_src_answer)
     PointSource.Goal -> SourceLook(Icons.Filled.EmojiEvents, Color(0xFFD69E00), R.string.points_src_goal)
+    PointSource.Practice -> SourceLook(Icons.Filled.SelfImprovement, Color(0xFF0284C7), R.string.points_src_practice)
     PointSource.Gift -> SourceLook(Icons.Filled.CardGiftcard, Color(0xFFE8590C), R.string.points_src_gift)
     PointSource.Other -> SourceLook(Icons.Filled.Stars, Color(0xFF9A8FA8), R.string.points_src_other)
 }

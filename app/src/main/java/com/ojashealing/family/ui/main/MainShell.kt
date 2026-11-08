@@ -130,13 +130,17 @@ import kotlinx.serialization.Serializable
 @Serializable object EditProfileRoute
 @Serializable object SettingsRoute
 @Serializable object AdminContentRoute
-@Serializable object ScheduleThoughtRoute
+/** [date] empty = a new thought; otherwise edit the thought for that IST day. */
+@Serializable data class ScheduleThoughtRoute(val date: String = "")
+@Serializable object ScheduledThoughtsRoute
 @Serializable data class QuestionRoute(val id: String)
 @Serializable object AskRoute
 @Serializable object AnnounceRoute
 @Serializable object ModerationRoute
 @Serializable data class GoalSubmitRoute(val goalId: String)
 @Serializable data class VideoRoute(val videoId: String, val title: String, val section: String = "")
+/** A guided practice session (Blue Healing Light, Quick Protection, Morning, Night). */
+@Serializable data class PracticeSessionRoute(val section: String)
 @Serializable data class DailyPostRoute(val id: String)
 @Serializable object ComposeDailyRoute
 @Serializable data class PlansRoute(val access: String = "")
@@ -189,6 +193,11 @@ fun MainShell(container: AppContainer) {
     val practiceStatus by practiceVm.status.collectAsStateWithLifecycle()
     val practiceBusy by practiceVm.busy.collectAsStateWithLifecycle()
     val practiceMessage by practiceVm.message.collectAsStateWithLifecycle()
+    val progressStore = remember { com.ojashealing.family.ui.content.PracticeProgressStore(context.applicationContext) }
+    val guidedVm: com.ojashealing.family.ui.content.GuidedPracticeViewModel = viewModel(factory = viewModelFactory {
+        initializer { com.ojashealing.family.ui.content.GuidedPracticeViewModel(container.practiceMedia, vm.profile, progressStore) }
+    })
+    val guided by guidedVm.cards.collectAsStateWithLifecycle()
     val thoughtVm: ThoughtViewModel = viewModel(factory = viewModelFactory {
         initializer { ThoughtViewModel(container.thoughts, vm.profile, uploadPostImage, container.images::uploadThought) }
     })
@@ -221,7 +230,7 @@ fun MainShell(container: AppContainer) {
     val play: (ContentItem) -> Unit = { nav.navigate(VideoRoute(it.videoId, it.title, it.section.id)) }
     val anchors = remember { RewardAnchors() }
     // Held above the NavHost so sub-screens keep the tab, but not saved: every fresh open starts on Home
-    var tab by remember { mutableStateOf(MainTab.Home) }
+    var tab by rememberSaveable { mutableStateOf(MainTab.Home) }
     // Q&A, Daily or Announcements inside Community; held here so notifications can pick it
     var communityTab by rememberSaveable { mutableStateOf(0) }
     val appLanguage = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language
@@ -382,13 +391,18 @@ fun MainShell(container: AppContainer) {
                                 tab = communityTab,
                                 onTab = { communityTab = it }
                             )
-                            MainTab.Spiritual -> PracticeTab(practice, onPlay = play, practice = practiceStatus, practiceBusy = practiceBusy, onMarkPractice = practiceVm::mark)
+                            MainTab.Spiritual -> PracticeTab(
+                                practice, onPlay = play, practice = practiceStatus, practiceBusy = practiceBusy, onMarkPractice = practiceVm::mark,
+                                guided = guided,
+                                onOpenGuided = { nav.navigate(PracticeSessionRoute(it.id)) }
+                            )
                             MainTab.Home -> HomeScreen(
                                 thoughtVm,
-                                onSchedule = { nav.navigate(ScheduleThoughtRoute) },
+                                onSchedule = { nav.navigate(ScheduleThoughtRoute()) },
                                 onOpenThought = { nav.navigate(ThoughtRoute(it)) },
                                 about = about,
-                                onOpenAbout = { nav.navigate(AboutRoute(it)) }
+                                onOpenAbout = { nav.navigate(AboutRoute(it)) },
+                                onOpenScheduled = { nav.navigate(ScheduledThoughtsRoute) }
                             )
                             MainTab.Ask -> AskTab(
                                 profile = profile,
@@ -444,7 +458,16 @@ fun MainShell(container: AppContainer) {
             composable<AnnounceRoute> { ComposeAnnouncementScreen(communityVm, onBack = { nav.popBackStack() }) }
             composable<DailyPostRoute> { entry -> DailyPostScreen(dailyVm, entry.toRoute<DailyPostRoute>().id, onBack = { nav.popBackStack() }) }
             composable<ComposeDailyRoute> { ComposeDailyScreen(dailyVm, onBack = { nav.popBackStack() }) }
-            composable<ScheduleThoughtRoute> { ScheduleThoughtScreen(thoughtVm, onDone = { nav.popBackStack() }) }
+            composable<ScheduleThoughtRoute> { entry ->
+                ScheduleThoughtScreen(thoughtVm, editDate = entry.toRoute<ScheduleThoughtRoute>().date, onDone = { nav.popBackStack() })
+            }
+            composable<ScheduledThoughtsRoute> {
+                com.ojashealing.family.ui.thought.ScheduledThoughtsScreen(
+                    thoughtVm,
+                    onEdit = { nav.navigate(ScheduleThoughtRoute(it)) },
+                    onBack = { nav.popBackStack() }
+                )
+            }
             composable<ModerationRoute> {
                 val moderationVm: ModerationViewModel = viewModel(factory = viewModelFactory {
                     initializer { ModerationViewModel(container.moderation.asActions(container.goals)) }
@@ -468,6 +491,21 @@ fun MainShell(container: AppContainer) {
                     initializer { AdminContentViewModel(container.content) }
                 })
                 AdminContentScreen(adminVm, onBack = { nav.popBackStack() })
+            }
+            composable<PracticeSessionRoute> { entry ->
+                val section = ContentSection.fromId(entry.toRoute<PracticeSessionRoute>().section)
+                if (section == null) { LaunchedEffect(Unit) { nav.popBackStack() }; return@composable }
+                val sessionVm: com.ojashealing.family.ui.content.PracticeSessionViewModel = viewModel(
+                    key = "practice-${section.id}",
+                    factory = viewModelFactory {
+                        initializer {
+                            com.ojashealing.family.ui.content.PracticeSessionViewModel(
+                                context.applicationContext, section, container.practiceMedia, progressStore, vm.profile.map { it?.uid }
+                            )
+                        }
+                    }
+                )
+                com.ojashealing.family.ui.content.PracticeSessionScreen(sessionVm, onClose = { guidedVm.refresh(); nav.popBackStack() })
             }
             composable<VideoRoute> { entry ->
                 val route = entry.toRoute<VideoRoute>()
@@ -658,8 +696,8 @@ private fun openTarget(
     val (kind, id) = target.split("/", limit = 2).let { it[0] to it.getOrElse(1) { "" } }
     // Put the right tab underneath, then open the item itself, so Back lands where it belongs
     when (kind) {
-        "questions" -> { selectTab(MainTab.Community); selectCommunityTab(0); nav.navigate(QuestionRoute(id)) }
-        "dailyPosts" -> { selectTab(MainTab.Community); selectCommunityTab(1); nav.navigate(DailyPostRoute(id)) }
+        "questions" -> { selectTab(MainTab.Community); selectCommunityTab(com.ojashealing.family.ui.community.CommunityTab.QA); nav.navigate(QuestionRoute(id)) }
+        "dailyPosts" -> { selectTab(MainTab.Community); selectCommunityTab(com.ojashealing.family.ui.community.CommunityTab.DAILY); nav.navigate(DailyPostRoute(id)) }
         "chats" -> nav.navigate(ChatRoute(if (id == myUid) "" else id))
         "adminChats" -> nav.navigate(ChatRoute(if (id == myUid) "" else id, "admin"))
         "callRequests" -> if (id.isNotEmpty()) nav.navigate(CallRequestRoute(id))
@@ -667,7 +705,7 @@ private fun openTarget(
         "calls" -> if (nav.currentBackStackEntry?.destination?.route?.contains("CallRoute") != true) nav.navigate(CallRoute(callId = id))
         "thoughts" -> { selectTab(MainTab.Home); if (id.isNotEmpty()) nav.navigate(ThoughtRoute(id)) }
         "announcements" -> {
-            selectTab(MainTab.Community); selectCommunityTab(2)
+            selectTab(MainTab.Community); selectCommunityTab(com.ojashealing.family.ui.community.CommunityTab.NOTICES)
             if (id.isNotEmpty()) nav.navigate(AnnouncementRoute(id))
         }
         "practice" -> selectTab(MainTab.Spiritual)

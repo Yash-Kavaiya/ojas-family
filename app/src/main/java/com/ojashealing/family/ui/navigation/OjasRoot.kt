@@ -3,6 +3,13 @@ package com.ojashealing.family.ui.navigation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import com.ojashealing.family.ui.onboarding.IntroBackdrop
+import com.ojashealing.family.ui.onboarding.IntroScreen
+import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -47,6 +54,21 @@ fun OjasRoot() {
         initializer { OnboardingViewModel(container.auth, container.users) }
     })
     val start by onboarding.start.collectAsStateWithLifecycle()
+
+    // First launch only: the 3-second blue-light intro, before anything else
+    val introSeen by container.settings.introSeen.collectAsStateWithLifecycle(initialValue = null)
+    var introDone by rememberSaveable { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    when {
+        introSeen == null && !introDone -> { IntroBackdrop(); return }
+        introSeen == false && !introDone -> {
+            IntroScreen(onFinished = {
+                introDone = true
+                scope.launch { container.settings.markIntroSeen() }
+            })
+            return
+        }
+    }
 
     when (start) {
         null -> LoadingState()

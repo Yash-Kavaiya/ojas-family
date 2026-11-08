@@ -27,6 +27,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -47,15 +49,25 @@ private const val MAX_DAYS_AHEAD = 60L * 24 * 3600 * 1000
 /** Admin: write a thought for any day from today up to 60 days ahead; it appears at 00:00 IST that day. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ScheduleThoughtScreen(vm: ThoughtViewModel, onDone: () -> Unit) {
-    var date by rememberSaveable { mutableStateOf(todayIst().iso()) }
+fun ScheduleThoughtScreen(vm: ThoughtViewModel, onDone: () -> Unit, editDate: String = "") {
+    var date by rememberSaveable { mutableStateOf(editDate.ifEmpty { todayIst().iso() }) }
     var title by rememberSaveable { mutableStateOf("") }
     var text by rememberSaveable { mutableStateOf("") }
     var picking by rememberSaveable { mutableStateOf(false) }
     var saving by rememberSaveable { mutableStateOf(false) }
-    var image by remember { mutableStateOf<Uri?>(null) }
+    // Saved across leaving the app; the picker copies the picture into our cache so it can still be read on return
+    var image by rememberSaveable { mutableStateOf<Uri?>(null) }
     var failed by remember { mutableStateOf(false) }
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) image = uri }
+    val pickImage = com.ojashealing.family.ui.components.rememberImagePicker { image = it }
+    // Editing a scheduled thought: fill the form once from it
+    var prefilled by rememberSaveable { mutableStateOf(editDate.isEmpty()) }
+    val scheduled by vm.scheduled.collectAsStateWithLifecycle()
+    var existingImage by rememberSaveable { mutableStateOf("") }
+    LaunchedEffect(scheduled) {
+        if (!prefilled) scheduled?.firstOrNull { it.id == editDate }?.let { t ->
+            title = t.title; text = t.text; existingImage = t.imageUrl; prefilled = true
+        }
+    }
 
     OnboardingLayout(
         title = stringResource(R.string.home_schedule),
@@ -81,11 +93,11 @@ fun ScheduleThoughtScreen(vm: ThoughtViewModel, onDone: () -> Unit) {
         }
         OutlinedTextField(value = title, onValueChange = { title = it.take(150) }, label = { Text(stringResource(R.string.field_title)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(value = text, onValueChange = { text = it.take(5000) }, label = { Text(stringResource(R.string.field_message)) }, modifier = Modifier.fillMaxWidth().heightIn(min = 200.dp))
-        image?.let {
+        (image ?: existingImage.takeIf { it.isNotEmpty() })?.let {
             AsyncImage(model = it, contentDescription = null, contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxWidth().aspectRatio(4f / 3f).clip(RoundedCornerShape(16.dp)))
         }
-        OutlinedButton(onClick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) {
+        OutlinedButton(onClick = pickImage) {
             Icon(Icons.Outlined.Image, contentDescription = null)
             Text(stringResource(R.string.thought_add_image))
         }

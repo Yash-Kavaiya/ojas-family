@@ -128,12 +128,18 @@ fun PracticeTab(
     onPlay: (ContentItem) -> Unit,
     practice: com.ojashealing.family.data.practice.PracticeStatus? = null,
     practiceBusy: Boolean = false,
-    onMarkPractice: (com.ojashealing.family.data.practice.PracticeKind) -> Unit = {}
+    onMarkPractice: (com.ojashealing.family.data.practice.PracticeKind) -> Unit = {},
+    guided: List<GuidedCard>? = null,
+    onOpenGuided: (ContentSection) -> Unit = {}
 ) {
     var locked by remember { mutableStateOf<Access.Locked?>(null) }
+    // A section with its own guided video or audio shows only that, not the YouTube row
+    val guidedCards = guided.orEmpty()
+    val guidedSections = guidedCards.map { it.section }.toSet()
+    val rows = sections?.filter { it.section !in guidedSections }
     when {
-        sections == null -> LoadingState()
-        sections.isEmpty() -> Column(Modifier.fillMaxSize()) {
+        sections == null && guided == null -> LoadingState()
+        rows.isNullOrEmpty() && guidedCards.isEmpty() -> Column(Modifier.fillMaxSize()) {
             SectionHeader(stringResource(R.string.tab_spiritual))
             EmptyState(
                 icon = Icons.Outlined.SelfImprovement,
@@ -142,21 +148,34 @@ fun PracticeTab(
                 modifier = Modifier.weight(1f)
             )
         }
-        else -> LazyColumn(contentPadding = PaddingValues(top = Spacing.s, bottom = Spacing.xl), verticalArrangement = Arrangement.spacedBy(Spacing.l)) {
+        else -> LazyColumn(contentPadding = PaddingValues(top = Spacing.s, bottom = Spacing.xl), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
             item(key = "title", contentType = "title") { SectionHeader(stringResource(R.string.tab_spiritual)) }
-            items(sections, key = { it.section.id }, contentType = { "section" }) { section ->
+            if (guidedCards.isNotEmpty()) {
+                item(key = "guidedHeader", contentType = "guidedHeader") { GuidedHeader(guidedCards, Modifier.padding(horizontal = Spacing.l)) }
+                items(guidedCards, key = { "guided_" + it.section.id }, contentType = { "guided" }) { card ->
+                    GuidedPracticeCard(
+                        card, practice,
+                        onOpen = {
+                            if (card.locked) locked = Access.Locked(needsUserLevel = com.ojashealing.family.domain.UserLevel.L4.rank, needsMemberLevel = 1)
+                            else onOpenGuided(card.section)
+                        },
+                        modifier = Modifier.padding(horizontal = Spacing.l).animateItem()
+                    )
+                }
+            }
+            items(rows.orEmpty(), key = { it.section.id }, contentType = { "section" }) { section ->
                 val tint = section.section.tint()
                 val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
                 // The whole box carries the section's colour, not just its title
                 Surface(
                     color = if (dark) tint.boxDark else tint.boxLight,
-                    shape = RoundedCornerShape(24.dp),
+                    shape = RoundedCornerShape(20.dp),
                     modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.l)
                 ) {
                 Column(modifier = Modifier.padding(vertical = Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
                     Text(
                         stringResource(section.section.label()),
-                        style = MaterialTheme.typography.titleLarge,
+                        style = MaterialTheme.typography.titleMedium,
                         color = if (dark) tint.titleDark else tint.titleLight,
                         modifier = Modifier.padding(horizontal = Spacing.l).semantics { heading() }
                     )
@@ -172,7 +191,7 @@ fun PracticeTab(
                                 item = item,
                                 access = access,
                                 onClick = { if (access is Access.Locked) locked = access else onPlay(item) },
-                                modifier = Modifier.width(240.dp)
+                                modifier = Modifier.width(220.dp)
                             )
                         }
                     }
@@ -218,7 +237,7 @@ fun UnderstandingTab(items: List<Pair<ContentItem, Access>>?, onPlay: (ContentIt
     locked?.let { LockedDialog(it) { locked = null } }
 }
 
-private fun ContentSection.tint(): SectionTint = when (this) {
+internal fun ContentSection.tint(): SectionTint = when (this) {
     ContentSection.BlueLight -> BlueLightTint
     ContentSection.QuickProtection -> QuickProtectionTint
     ContentSection.Morning -> MorningTint

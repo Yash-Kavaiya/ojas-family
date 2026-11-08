@@ -494,4 +494,44 @@
     <string name="push_call_now">Your call is starting now</string>
     <string name="push_call_now_body">%1$s · tap to join</string>
     <string name="ai_answer_general">Thank you for your question. 🙏 The simplest path is daily practice: a few minutes of morning meditation, gratitude at night, and kindness through the day. Explore the Spiritual tab for guided videos, and ask the Community.</string>
+    <string name="action_reply">Reply</string>
+    <string name="replying_to">Replying to %1$s</string>
+    <plurals name="view_more_replies">
+        <item quantity="one">View %1$d more reply</item>
+        <item quantity="other">View %1$d more replies</item>
+    </plurals>
+    <string name="push_comment_reply">%1$s replied to your comment</string>
+    <plurals name="home_scheduled_count">
+        <item quantity="one">%1$d thought scheduled</item>
+        <item quantity="other">%1$d thoughts scheduled</item>
+    </plurals>
+    <string name="home_scheduled_until">Up to %1$s</string>
+    <string name="home_scheduled_none">No thoughts scheduled after today</string>
+    <string name="home_next_gap">Next empty day: %1$s</string>
+    <string name="scheduled_title">Scheduled thoughts</string>
+    <string name="guided_title">Today’s guided practice</string>
+    <string name="guided_progress">%1$d of %2$d done today</string>
+    <string name="guided_minutes">%1$d min</string>
+    <string name="guided_seconds">%1$d sec</string>
+    <string name="media_video">Video</string>
+    <string name="media_audio">Audio</string>
+    <string name="guided_earn">+%1$d point</string>
+    <string name="guided_done">Done today</string>
+    <string name="guided_resume">Resume · %1$s</string>
+    <string name="guided_locked">Level 4 or membership</string>
+    <string name="session_left">left of %1$s</string>
+    <string name="session_breathe_in">Breathe in</string>
+    <string name="session_breathe_out">Breathe out</string>
+    <string name="session_rewind">Back 10 seconds</string>
+    <string name="session_forward">Forward 10 seconds</string>
+    <string name="session_watch_hint">Stay till the end to earn %1$d Moksha Point</string>
+    <string name="session_done_hint">Today’s point is already yours. Practise as often as you like.</string>
+    <string name="session_complete_title">Practice complete</string>
+    <string name="session_complete_points">+%1$d Moksha Point</string>
+    <string name="session_complete_again">You already earned today’s point for this practice. Come back tomorrow for another.</string>
+    <string name="session_complete_failed">Could not record your practice. Check your internet and try again.</string>
+    <string name="session_retry">Try again</string>
+    <string name="session_back">Back to practice</string>
+    <string name="session_loading">Getting the practice ready…</string>
+    <string name="points_src_practice">Guided practice</string>
 </resources>

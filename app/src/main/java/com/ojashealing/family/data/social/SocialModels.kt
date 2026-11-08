@@ -35,8 +35,32 @@ data class Post(
     val text: String,
     val createdAt: Long,
     val status: PostStatus,
-    val imageUrl: String = ""
+    val imageUrl: String = "",
+    /** The top-level comment this one replies to; empty for a top-level comment. Replies are one level deep. */
+    val parentId: String = "",
+    /** Name of the person replied to, shown as "@name" when replying to a reply. */
+    val replyToName: String = ""
 )
+
+/** Where a new comment goes: under top-level comment [parentId], answering [name]. */
+data class ReplyTo(val parentId: String, val name: String)
+
+/** The reply target for answering [post]: a reply to a reply still hangs under the top-level comment. */
+fun replyTargetFor(post: Post): ReplyTo = ReplyTo(post.parentId.ifEmpty { post.id }, post.author.name)
+
+/** One top-level comment with its replies, oldest reply first. */
+data class CommentGroup(val comment: Post, val replies: List<Post>)
+
+/**
+ * Groups a flat comment list into threads, keeping the list's order of top-level comments.
+ * A reply whose parent is missing (removed, or still pending for this viewer) shows as top-level.
+ */
+fun groupReplies(posts: List<Post>): List<CommentGroup> {
+    val ids = posts.mapTo(HashSet()) { it.id }
+    val byParent = posts.filter { it.parentId.isNotEmpty() && it.parentId in ids }.groupBy { it.parentId }
+    return posts.filter { it.parentId.isEmpty() || it.parentId !in ids }
+        .map { top -> CommentGroup(top, byParent[top.id].orEmpty().sortedBy { it.createdAt }) }
+}
 
 /** A Daily Activities photo post by a Member Level 3 member (spec 1.2). */
 data class DailyPost(
@@ -138,4 +162,7 @@ internal fun DocumentSnapshot.status() = if (getString("status") == "pending") P
 internal fun DocumentSnapshot.millis(field: String) = getTimestamp(field)?.toDate()?.time ?: 0L
 
 internal fun DocumentSnapshot.toPost() =
-    Post(id, author(), getString("text").orEmpty(), millis("createdAt"), status(), getString("imageUrl").orEmpty())
+    Post(
+        id, author(), getString("text").orEmpty(), millis("createdAt"), status(), getString("imageUrl").orEmpty(),
+        parentId = getString("parentId").orEmpty(), replyToName = getString("replyToName").orEmpty()
+    )

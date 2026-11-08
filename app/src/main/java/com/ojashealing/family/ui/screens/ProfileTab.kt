@@ -40,6 +40,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -132,8 +133,8 @@ private fun IdentityCard(
     @StringRes photoError: Int?
 ) {
     // Pick, then crop and zoom in a circle before uploading
-    var cropping by remember { mutableStateOf<Uri?>(null) }
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) cropping = uri }
+    var cropping by rememberSaveable { mutableStateOf<Uri?>(null) }
+    val pickImage = com.ojashealing.family.ui.components.rememberImagePicker { cropping = it }
     cropping?.let { src ->
         com.ojashealing.family.ui.components.PhotoCropDialog(src, onDismiss = { cropping = null }, onCropped = { cropping = null; onPickPhoto(it) })
     }
@@ -145,7 +146,7 @@ private fun IdentityCard(
                 modifier = Modifier
                     .size(96.dp)
                     .clickable(enabled = !uploading, onClickLabel = changePhoto, role = Role.Button) {
-                        picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        pickImage()
                     },
                 contentAlignment = Alignment.Center
             ) {

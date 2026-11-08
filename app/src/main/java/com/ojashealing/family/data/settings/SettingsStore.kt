@@ -3,6 +3,7 @@ package com.ojashealing.family.data.settings
 import android.content.Context
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -31,6 +32,15 @@ class SettingsStore(private val context: Context) : ThemeSettings {
 
     override suspend fun setThemeMode(mode: ThemeMode) {
         context.settingsDataStore.edit { it[themeKey] = mode.name }
+    }
+
+    private val introKey = booleanPreferencesKey("intro_seen")
+
+    /** Whether the blue-light intro has played on this phone; it plays once, on first launch. */
+    val introSeen: Flow<Boolean> = context.settingsDataStore.data.map { it[introKey] == true }
+
+    suspend fun markIntroSeen() {
+        context.settingsDataStore.edit { it[introKey] = true }
     }
 }
 

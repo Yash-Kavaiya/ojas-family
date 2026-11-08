@@ -48,6 +48,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ojashealing.family.R
+import com.ojashealing.family.ui.components.commentThreads
+import com.ojashealing.family.data.social.Post
 import com.ojashealing.family.ui.components.LikeButton
 import com.ojashealing.family.data.social.Author
 import com.ojashealing.family.data.social.PostStatus
@@ -71,6 +73,14 @@ import androidx.compose.material3.OutlinedButton
 import com.ojashealing.family.ui.components.PostComposer
 import com.ojashealing.family.ui.components.PostImage
 
+
+/** Community tab order: Announcements first, then Daily, then Q&A. */
+object CommunityTab {
+    const val NOTICES = 0
+    const val DAILY = 1
+    const val QA = 2
+}
+
 @Composable
 fun CommunityScreen(
     vm: CommunityViewModel,
@@ -79,7 +89,7 @@ fun CommunityScreen(
     onAnnounce: () -> Unit,
     daily: @Composable (canPost: Boolean) -> Unit = {},
     onOpenAnnouncement: (String) -> Unit = {},
-    tab: Int = 0,
+    tab: Int = CommunityTab.NOTICES,
     onTab: (Int) -> Unit = {}
 ) {
     val perms by vm.permissions.collectAsStateWithLifecycle()
@@ -94,13 +104,13 @@ fun CommunityScreen(
                 containerColor = MaterialTheme.colorScheme.surface,
                 contentColor = MaterialTheme.colorScheme.primary
             ) {
-                Tab(selected = tab == 0, onClick = { onTab(0) }, text = { Text(stringResource(R.string.community_qa), maxLines = 1, style = MaterialTheme.typography.labelLarge) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
-                Tab(selected = tab == 1, onClick = { onTab(1) }, text = { Text(stringResource(R.string.community_daily), maxLines = 1, style = MaterialTheme.typography.labelLarge) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
-                Tab(selected = tab == 2, onClick = { onTab(2) }, text = { Text(stringResource(R.string.community_notices), maxLines = 1, style = MaterialTheme.typography.labelLarge) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
+                Tab(selected = tab == CommunityTab.NOTICES, onClick = { onTab(CommunityTab.NOTICES) }, text = { Text(stringResource(R.string.community_notices), maxLines = 1, style = MaterialTheme.typography.labelLarge) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
+                Tab(selected = tab == CommunityTab.DAILY, onClick = { onTab(CommunityTab.DAILY) }, text = { Text(stringResource(R.string.community_daily), maxLines = 1, style = MaterialTheme.typography.labelLarge) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
+                Tab(selected = tab == CommunityTab.QA, onClick = { onTab(CommunityTab.QA) }, text = { Text(stringResource(R.string.community_qa), maxLines = 1, style = MaterialTheme.typography.labelLarge) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            if (tab == 1) {
+            if (tab == CommunityTab.DAILY) {
                 Box(Modifier.weight(1f)) { daily(p.canPostDaily) }
-            } else if (tab == 0) {
+            } else if (tab == CommunityTab.QA) {
                 val list = questions
                 when {
                     list == null -> LoadingState()
@@ -126,10 +136,10 @@ fun CommunityScreen(
                 }
             }
         }
-        val showFab = when (tab) { 0 -> p.canAsk; 2 -> p.canAnnounce; else -> false }
+        val showFab = when (tab) { CommunityTab.QA -> p.canAsk; CommunityTab.NOTICES -> p.canAnnounce; else -> false }
         if (showFab) {
-            FloatingActionButton(onClick = if (tab == 0) onAsk else onAnnounce, modifier = Modifier.align(Alignment.BottomEnd).padding(Spacing.l)) {
-                Icon(Icons.Outlined.Add, contentDescription = stringResource(if (tab == 0) R.string.community_ask else R.string.community_post_notice))
+            FloatingActionButton(onClick = if (tab == CommunityTab.QA) onAsk else onAnnounce, modifier = Modifier.align(Alignment.BottomEnd).padding(Spacing.l)) {
+                Icon(Icons.Outlined.Add, contentDescription = stringResource(if (tab == CommunityTab.QA) R.string.community_ask else R.string.community_post_notice))
             }
         }
     }
@@ -163,11 +173,17 @@ fun QuestionDetailScreen(vm: CommunityViewModel, questionId: String, onBack: () 
     var notice by remember { mutableStateOf<Int?>(null) }
     val q = questions?.firstOrNull { it.id == questionId }
     val p = perms
+    val openThreads = com.ojashealing.family.ui.components.rememberOpenThreads()
+    var replyId by rememberSaveable { mutableStateOf<String?>(null) }
+    val replyingTo = answers.firstOrNull { it.id == replyId }
 
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
+      // The answer box sits under the list, pinned above the keyboard
+      Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
         LazyColumn(
-            modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing),
-            verticalArrangement = Arrangement.spacedBy(Spacing.m)
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(bottom = Spacing.l),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs)
         ) {
             item(key = "top", contentType = "top") {
                 IconButton(onClick = onBack, modifier = Modifier.padding(Spacing.s)) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null) }
@@ -193,31 +209,36 @@ fun QuestionDetailScreen(vm: CommunityViewModel, questionId: String, onBack: () 
                 }
             }
             item(key = "answersTitle", contentType = "title") {
-                Text(stringResource(R.string.community_answers), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = Spacing.l))
+                Text(stringResource(R.string.community_answers), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = Spacing.l, end = Spacing.l, top = Spacing.m))
             }
             if (answers.isEmpty()) item(key = "none", contentType = "empty") {
-                Text(stringResource(R.string.community_no_answers), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = Spacing.l))
+                Text(stringResource(R.string.community_no_answers), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = Spacing.l))
             }
-            items(answers, key = { it.id }, contentType = { "answer" }) { a ->
-                PostRow(a) {
+            commentThreads(
+                answers, openThreads,
+                onReply = if (p.canAnswer) ({ a: Post -> replyId = a.id }) else null,
+                trailing = { a: Post ->
                     PostMenu(a.author, onReport = { reportTarget = "questions/${q.id}/answers/${a.id}" }, onBlock = { vm.block(a.author.uid); notice = R.string.community_blocked })
                 }
-            }
-            item(key = "composer", contentType = "composer") {
-                Column(Modifier.padding(horizontal = Spacing.l, vertical = Spacing.s)) {
-                    notice?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
-                    if (p.canAnswer) {
-                        PostComposer(
-                            hint = stringResource(R.string.community_answer_hint),
-                            canAttachImage = p.canAttachImage,
-                            mentionable = listOf(q.author) + answers.map { it.author },
-                            busy = sending,
-                            onSend = { d, sent -> vm.answer(q.id, d.text, d.photo, d.mentions, sent) }
-                        )
-                    } else LockHint(stringResource(R.string.community_answer_locked))
-                }
+            )
+        }
+        if (q != null && p != null) {
+            com.ojashealing.family.ui.thought.CommentBar {
+                notice?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
+                if (p.canAnswer) {
+                    PostComposer(
+                        hint = stringResource(R.string.community_answer_hint),
+                        canAttachImage = p.canAttachImage,
+                        mentionable = listOf(q.author) + answers.map { it.author },
+                        busy = sending,
+                        onSend = { d, sent -> vm.answer(q.id, d.text, d.photo, d.mentions, d.reply, sent) },
+                        replyingTo = replyingTo,
+                        onCancelReply = { replyId = null }
+                    )
+                } else LockHint(stringResource(R.string.community_answer_locked))
             }
         }
+      }
     }
 
     reportTarget?.let { path ->
@@ -268,8 +289,8 @@ fun ComposePostScreen(
     var first by rememberSaveable { mutableStateOf("") }
     var second by rememberSaveable { mutableStateOf("") }
     var busy by rememberSaveable { mutableStateOf(false) }
-    var photo by remember { mutableStateOf<Uri?>(null) }
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) photo = uri }
+    var photo by rememberSaveable { mutableStateOf<Uri?>(null) }
+    val pickImage = com.ojashealing.family.ui.components.rememberImagePicker { photo = it }
     OnboardingLayout(
         title = title,
         subtitle = null,
@@ -286,7 +307,7 @@ fun ComposePostScreen(
         OutlinedTextField(value = second, onValueChange = { second = it.take(2000) }, label = { Text(secondLabel) }, modifier = Modifier.fillMaxWidth().heightIn(min = 160.dp))
         if (canAttachImage) {
             photo?.let { PostImage(it.toString()) }
-            OutlinedButton(onClick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) {
+            OutlinedButton(onClick = { pickImage() }) {
                 Icon(Icons.Outlined.Image, contentDescription = null)
                 Text(stringResource(R.string.post_add_photo))
             }

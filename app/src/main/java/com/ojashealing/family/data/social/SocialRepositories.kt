@@ -1,6 +1,7 @@
 package com.ojashealing.family.data.social
 
 import com.google.firebase.Timestamp
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -33,7 +34,7 @@ internal fun MutableMap<String, Any>.putBadges(author: Author) {
     if (author.memberLevel > 0) put("authorMember", author.memberLevel)
 }
 
-private fun postFields(author: Author, text: String, imageUrl: String = "", mentions: List<String> = emptyList()) = buildMap<String, Any> {
+private fun postFields(author: Author, text: String, imageUrl: String = "", mentions: List<String> = emptyList(), reply: ReplyTo? = null) = buildMap<String, Any> {
     put("authorUid", author.uid)
     put("authorName", author.name)
     put("authorPhoto", author.photo)
@@ -44,6 +45,10 @@ private fun postFields(author: Author, text: String, imageUrl: String = "", ment
     put("createdAt", FieldValue.serverTimestamp())
     if (imageUrl.isNotEmpty()) put("imageUrl", imageUrl)
     if (mentions.isNotEmpty()) put("mentions", mentions.take(10))
+    if (reply != null && reply.parentId.isNotEmpty()) {
+        put("parentId", reply.parentId)
+        put("replyToName", reply.name.take(80))
+    }
 }
 
 /**
@@ -65,20 +70,27 @@ class ThoughtRepository(private val db: FirebaseFirestore) {
     /** One listener per visible day, so a denied future thought only hides that day instead of failing all. */
     fun observeThoughts(today: LocalDateLike): Flow<List<Thought>> {
         val days = visibleThoughtIds(today).map { id -> db.docFlow("thoughts/$id") }
-        return combine(days) { snaps ->
-            snaps.filterNotNull().map { d ->
-                Thought(
-                    id = d.id,
-                    publishAt = d.millis("publishAt"),
-                    title = d.getString("title").orEmpty(),
-                    text = d.getString("text").orEmpty(),
-                    likeCount = d.getLong("likeCount")?.toInt() ?: 0,
-                    commentCount = d.getLong("commentCount")?.toInt() ?: 0,
-                    imageUrl = d.getString("imageUrl").orEmpty()
-                )
-            }
-        }
+        return combine(days) { snaps -> snaps.filterNotNull().map { it.toThought() } }
     }
+
+    /** Admin only (firestore.rules lets admins read future thoughts): every thought after [today], soonest first. */
+    fun observeScheduled(today: LocalDateLike): Flow<List<Thought>> =
+        db.collection("thoughts")
+            .whereGreaterThan("publishAt", Timestamp(Date(istMidnightMillis(today))))
+            .orderBy("publishAt")
+            .limit(120)
+            .flow()
+            .map { docs -> docs.map { it.toThought() } }
+
+    private fun DocumentSnapshot.toThought() = Thought(
+        id = id,
+        publishAt = millis("publishAt"),
+        title = getString("title").orEmpty(),
+        text = getString("text").orEmpty(),
+        likeCount = getLong("likeCount")?.toInt() ?: 0,
+        commentCount = getLong("commentCount")?.toInt() ?: 0,
+        imageUrl = getString("imageUrl").orEmpty()
+    )
 
     fun observeLiked(thoughtId: String, uid: String): Flow<Boolean> = callbackFlow {
         val reg = db.document("thoughts/$thoughtId/likes/$uid").addSnapshotListener { s, _ -> trySend(s?.exists() == true) }
@@ -94,8 +106,8 @@ class ThoughtRepository(private val db: FirebaseFirestore) {
         Unit
     }
 
-    suspend fun addComment(thoughtId: String, author: Author, text: String, imageUrl: String = "", mentions: List<String> = emptyList()): Result<Unit> = runCatching {
-        db.collection("thoughts/$thoughtId/comments").add(postFields(author, text, imageUrl, mentions)).await()
+    suspend fun addComment(thoughtId: String, author: Author, text: String, imageUrl: String = "", mentions: List<String> = emptyList(), reply: ReplyTo? = null): Result<Unit> = runCatching {
+        db.collection("thoughts/$thoughtId/comments").add(postFields(author, text, imageUrl, mentions, reply)).await()
         Unit
     }
 
@@ -169,8 +181,8 @@ class CommunityRepository(private val db: FirebaseFirestore) {
         Unit
     }
 
-    suspend fun commentOnAnnouncement(id: String, author: Author, text: String, imageUrl: String = "", mentions: List<String> = emptyList()): Result<Unit> = runCatching {
-        db.collection("announcements/$id/comments").add(postFields(author, text, imageUrl, mentions)).await()
+    suspend fun commentOnAnnouncement(id: String, author: Author, text: String, imageUrl: String = "", mentions: List<String> = emptyList(), reply: ReplyTo? = null): Result<Unit> = runCatching {
+        db.collection("announcements/$id/comments").add(postFields(author, text, imageUrl, mentions, reply)).await()
         Unit
     }
 
@@ -193,8 +205,8 @@ class CommunityRepository(private val db: FirebaseFirestore) {
         Unit
     }
 
-    suspend fun answer(questionId: String, author: Author, text: String, imageUrl: String = "", mentions: List<String> = emptyList()): Result<Unit> = runCatching {
-        db.collection("questions/$questionId/answers").add(postFields(author, text, imageUrl, mentions)).await()
+    suspend fun answer(questionId: String, author: Author, text: String, imageUrl: String = "", mentions: List<String> = emptyList(), reply: ReplyTo? = null): Result<Unit> = runCatching {
+        db.collection("questions/$questionId/answers").add(postFields(author, text, imageUrl, mentions, reply)).await()
         Unit
     }
 
@@ -268,8 +280,8 @@ class DailyRepository(private val db: FirebaseFirestore) {
         Unit
     }
 
-    suspend fun reply(postId: String, author: Author, text: String, imageUrl: String = "", mentions: List<String> = emptyList()): Result<Unit> = runCatching {
-        db.collection("dailyPosts/$postId/replies").add(postFields(author, text, imageUrl, mentions)).await()
+    suspend fun reply(postId: String, author: Author, text: String, imageUrl: String = "", mentions: List<String> = emptyList(), reply: ReplyTo? = null): Result<Unit> = runCatching {
+        db.collection("dailyPosts/$postId/replies").add(postFields(author, text, imageUrl, mentions, reply)).await()
         Unit
     }
 }

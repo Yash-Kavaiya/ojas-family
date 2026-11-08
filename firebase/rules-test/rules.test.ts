@@ -236,6 +236,13 @@ describe("social", () => {
   test("L3 can comment visible text", async () => {
     await assertSucceeds(setDoc(doc(asUser(L3), "thoughts", "today", "comments", "c1"), comment(L3, "Jai Gurudev", "visible")));
   });
+  test("L3 can reply to a comment; reply fields must be short strings", async () => {
+    const reply = (extra: Record<string, unknown>) => ({ ...comment(L3, "Hari Om", "visible"), ...extra });
+    await assertSucceeds(setDoc(doc(asUser(L3), "thoughts", "today", "comments", "r1"), reply({ parentId: "c1", replyToName: "Bob" })));
+    await assertFails(setDoc(doc(asUser(L3), "thoughts", "today", "comments", "r2"), reply({ parentId: 42 })));
+    await assertFails(setDoc(doc(asUser(L3), "thoughts", "today", "comments", "r3"), reply({ parentId: "x".repeat(65) })));
+    await assertFails(setDoc(doc(asUser(L3), "thoughts", "today", "comments", "r4"), reply({ parentId: "c1", replyToName: "n".repeat(81) })));
+  });
   test("comment containing a link must be pending", async () => {
     await assertFails(setDoc(doc(asUser(L3), "thoughts", "today", "comments", "c2"), comment(L3, "go www.spam.com", "visible")));
     await assertSucceeds(setDoc(doc(asUser(L3), "thoughts", "today", "comments", "c3"), comment(L3, "go www.spam.com", "pending")));

@@ -166,8 +166,14 @@ service cloud.firestore {
         && data.authorRole == role()
         && data.authorName is string && data.authorName.size() <= 80
         && data.text is string && data.text.size() > 0 && data.text.size() <= maxLen
-        && validMedia(data) && validMentions(data) && validBadges(data)
+        && validMedia(data) && validMentions(data) && validBadges(data) && validReply(data)
         && data.status == ((hasLink(data.text) || hasImage(data)) ? 'pending' : 'visible');
+    }
+
+    // A reply names the top-level comment it hangs under (one level deep) and whom it answers
+    function validReply(data) {
+      return (!('parentId' in data) || (data.parentId is string && data.parentId.size() > 0 && data.parentId.size() <= 64))
+        && (!('replyToName' in data) || (data.replyToName is string && data.replyToName.size() <= 80));
     }
 
     function readablePost() {

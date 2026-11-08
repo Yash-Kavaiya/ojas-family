@@ -77,8 +77,8 @@ private fun bodyFamily(script: Script) = when (script) {
 }
 
 /**
- * Type scale: display 30/38, headline 24/32, title 20/28, title-medium 17/24, body 16/24,
- * label 14/20, caption 12/16. Hind and Hind Vadodara get +4sp line height so matras above
+ * Compact type scale, close to LinkedIn: display 24/30, headline 20/26, title 17/24, title-medium 15/22,
+ * body 15/22, body-medium 14/20, label 13/18, caption 12/16. Hind and Hind Vadodara get +4sp line height so matras above
  * and below the line are never clipped.
  */
 fun ojasTypography(script: Script): Typography {
@@ -94,13 +94,13 @@ fun ojasTypography(script: Script): Typography {
         letterSpacing = spacing.sp
     )
 
-    val display = style(heading, 30, 38, FontWeight.Bold, -0.2)
-    val headline = style(heading, 24, 32, FontWeight.SemiBold)
-    val title = style(heading, 20, 28, FontWeight.SemiBold)
-    val titleMedium = style(heading, 17, 24, FontWeight.SemiBold)
-    val bodyL = style(body, 16, 24, FontWeight.Normal)
-    val bodyM = style(body, 15, 22, FontWeight.Normal)
-    val label = style(heading, 14, 20, FontWeight.Medium, 0.1)
+    val display = style(heading, 24, 30, FontWeight.Bold, -0.2)
+    val headline = style(heading, 20, 26, FontWeight.SemiBold)
+    val title = style(heading, 17, 24, FontWeight.SemiBold)
+    val titleMedium = style(heading, 15, 22, FontWeight.SemiBold)
+    val bodyL = style(body, 15, 22, FontWeight.Normal)
+    val bodyM = style(body, 14, 20, FontWeight.Normal)
+    val label = style(heading, 13, 18, FontWeight.Medium, 0.1)
     val caption = style(body, 12, 16, FontWeight.Normal, 0.2)
 
     return Typography(
@@ -124,14 +124,14 @@ fun ojasTypography(script: Script): Typography {
 
 /** The Thought of the Day quote: Lora italic in English, the script's own face in Hindi and Gujarati. */
 fun quoteStyle(script: Script): TextStyle = when (script) {
-    Script.Latin -> TextStyle(fontFamily = LoraItalic, fontStyle = FontStyle.Italic, fontWeight = FontWeight.Medium, fontSize = 21.sp, lineHeight = 31.sp)
-    else -> TextStyle(fontFamily = headingFamily(script), fontWeight = FontWeight.Medium, fontSize = 20.sp, lineHeight = 34.sp)
+    Script.Latin -> TextStyle(fontFamily = LoraItalic, fontStyle = FontStyle.Italic, fontWeight = FontWeight.Medium, fontSize = 17.sp, lineHeight = 26.sp)
+    else -> TextStyle(fontFamily = headingFamily(script), fontWeight = FontWeight.Medium, fontSize = 17.sp, lineHeight = 30.sp)
 }
 
 val LocalQuoteStyle = staticCompositionLocalOf { TextStyle.Default }
 
 /** The "Ojas Family" wordmark: Poppins Bold whatever the app language. */
-val BrandTitleStyle = TextStyle(fontFamily = Poppins, fontWeight = FontWeight.Bold, fontSize = 20.sp, lineHeight = 26.sp)
+val BrandTitleStyle = TextStyle(fontFamily = Poppins, fontWeight = FontWeight.Bold, fontSize = 18.sp, lineHeight = 24.sp)
 
 /** Numbers on coins and counters: Poppins SemiBold, so digits look the same in every language. */
 val BrandNumberStyle = TextStyle(fontFamily = Poppins, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 18.sp)

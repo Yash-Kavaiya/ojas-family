@@ -493,4 +493,44 @@
     <string name="push_call_now">તમારો કૉલ હમણાં શરૂ થાય છે</string>
     <string name="push_call_now_body">%1$s · જોડાવા ટૅપ કરો</string>
     <string name="ai_answer_general">તમારા પ્રશ્ન માટે આભાર. 🙏 સૌથી સરળ માર્ગ રોજની સાધના છે: સવારે થોડી મિનિટ ધ્યાન, રાત્રે કૃતજ્ઞતા અને આખો દિવસ દયાળુતા. માર્ગદર્શિત વીડિયો માટે આધ્યાત્મિક ટૅબ જુઓ અને સમુદાયને પૂછો.</string>
+    <string name="action_reply">જવાબ આપો</string>
+    <string name="replying_to">%1$s ને જવાબ</string>
+    <plurals name="view_more_replies">
+        <item quantity="one">%1$d વધુ જવાબ જુઓ</item>
+        <item quantity="other">%1$d વધુ જવાબ જુઓ</item>
+    </plurals>
+    <string name="push_comment_reply">%1$s એ તમારી કમેન્ટનો જવાબ આપ્યો</string>
+    <plurals name="home_scheduled_count">
+        <item quantity="one">%1$d વિચાર શેડ્યૂલ છે</item>
+        <item quantity="other">%1$d વિચાર શેડ્યૂલ છે</item>
+    </plurals>
+    <string name="home_scheduled_until">%1$s સુધી</string>
+    <string name="home_scheduled_none">આજ પછી કોઈ વિચાર શેડ્યૂલ નથી</string>
+    <string name="home_next_gap">આગળનો ખાલી દિવસ: %1$s</string>
+    <string name="scheduled_title">શેડ્યૂલ કરેલા વિચાર</string>
+    <string name="guided_title">આજનો માર્ગદર્શિત અભ્યાસ</string>
+    <string name="guided_progress">આજે %2$d માંથી %1$d પૂરા</string>
+    <string name="guided_minutes">%1$d મિનિટ</string>
+    <string name="guided_seconds">%1$d સેકન્ડ</string>
+    <string name="media_video">વિડિયો</string>
+    <string name="media_audio">ઑડિયો</string>
+    <string name="guided_earn">+%1$d પોઇન્ટ</string>
+    <string name="guided_done">આજે પૂરું</string>
+    <string name="guided_resume">ચાલુ રાખો · %1$s</string>
+    <string name="guided_locked">લેવલ 4 અથવા સભ્યપદ</string>
+    <string name="session_left">%1$s માંથી બાકી</string>
+    <string name="session_breathe_in">શ્વાસ લો</string>
+    <string name="session_breathe_out">શ્વાસ છોડો</string>
+    <string name="session_rewind">10 સેકન્ડ પાછળ</string>
+    <string name="session_forward">10 સેકન્ડ આગળ</string>
+    <string name="session_watch_hint">%1$d મોક્ષ પોઇન્ટ મેળવવા અંત સુધી રહો</string>
+    <string name="session_done_hint">આજનો પોઇન્ટ તમને મળી ગયો છે. જેટલી વાર ઈચ્છો અભ્યાસ કરો.</string>
+    <string name="session_complete_title">અભ્યાસ પૂરો થયો</string>
+    <string name="session_complete_points">+%1$d મોક્ષ પોઇન્ટ</string>
+    <string name="session_complete_again">આ અભ્યાસનો આજનો પોઇન્ટ તમને મળી ગયો છે. કાલે ફરી આવજો.</string>
+    <string name="session_complete_failed">તમારો અભ્યાસ નોંધાઈ શક્યો નહીં. ઇન્ટરનેટ તપાસીને ફરી પ્રયાસ કરો.</string>
+    <string name="session_retry">ફરી પ્રયાસ કરો</string>
+    <string name="session_back">અભ્યાસ પર પાછા</string>
+    <string name="session_loading">અભ્યાસ તૈયાર થઈ રહ્યો છે…</string>
+    <string name="points_src_practice">માર્ગદર્શિત અભ્યાસ</string>
 </resources>

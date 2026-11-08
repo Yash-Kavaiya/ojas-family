@@ -54,6 +54,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ojashealing.family.R
+import com.ojashealing.family.ui.components.commentThreads
+import com.ojashealing.family.data.social.Post
 import com.ojashealing.family.data.social.Announcement
 import com.ojashealing.family.data.social.MediaKind
 import com.ojashealing.family.ui.components.AudioPlayer
@@ -142,19 +144,22 @@ fun AnnouncementDetailScreen(vm: CommunityViewModel, id: String, onBack: () -> U
     val sending by vm.sending.collectAsStateWithLifecycle()
     val n = notices?.firstOrNull { it.id == id }
     val p = perms
+    val openThreads = com.ojashealing.family.ui.components.rememberOpenThreads()
+    var replyId by rememberSaveable { mutableStateOf<String?>(null) }
+    val replyingTo = comments.firstOrNull { it.id == replyId }
 
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
+      // The comment box sits under the list, pinned above the keyboard
+      Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(Spacing.xs)) {
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
+            Text(stringResource(R.string.announcement_label), style = MaterialTheme.typography.titleLarge)
+        }
         LazyColumn(
-            modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).imePadding(),
-            contentPadding = PaddingValues(bottom = Spacing.xl),
-            verticalArrangement = Arrangement.spacedBy(Spacing.m)
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(bottom = Spacing.l),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs)
         ) {
-            item(key = "top") {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(Spacing.s)) {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
-                    Text(stringResource(R.string.announcement_label), style = MaterialTheme.typography.titleLarge)
-                }
-            }
             if (n == null || p == null) {
                 item(key = "loading") { LoadingState(Modifier.fillMaxWidth().heightIn(min = 200.dp)) }
                 return@LazyColumn
@@ -165,27 +170,33 @@ fun AnnouncementDetailScreen(vm: CommunityViewModel, id: String, onBack: () -> U
                 }
             }
             item(key = "commentsTitle") {
-                Text(stringResource(R.string.home_comments), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = Spacing.l))
+                Text(stringResource(R.string.home_comments), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = Spacing.l, end = Spacing.l, top = Spacing.m))
             }
             if (comments.isEmpty()) item(key = "none") {
-                Text(stringResource(R.string.home_no_comments), style = MaterialTheme.typography.bodyLarge,
+                Text(stringResource(R.string.home_no_comments), style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = Spacing.l))
             }
-            items(comments, key = { it.id }, contentType = { "comment" }) { PostRow(it) }
-            item(key = "composer") {
-                Column(Modifier.padding(horizontal = Spacing.l)) {
-                    if (p.canAnswer) {
-                        PostComposer(
-                            hint = stringResource(R.string.home_comment_hint),
-                            canAttachImage = p.canAttachImage,
-                            mentionable = comments.map { it.author },
-                            busy = sending,
-                            onSend = { d, sent -> vm.commentOnAnnouncement(id, d.text, d.photo, d.mentions, sent) }
-                        )
-                    } else LockHint(stringResource(R.string.home_comment_locked))
-                }
+            commentThreads(
+                comments, openThreads,
+                onReply = if (p.canAnswer) ({ c: Post -> replyId = c.id }) else null
+            )
+        }
+        if (n != null && p != null) {
+            com.ojashealing.family.ui.thought.CommentBar {
+                if (p.canAnswer) {
+                    PostComposer(
+                        hint = stringResource(R.string.home_comment_hint),
+                        canAttachImage = p.canAttachImage,
+                        mentionable = comments.map { it.author },
+                        busy = sending,
+                        onSend = { d, sent -> vm.commentOnAnnouncement(id, d.text, d.photo, d.mentions, d.reply, sent) },
+                        replyingTo = replyingTo,
+                        onCancelReply = { replyId = null }
+                    )
+                } else LockHint(stringResource(R.string.home_comment_locked))
             }
         }
+      }
     }
 }
 

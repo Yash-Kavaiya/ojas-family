@@ -46,7 +46,7 @@ fun OjasBottomBar(current: MainTab, onSelect: (MainTab) -> Unit, modifier: Modif
     NavigationBar(
         containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
-        modifier = modifier.shadow(12.dp).testTag("bottom_nav_bar")
+        modifier = modifier.shadow(8.dp).testTag("bottom_nav_bar")
     ) {
         MainTab.entries.forEach { tab ->
             val selected = tab == current
@@ -61,10 +61,10 @@ fun OjasBottomBar(current: MainTab, onSelect: (MainTab) -> Unit, modifier: Modif
                             model = photoUrl,
                             contentDescription = null,
                             contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                            modifier = Modifier.size(26.dp).clip(CircleShape)
+                            modifier = Modifier.size(24.dp).clip(CircleShape)
                                 .border(if (selected) 2.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, CircleShape)
                         )
-                    } else Icon(if (selected) tab.selectedIcon else tab.icon, contentDescription = null)
+                    } else Icon(if (selected) tab.selectedIcon else tab.icon, contentDescription = null, modifier = Modifier.size(22.dp))
                 },
                 label = {
                     // Hindi and Gujarati labels can be wider than English; never wrap to a second line

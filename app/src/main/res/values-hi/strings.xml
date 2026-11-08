@@ -493,4 +493,44 @@
     <string name="push_call_now">आपकी कॉल अभी शुरू हो रही है</string>
     <string name="push_call_now_body">%1$s · जुड़ने के लिए टैप करें</string>
     <string name="ai_answer_general">आपके प्रश्न के लिए धन्यवाद। 🙏 सबसे सरल मार्ग रोज़ की साधना है: सुबह कुछ मिनट ध्यान, रात को कृतज्ञता और दिन भर दयालुता। मार्गदर्शित वीडियो के लिए आध्यात्मिक टैब देखें और समुदाय से पूछें।</string>
+    <string name="action_reply">जवाब दें</string>
+    <string name="replying_to">%1$s को जवाब</string>
+    <plurals name="view_more_replies">
+        <item quantity="one">%1$d और जवाब देखें</item>
+        <item quantity="other">%1$d और जवाब देखें</item>
+    </plurals>
+    <string name="push_comment_reply">%1$s ने आपके कमेंट का जवाब दिया</string>
+    <plurals name="home_scheduled_count">
+        <item quantity="one">%1$d विचार शेड्यूल है</item>
+        <item quantity="other">%1$d विचार शेड्यूल हैं</item>
+    </plurals>
+    <string name="home_scheduled_until">%1$s तक</string>
+    <string name="home_scheduled_none">आज के बाद कोई विचार शेड्यूल नहीं है</string>
+    <string name="home_next_gap">अगला खाली दिन: %1$s</string>
+    <string name="scheduled_title">शेड्यूल किए गए विचार</string>
+    <string name="guided_title">आज का मार्गदर्शित अभ्यास</string>
+    <string name="guided_progress">आज %2$d में से %1$d पूरे</string>
+    <string name="guided_minutes">%1$d मिनट</string>
+    <string name="guided_seconds">%1$d सेकंड</string>
+    <string name="media_video">वीडियो</string>
+    <string name="media_audio">ऑडियो</string>
+    <string name="guided_earn">+%1$d अंक</string>
+    <string name="guided_done">आज पूरा हुआ</string>
+    <string name="guided_resume">जारी रखें · %1$s</string>
+    <string name="guided_locked">लेवल 4 या सदस्यता</string>
+    <string name="session_left">%1$s में से बाकी</string>
+    <string name="session_breathe_in">साँस लें</string>
+    <string name="session_breathe_out">साँस छोड़ें</string>
+    <string name="session_rewind">10 सेकंड पीछे</string>
+    <string name="session_forward">10 सेकंड आगे</string>
+    <string name="session_watch_hint">%1$d मोक्ष अंक पाने के लिए अंत तक रहें</string>
+    <string name="session_done_hint">आज का अंक आपको मिल चुका है। जितनी बार चाहें अभ्यास करें।</string>
+    <string name="session_complete_title">अभ्यास पूरा हुआ</string>
+    <string name="session_complete_points">+%1$d मोक्ष अंक</string>
+    <string name="session_complete_again">इस अभ्यास का आज का अंक आपको मिल चुका है। कल फिर आइए।</string>
+    <string name="session_complete_failed">आपका अभ्यास दर्ज नहीं हो सका। इंटरनेट जाँचें और फिर कोशिश करें।</string>
+    <string name="session_retry">फिर कोशिश करें</string>
+    <string name="session_back">अभ्यास पर वापस</string>
+    <string name="session_loading">अभ्यास तैयार हो रहा है…</string>
+    <string name="points_src_practice">मार्गदर्शित अभ्यास</string>
 </resources>

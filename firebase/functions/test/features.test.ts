@@ -2,7 +2,7 @@ import { Timestamp } from "firebase-admin/firestore";
 import { ensureUserDoc } from "../src/auth";
 import { adminGrantFor, countPaidDay, memberLevelFor, verifyPurchaseFor, type PlayApi } from "../src/billing";
 import { onCallUpdated, onChatMessage } from "../src/chat";
-import { onAnswerNotify, onDailyReplyWritten, onQuestionNotify } from "../src/community";
+import { onAnswerNotify, onDailyReplyWritten, onQuestionNotify, onThoughtCommentNotify } from "../src/community";
 import { onGoalProgressWritten } from "../src/goals";
 import { wantsPersonal, type Messenger } from "../src/notify";
 import { dayBefore, logPracticeFor, streak } from "../src/practice";
@@ -200,6 +200,29 @@ describe("notifications", () => {
     await onDailyReplyWritten(db, m, "p1", undefined, { status: "visible", authorUid: "m2", text: "Lovely" });
     expect((await db.doc("dailyPosts/p1").get()).get("replyCount")).toBe(1);
     expect(sent[0].data.category).toBe("dailyReplies");
+  });
+
+  test("a reply to a comment tells that comment's author, not the replier", async () => {
+    await db.doc("thoughts/t1/comments/c1").set({ authorUid: "m1", text: "Jai" });
+    await db.doc("users/m1").set({ fcmTokens: ["tok-m1"] }, { merge: true });
+    await db.doc("users/m2").set({ fcmTokens: ["tok-m2"] }, { merge: true });
+    const { m, sent } = fakeMessenger();
+    await onThoughtCommentNotify(db, m, "t1", undefined, { status: "visible", authorUid: "m2", authorName: "Amit", text: "So true", parentId: "c1" });
+    expect(sent.map((s) => s.to)).toEqual(["tok-m1"]);
+    expect(sent[0].data.type).toBe("commentReply");
+
+    const self = fakeMessenger();
+    await onThoughtCommentNotify(db, self.m, "t1", undefined, { status: "visible", authorUid: "m1", text: "Thanks", parentId: "c1" });
+    expect(self.sent).toHaveLength(0);
+  });
+
+  test("replying to an answer tells its author once, and the asker separately", async () => {
+    await db.doc("questions/q2").set({ authorUid: "asker" });
+    await db.doc("questions/q2/answers/a1").set({ authorUid: "m1", text: "Sit daily" });
+    for (const u of ["asker", "m1"]) await db.doc(`users/${u}`).set({ fcmTokens: [`tok-${u}`] }, { merge: true });
+    const { m, sent } = fakeMessenger();
+    await onAnswerNotify(db, m, "q2", undefined, { status: "visible", authorUid: "m2", text: "Agreed", parentId: "a1" });
+    expect(sent.map((s) => [s.to, s.data.type])).toEqual([["tok-m1", "commentReply"], ["tok-asker", "answer"]]);
   });
 });
 

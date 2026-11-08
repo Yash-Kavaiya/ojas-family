@@ -92,19 +92,19 @@ fun OjasTopBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
-                .padding(horizontal = Spacing.l, vertical = Spacing.m),
+                .padding(horizontal = Spacing.l, vertical = Spacing.s),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.m)
         ) {
             Box(
-                Modifier.size(44.dp).clip(CircleShape).background(Brush.linearGradient(OjasGradients.gold)).padding(2.dp),
+                Modifier.size(36.dp).clip(CircleShape).background(Brush.linearGradient(OjasGradients.gold)).padding(2.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Image(
                     painter = painterResource(R.drawable.ojas_lotus),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.size(40.dp).clip(CircleShape)
+                    modifier = Modifier.size(32.dp).clip(CircleShape)
                 )
             }
             Column(modifier = Modifier.weight(1f)) {
@@ -140,12 +140,12 @@ fun OjasTopBar(
                     .clip(RoundedCornerShape(50))
                     .background(Brush.linearGradient(OjasGradients.gold))
                     .clickable(onClickLabel = historyLabel, role = Role.Button, onClick = onOpenPoints)
-                    .padding(horizontal = Spacing.m, vertical = Spacing.s)
+                    .padding(horizontal = Spacing.m, vertical = 6.dp)
                     .semantics { contentDescription = "$points $pointsLabel" },
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
             ) {
-                Icon(Icons.Filled.Stars, contentDescription = null, tint = Color(0xFFB45309), modifier = Modifier.size(18.dp))
+                Icon(Icons.Filled.Stars, contentDescription = null, tint = Color(0xFFB45309), modifier = Modifier.size(16.dp))
                 Text("$shownPoints", style = BrandNumberStyle, color = Color(0xFF3B2300))
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = Color(0xFF3B2300), modifier = Modifier.size(16.dp))
             }

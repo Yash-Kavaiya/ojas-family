@@ -38,6 +38,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -47,12 +48,14 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import com.ojashealing.family.R
+import com.ojashealing.family.data.social.replyTargetFor
 import com.ojashealing.family.data.social.Author
 import com.ojashealing.family.data.social.mentionedUids
 import com.ojashealing.family.ui.theme.Spacing
 
 /** What a composer sends: text, an optional picked photo, and the people @mentioned. */
-data class Draft(val text: String, val photo: Uri?, val mentions: List<String>)
+/** [reply] is set when the text answers a comment rather than the post itself. */
+data class Draft(val text: String, val photo: Uri?, val mentions: List<String>, val reply: com.ojashealing.family.data.social.ReplyTo? = null)
 
 /**
  * Comment / answer / reply box. The photo button shows only for members allowed to attach pictures,
@@ -65,19 +68,42 @@ fun PostComposer(
     mentionable: List<Author>,
     busy: Boolean,
     onSend: (Draft, onSent: () -> Unit) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    replyingTo: com.ojashealing.family.data.social.Post? = null,
+    onCancelReply: () -> Unit = {}
 ) {
     var text by rememberSaveable { mutableStateOf("") }
-    var photo by remember { mutableStateOf<Uri?>(null) }
+    var photo by rememberSaveable { mutableStateOf<Uri?>(null) }
     var mentioning by remember { mutableStateOf(false) }
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) photo = uri }
+    val pickImage = rememberImagePicker { photo = it }
+    val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    // Choosing "Reply" puts the cursor in the box and opens the keyboard
+    androidx.compose.runtime.LaunchedEffect(replyingTo?.id) {
+        if (replyingTo != null) { runCatching { focus.requestFocus() }; keyboard?.show() }
+    }
 
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+        replyingTo?.let { target ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(R.string.replying_to, target.author.name),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f).padding(start = Spacing.s)
+                )
+                IconButton(onClick = onCancelReply) {
+                    Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.action_cancel), modifier = Modifier.size(18.dp))
+                }
+            }
+        }
         photo?.let { uri ->
             Box {
                 AsyncImage(
                     model = uri, contentDescription = null, contentScale = ContentScale.Crop,
-                    modifier = Modifier.size(96.dp).clip(RoundedCornerShape(12.dp))
+                    modifier = Modifier.size(72.dp).clip(RoundedCornerShape(12.dp))
                 )
                 IconButton(
                     onClick = { photo = null },
@@ -88,12 +114,16 @@ fun PostComposer(
         OutlinedTextField(
             value = text,
             onValueChange = { text = it.take(1000) },
-            placeholder = { Text(hint) },
-            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text(hint, style = MaterialTheme.typography.bodyMedium) },
+            textStyle = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.fillMaxWidth().focusRequester(focus),
             shape = RoundedCornerShape(24.dp),
             trailingIcon = {
                 SendButton(
-                    onClick = { onSend(Draft(text, photo, mentionedUids(text, mentionable))) { text = ""; photo = null } },
+                    onClick = {
+                        val reply = replyingTo?.let { replyTargetFor(it) }
+                        onSend(Draft(text, photo, mentionedUids(text, mentionable), reply)) { text = ""; photo = null; onCancelReply() }
+                    },
                     enabled = text.isNotBlank(),
                     busy = busy,
                     size = 40.dp,
@@ -103,7 +133,7 @@ fun PostComposer(
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (canAttachImage) {
-                IconButton(onClick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) {
+                IconButton(onClick = pickImage) {
                     Icon(Icons.Outlined.Image, contentDescription = stringResource(R.string.post_add_photo))
                 }
             }
@@ -132,13 +162,13 @@ fun PostComposer(
 
 /** A post's picture; tapping opens it full screen. */
 @Composable
-fun PostImage(url: String, modifier: Modifier = Modifier, aspect: Float = 4f / 3f) {
+fun PostImage(url: String, modifier: Modifier = Modifier, aspect: Float = 16f / 9f) {
     var open by remember { mutableStateOf(false) }
     AsyncImage(
         model = url,
         contentDescription = stringResource(R.string.thought_open_image),
         contentScale = ContentScale.Crop,
-        modifier = modifier.fillMaxWidth().aspectRatio(aspect).clip(RoundedCornerShape(16.dp))
+        modifier = modifier.fillMaxWidth().aspectRatio(aspect).clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant).clickable { open = true }
     )
     if (open) ImageViewer(url) { open = false }

@@ -40,3 +40,24 @@ class ThoughtViewModelTest {
         assertTrue(buildThoughtUi(thoughts, null, v(UserLevel.L1, r = Role.Admin), "2026-11-03").canSchedule)
     }
 }
+
+class ScheduleSummaryTest {
+
+    private fun t(id: String) = Thought(id, 0, "t", "x", 0, 0)
+
+    @Test
+    fun countsLastDayAndFirstGap() {
+        val s = scheduleSummary(listOf(t("2026-11-09"), t("2026-11-10"), t("2026-11-12")), com.ojashealing.family.domain.LocalDateLike(2026, 11, 8))
+        assertEquals(3, s.count)
+        assertEquals("2026-11-12", s.lastId)
+        assertEquals("2026-11-11", s.nextGapId)
+    }
+
+    @Test
+    fun nothingScheduledMeansTomorrowIsTheGap() {
+        val s = scheduleSummary(emptyList(), com.ojashealing.family.domain.LocalDateLike(2026, 12, 31))
+        assertEquals(0, s.count)
+        assertEquals(null, s.lastId)
+        assertEquals("2027-01-01", s.nextGapId)
+    }
+}

@@ -47,6 +47,7 @@ class AppContainer(context: Context) {
     val moderation = ModerationRepository(Firebase.firestore)
     val goals = GoalRepository(Firebase.firestore, Firebase.storage, app.contentResolver)
     val practice = PracticeRepository(Firebase.firestore, functions)
+    val practiceMedia = com.ojashealing.family.data.practice.PracticeMediaRepository(Firebase.firestore, functions)
     val paid = PaidRepository(Firebase.firestore, functions)
     val billing by lazy { PlayBilling(app, paid) }
     val daily = DailyRepository(Firebase.firestore)

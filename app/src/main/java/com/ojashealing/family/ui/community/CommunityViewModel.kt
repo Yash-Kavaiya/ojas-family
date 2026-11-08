@@ -8,6 +8,7 @@ import com.ojashealing.family.data.social.MediaKind
 import com.ojashealing.family.data.social.CommunityRepository
 import com.ojashealing.family.data.social.Post
 import com.ojashealing.family.data.social.Question
+import com.ojashealing.family.data.social.ReplyTo
 import com.ojashealing.family.data.user.UserProfile
 import com.ojashealing.family.domain.Permissions
 import com.ojashealing.family.domain.Role
@@ -87,8 +88,8 @@ class CommunityViewModel(
         _sending.value = false
     }
 
-    fun answer(questionId: String, text: String, photo: Uri?, mentions: List<String>, onDone: () -> Unit) =
-        withPhoto(photo) { p, url -> repo.answer(questionId, p.asAuthor(), text, url, mentions).onSuccess { onDone() } }
+    fun answer(questionId: String, text: String, photo: Uri?, mentions: List<String>, reply: ReplyTo?, onDone: () -> Unit) =
+        withPhoto(photo) { p, url -> repo.answer(questionId, p.asAuthor(), text, url, mentions, reply).onSuccess { onDone() } }
 
     fun ask(title: String, body: String, photo: Uri?, onDone: () -> Unit) =
         withPhoto(photo) { p, url -> repo.ask(p.asAuthor(), title, body, url).onSuccess { onDone() } }
@@ -120,8 +121,8 @@ class CommunityViewModel(
 
     fun setAnnouncementLiked(id: String, liked: Boolean) = withMe { repo.setAnnouncementLiked(id, it.uid, liked) }
 
-    fun commentOnAnnouncement(id: String, text: String, photo: Uri?, mentions: List<String>, onDone: () -> Unit) =
-        withPhoto(photo) { p, url -> repo.commentOnAnnouncement(id, p.asAuthor(), text, url, mentions).onSuccess { onDone() } }
+    fun commentOnAnnouncement(id: String, text: String, photo: Uri?, mentions: List<String>, reply: ReplyTo?, onDone: () -> Unit) =
+        withPhoto(photo) { p, url -> repo.commentOnAnnouncement(id, p.asAuthor(), text, url, mentions, reply).onSuccess { onDone() } }
 
     fun liked(questionId: String): Flow<Boolean> = me.flatMapLatest { repo.observeLiked(questionId, it.uid) }
 

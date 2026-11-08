@@ -17,18 +17,18 @@ class TypographyTest {
     @Test
     fun latinScale() {
         val t = ojasTypography(Script.Latin)
-        assertSize(t.displayLarge, 30, 38)
-        assertSize(t.headlineMedium, 24, 32)
-        assertSize(t.titleLarge, 20, 28)
-        assertSize(t.bodyLarge, 16, 24)
-        assertSize(t.labelLarge, 14, 20)
+        assertSize(t.displayLarge, 24, 30)
+        assertSize(t.headlineMedium, 20, 26)
+        assertSize(t.titleLarge, 17, 24)
+        assertSize(t.bodyLarge, 15, 22)
+        assertSize(t.labelLarge, 13, 18)
         assertSize(t.bodySmall, 12, 16)
     }
 
     @Test
     fun indicScriptsAddFourSpLineHeight() {
-        assertEquals(28.sp, ojasTypography(Script.Devanagari).bodyLarge.lineHeight)
-        assertEquals(28.sp, ojasTypography(Script.Gujarati).bodyLarge.lineHeight)
+        assertEquals(26.sp, ojasTypography(Script.Devanagari).bodyLarge.lineHeight)
+        assertEquals(26.sp, ojasTypography(Script.Gujarati).bodyLarge.lineHeight)
     }
 
     @Test

@@ -27,6 +27,31 @@ export async function onQuestionNotify(db: Firestore, m: Messenger, id: string, 
   }
 }
 
+/**
+ * A reply (a comment with parentId) tells the author of the comment it hangs under, unless they wrote
+ * the reply or are mentioned in it (they get the mention instead). Returns who was told, or "".
+ */
+async function notifyCommentReply(
+  db: Firestore, m: Messenger, collection: string, after: Data, target: string,
+  category: "communityInteractions" | "dailyReplies"
+): Promise<string> {
+  const parentId = str(after?.parentId);
+  if (!parentId) return "";
+  const parentAuthor = str((await db.doc(`${collection}/${parentId}`).get()).get("authorUid"));
+  const from = str(after?.authorUid);
+  if (!parentAuthor || parentAuthor === from || mentionsOf(after).includes(parentAuthor)) return "";
+  await notifyUser(db, m, parentAuthor, category, {
+    type: "commentReply", title: str(after?.authorName), body: str(after?.text), target, fromUid: from,
+  });
+  return parentAuthor;
+}
+
+/** Announcement comments only keep counts, except that a reply tells the comment's author. */
+export async function onAnnouncementCommentNotify(db: Firestore, m: Messenger, id: string, before: Data, after: Data): Promise<void> {
+  if (!becameVisible(before, after)) return;
+  await notifyCommentReply(db, m, `announcements/${id}/comments`, after, `announcements/${id}`, "communityInteractions");
+}
+
 /** A visible answer tells the person who asked, and anyone mentioned in it. */
 export async function onAnswerNotify(db: Firestore, m: Messenger, questionId: string, before: Data, after: Data): Promise<void> {
   if (!becameVisible(before, after)) return;
@@ -34,12 +59,14 @@ export async function onAnswerNotify(db: Firestore, m: Messenger, questionId: st
   const msg = { title: str(after?.authorName), body: str(after?.text), target: `questions/${questionId}`, fromUid: from };
   const asker = str((await db.doc(`questions/${questionId}`).get()).get("authorUid"));
   const mentioned = mentionsOf(after);
-  if (asker && !mentioned.includes(asker)) await notifyUser(db, m, asker, "communityInteractions", { type: "answer", ...msg });
+  const replied = await notifyCommentReply(db, m, `questions/${questionId}/answers`, after, `questions/${questionId}`, "communityInteractions");
+  if (asker && asker !== replied && !mentioned.includes(asker)) await notifyUser(db, m, asker, "communityInteractions", { type: "answer", ...msg });
   for (const uid of mentioned) await notifyUser(db, m, uid, "communityMentions", { type: "mention", ...msg });
 }
 
 export async function onThoughtCommentNotify(db: Firestore, m: Messenger, thoughtId: string, before: Data, after: Data): Promise<void> {
   if (!becameVisible(before, after)) return;
+  await notifyCommentReply(db, m, `thoughts/${thoughtId}/comments`, after, `thoughts/${thoughtId}`, "communityInteractions");
   for (const uid of mentionsOf(after)) {
     await notifyUser(db, m, uid, "communityMentions", {
       type: "mention", title: str(after?.authorName), body: str(after?.text), target: `thoughts/${thoughtId}`, fromUid: str(after?.authorUid),
@@ -67,7 +94,8 @@ export async function onDailyReplyWritten(db: Firestore, m: Messenger, postId: s
   const msg = { title: str(after?.authorName), body: str(after?.text), target: `dailyPosts/${postId}`, fromUid: from };
   const owner = str((await post.get()).get("authorUid"));
   const mentioned = mentionsOf(after);
-  if (owner && !mentioned.includes(owner)) await notifyUser(db, m, owner, "dailyReplies", { type: "dailyReply", ...msg });
+  const replied = await notifyCommentReply(db, m, `dailyPosts/${postId}/replies`, after, `dailyPosts/${postId}`, "dailyReplies");
+  if (owner && owner !== replied && !mentioned.includes(owner)) await notifyUser(db, m, owner, "dailyReplies", { type: "dailyReply", ...msg });
   for (const uid of mentioned) await notifyUser(db, m, uid, "dailyMentions", { type: "mention", ...msg });
 }
 

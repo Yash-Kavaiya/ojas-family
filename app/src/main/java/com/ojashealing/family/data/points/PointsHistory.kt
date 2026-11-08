@@ -24,7 +24,7 @@ data class LevelTargets(
 }
 
 /** Where each point came from, for the history list's icon and label. */
-enum class PointSource { DailyVisit, LikeThought, LikeQuestion, Comment, Question, Answer, Goal, Gift, Other }
+enum class PointSource { DailyVisit, LikeThought, LikeQuestion, Comment, Question, Answer, Goal, Practice, Gift, Other }
 
 fun sourceOf(item: PointHistoryItem): PointSource = when (item.reason) {
     "daily" -> PointSource.DailyVisit
@@ -34,6 +34,7 @@ fun sourceOf(item: PointHistoryItem): PointSource = when (item.reason) {
     "answer" -> PointSource.Answer
     "goal" -> PointSource.Goal
     "gift" -> PointSource.Gift
+    "practice_media" -> PointSource.Practice
     else -> PointSource.Other
 }
 

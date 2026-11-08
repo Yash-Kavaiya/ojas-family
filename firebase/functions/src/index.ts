@@ -14,13 +14,14 @@ import { onSchedule } from "firebase-functions/v2/scheduler";
 import { onMessagePublished } from "firebase-functions/v2/pubsub";
 import { getMessaging } from "firebase-admin/messaging";
 import { logPracticeFor } from "./practice";
+import { completePracticeFor, startPracticeFor } from "./practiceMedia";
 import { adminGrantFor, countPaidDay, onSubscriptionNotice, verifyPurchaseFor } from "./billing";
 import { playApi } from "./playApi";
 import { refreshAuthorSnapshots, syncPublicProfile } from "./profiles";
 import { onCallCreated, onCallUpdated, onChatMessage } from "./chat";
 import { onCallRequestWritten, sendCallReminders } from "./schedule";
 import {
-  onAnnouncementCountChanged, onAnnouncementCreated, onAnswerNotify, onDailyLikeChanged, onDailyPostWritten, onDailyReplyWritten,
+  onAnnouncementCommentNotify, onAnnouncementCountChanged, onAnnouncementCreated, onAnswerNotify, onDailyLikeChanged, onDailyPostWritten, onDailyReplyWritten,
   onQuestionNotify, onThoughtCommentNotify, onThoughtOfDay,
 } from "./community";
 import type { Messenger } from "./notify";
@@ -173,6 +174,17 @@ export const logPractice = onCall({ enforceAppCheck: enforceAppCheck }, async (r
   return logPracticeFor(db, uid, req.auth?.token.role, String((req.data ?? {}).kind ?? ""), new Date());
 });
 
+// Guided practice media: one Moksha Point for finishing each practice once a day
+export const startPractice = onCall({ enforceAppCheck: enforceAppCheck }, async (req) => {
+  const uid = requireUid(req);
+  return startPracticeFor(db, uid, req.auth?.token.role, (req.data ?? {}).section, new Date());
+});
+
+export const completePractice = onCall({ enforceAppCheck: enforceAppCheck }, async (req) => {
+  const uid = requireUid(req);
+  return completePracticeFor(db, uid, req.auth?.token.role, (req.data ?? {}).section, new Date());
+});
+
 // ---- Profiles visible to others ----
 
 export const userWritten = onDocumentWritten("users/{uid}", async (e) => {
@@ -199,6 +211,7 @@ export const announcementCommentWritten = onDocumentWritten("announcements/{id}/
   const before = e.data?.before.exists, after = e.data?.after.exists;
   if (!before && after) await onAnnouncementCountChanged(db, e.params.id, "commentCount", 1);
   if (before && !after) await onAnnouncementCountChanged(db, e.params.id, "commentCount", -1);
+  await onAnnouncementCommentNotify(db, messenger, e.params.id, e.data?.before.data(), e.data?.after.data());
 });
 
 export const dailyPostWritten = onDocumentWritten("dailyPosts/{id}", (e) =>

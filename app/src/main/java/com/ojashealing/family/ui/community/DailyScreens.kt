@@ -53,10 +53,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import coil.compose.AsyncImage
 import com.ojashealing.family.R
+import com.ojashealing.family.ui.components.commentThreads
 import com.ojashealing.family.data.social.DailyPost
 import com.ojashealing.family.data.social.DailyRepository
 import com.ojashealing.family.data.social.Post
 import com.ojashealing.family.data.social.PostStatus
+import com.ojashealing.family.data.social.ReplyTo
 import com.ojashealing.family.data.user.UserProfile
 import com.ojashealing.family.domain.Permissions
 import com.ojashealing.family.ui.components.EmptyState
@@ -141,8 +143,8 @@ class DailyViewModel(
     fun post(text: String, photo: Uri, onDone: () -> Unit) =
         send(photo, { p, url -> repo.post(p.asAuthor(), text, url, emptyList()) }, onDone)
 
-    fun reply(postId: String, text: String, photo: Uri?, mentions: List<String>, onDone: () -> Unit) =
-        send(photo, { p, url -> repo.reply(postId, p.asAuthor(), text, url, mentions) }, onDone)
+    fun reply(postId: String, text: String, photo: Uri?, mentions: List<String>, reply: ReplyTo?, onDone: () -> Unit) =
+        send(photo, { p, url -> repo.reply(postId, p.asAuthor(), text, url, mentions, reply) }, onDone)
 }
 
 /** Third Community tab: paid members' daily seva photos. */
@@ -195,9 +197,9 @@ private fun DailyCard(post: DailyPost, onClick: () -> Unit) {
         }
         AsyncImage(
             model = post.imageUrl, contentDescription = null, contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxWidth().aspectRatio(4f / 3f).clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceVariant)
+            modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant)
         )
-        if (post.text.isNotBlank()) Text(post.text, style = MaterialTheme.typography.bodyLarge, maxLines = 4)
+        if (post.text.isNotBlank()) Text(post.text, style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
         Text(
             listOf(stringResource(R.string.likes_count, post.likeCount), stringResource(R.string.replies_count, post.replyCount)).joinToString(" · "),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -214,10 +216,15 @@ fun DailyPostScreen(vm: DailyViewModel, postId: String, onBack: () -> Unit) {
     val busy by vm.busy.collectAsStateWithLifecycle()
     val canAttach by vm.canAttachImage.collectAsStateWithLifecycle()
     val post = posts?.firstOrNull { it.id == postId }
+    val openThreads = com.ojashealing.family.ui.components.rememberOpenThreads()
+    var replyId by rememberSaveable { mutableStateOf<String?>(null) }
+    val replyingTo = replies.firstOrNull { it.id == replyId }
 
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
-        LazyColumn(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
-            item(key = "top") { IconButton(onClick = onBack, modifier = Modifier.padding(Spacing.s)) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) } }
+      // The reply box sits under the list, pinned above the keyboard
+      Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+        IconButton(onClick = onBack, modifier = Modifier.padding(Spacing.xs)) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
+        LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
             if (post == null) {
                 item(key = "loading") { LoadingState(Modifier.heightIn(min = 200.dp)) }
                 return@LazyColumn
@@ -225,34 +232,38 @@ fun DailyPostScreen(vm: DailyViewModel, postId: String, onBack: () -> Unit) {
             item(key = "post") {
                 OjasCard(modifier = Modifier.padding(horizontal = Spacing.l)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s), verticalAlignment = Alignment.CenterVertically) {
-                        AuthorAvatar(post.author)
+                        AuthorAvatar(post.author, size = 32)
                         AuthorLine(post.author)
                     }
-                    PostImage(post.imageUrl)
-                    if (post.text.isNotBlank()) Text(post.text, style = MaterialTheme.typography.bodyLarge)
+                    PostImage(post.imageUrl, aspect = 4f / 3f)
+                    if (post.text.isNotBlank()) Text(post.text, style = MaterialTheme.typography.bodyMedium)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         LikeButton(liked = liked, enabled = true, onToggle = { vm.setLiked(post.id, !liked) })
-                        Text(stringResource(R.string.likes_count, post.likeCount), style = MaterialTheme.typography.labelLarge)
+                        Text(stringResource(R.string.likes_count, post.likeCount), style = MaterialTheme.typography.labelMedium)
                     }
                 }
             }
-            item(key = "title") { Text(stringResource(R.string.daily_replies), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = Spacing.l)) }
+            item(key = "title") { Text(stringResource(R.string.daily_replies), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = Spacing.l, end = Spacing.l, top = Spacing.m)) }
             if (replies.isEmpty()) item(key = "none") {
-                Text(stringResource(R.string.daily_no_replies), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                Text(stringResource(R.string.daily_no_replies), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = Spacing.l))
             }
-            items(replies, key = { it.id }, contentType = { "reply" }) { PostRow(it) }
-            item(key = "composer") {
+            commentThreads(replies, openThreads, onReply = { r: Post -> replyId = r.id })
+        }
+        if (post != null) {
+            com.ojashealing.family.ui.thought.CommentBar {
                 PostComposer(
                     hint = stringResource(R.string.daily_reply_hint),
                     canAttachImage = canAttach,
                     mentionable = listOf(post.author) + replies.map { it.author },
                     busy = busy,
-                    onSend = { d, sent -> vm.reply(post.id, d.text, d.photo, d.mentions, sent) },
-                    modifier = Modifier.padding(horizontal = Spacing.l, vertical = Spacing.s)
+                    onSend = { d, sent -> vm.reply(post.id, d.text, d.photo, d.mentions, d.reply, sent) },
+                    replyingTo = replyingTo,
+                    onCancelReply = { replyId = null }
                 )
             }
         }
+      }
     }
 }
 
@@ -260,10 +271,10 @@ fun DailyPostScreen(vm: DailyViewModel, postId: String, onBack: () -> Unit) {
 @Composable
 fun ComposeDailyScreen(vm: DailyViewModel, onBack: () -> Unit) {
     var text by rememberSaveable { mutableStateOf("") }
-    var photo by remember { mutableStateOf<Uri?>(null) }
+    var photo by rememberSaveable { mutableStateOf<Uri?>(null) }
     val busy by vm.busy.collectAsStateWithLifecycle()
     val failed by vm.failed.collectAsStateWithLifecycle()
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) photo = uri }
+    val pickImage = com.ojashealing.family.ui.components.rememberImagePicker { photo = it }
     OnboardingLayout(
         title = stringResource(R.string.daily_new),
         subtitle = null,
@@ -274,7 +285,7 @@ fun ComposeDailyScreen(vm: DailyViewModel, onBack: () -> Unit) {
     ) {
         Box(
             Modifier.fillMaxWidth().aspectRatio(4f / 3f).clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceVariant)
-                .clickable { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                .clickable { pickImage() },
             contentAlignment = Alignment.Center
         ) {
             val p = photo

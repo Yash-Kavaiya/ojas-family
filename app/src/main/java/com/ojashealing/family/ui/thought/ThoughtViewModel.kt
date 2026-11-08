@@ -5,6 +5,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ojashealing.family.data.social.Author
 import com.ojashealing.family.data.social.Post
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.map
+import com.ojashealing.family.data.social.ReplyTo
 import com.ojashealing.family.data.social.Thought
 import com.ojashealing.family.data.social.ThoughtRepository
 import com.ojashealing.family.data.social.todayIst
@@ -48,6 +52,21 @@ fun buildThoughtUi(thoughts: List<Thought>, selectedId: String?, viewer: Viewer,
     )
 }
 
+/** What the admin sees on Home: how many thoughts are waiting, the last scheduled day, the first empty one. */
+data class ScheduleSummary(val count: Int, val lastId: String?, val nextGapId: String)
+
+/** [thoughts] are the ones after [today]; the next gap is the first day from tomorrow with no thought. */
+fun scheduleSummary(thoughts: List<Thought>, today: LocalDateLike): ScheduleSummary {
+    val ids = thoughts.mapTo(HashSet()) { it.id }
+    val cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC")).apply { clear(); set(today.year, today.month - 1, today.day) }
+    var gap: String
+    do {
+        cal.add(java.util.Calendar.DAY_OF_MONTH, 1)
+        gap = "%04d-%02d-%02d".format(cal.get(java.util.Calendar.YEAR), cal.get(java.util.Calendar.MONTH) + 1, cal.get(java.util.Calendar.DAY_OF_MONTH))
+    } while (gap in ids)
+    return ScheduleSummary(thoughts.size, thoughts.maxOfOrNull { it.id }, gap)
+}
+
 fun UserProfile.asAuthor() = Author(uid, displayName, photoUrl, viewer.role, viewer.userLevel.rank, viewer.memberLevel.rank)
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -76,6 +95,14 @@ class ThoughtViewModel(
         if (id == null) flowOf(emptyList()) else repo.observeComments(id, p.viewer, p.uid)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** Admins only: thoughts scheduled after today, soonest first; empty for everyone else. */
+    val scheduled: StateFlow<List<Thought>?> = me.map { it.viewer.role == Role.Admin }.distinctUntilChanged().flatMapLatest { admin ->
+        if (admin) repo.observeScheduled(todayIst()).catch { emit(emptyList()) } else flowOf(null)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val scheduleSummary: StateFlow<ScheduleSummary?> = scheduled.map { list -> list?.let { scheduleSummary(it, todayIst()) } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
     fun select(id: String) {
         selectedId.value = id
     }
@@ -91,17 +118,17 @@ class ThoughtViewModel(
     private val _sending = MutableStateFlow(false)
     val sending: StateFlow<Boolean> = _sending
 
-    fun comment(text: String, onDone: () -> Unit) = comment(text, null, emptyList(), onDone)
+    fun comment(text: String, onDone: () -> Unit) = comment(text, null, emptyList(), null, onDone)
 
     /** Uploads the photo first (if any); a failed upload leaves the draft in place. */
-    fun comment(text: String, photo: Uri?, mentions: List<String>, onDone: () -> Unit) {
+    fun comment(text: String, photo: Uri?, mentions: List<String>, reply: ReplyTo?, onDone: () -> Unit) {
         val id = ui.value?.selected?.id ?: return
         if (text.isBlank() || _sending.value) return
         viewModelScope.launch {
             val p = meNow.value ?: return@launch
             _sending.value = true
             runCatching { photo?.let { uploadPostImage(p.uid, it) }.orEmpty() }
-                .onSuccess { url -> repo.addComment(id, p.asAuthor(), text, url, mentions).onSuccess { onDone() } }
+                .onSuccess { url -> repo.addComment(id, p.asAuthor(), text, url, mentions, reply).onSuccess { onDone() } }
             _sending.value = false
         }
     }
