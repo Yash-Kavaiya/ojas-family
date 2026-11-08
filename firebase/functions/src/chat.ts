@@ -52,14 +52,28 @@ export async function onChatMessage(db: Firestore, m: Messenger, memberUid: stri
     lastMessage: previewOf(data),
     lastAt: FieldValue.serverTimestamp(),
     lastSenderUid: sender,
-    ...(isLog ? {} : { unreadByStaff: fromMember, unreadByMember: !fromMember }),
+    ...(isLog ? {} : {
+      unreadByStaff: fromMember, unreadByMember: !fromMember,
+      // The other side's unread count goes up; the sender has obviously read up to here
+      ...(fromMember
+        ? { unreadCountStaff: FieldValue.increment(1), unreadCountMember: 0 }
+        : { unreadCountMember: FieldValue.increment(1), unreadCountStaff: 0 }),
+    }),
   }, { merge: true });
   if (isLog) return;
 
   const senderName = str((await db.doc(`users/${sender}`).get()).get("displayName"));
   const msg = { type: "chat", title: senderName, body: previewOf(data), target: `${chatCollection(channel)}/${memberUid}`, fromUid: sender };
   const recipients = fromMember ? await staffForChannel(db, channel, memberUid) : [memberUid];
-  for (const uid of recipients) await notifyUser(db, m, uid, "chat", msg);
+  for (const uid of recipients) {
+    if (await chatMuted(db, uid, channel, memberUid)) continue;
+    await notifyUser(db, m, uid, "chat", msg);
+  }
+}
+
+/** Whether [uid] muted this conversation (users/{uid}/chatPrefs/{channel}_{memberUid}). Calls still ring. */
+export async function chatMuted(db: Firestore, uid: string, channel: Channel, memberUid: string): Promise<boolean> {
+  return (await db.doc(`users/${uid}/chatPrefs/${channel}_${memberUid}`).get()).get("muted") === true;
 }
 
 // ---- Calls (WebRTC; signalling through Firestore, design §11 Q4: free WebRTC) ----

@@ -21,6 +21,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import com.ojashealing.family.ui.adaptive.LoadOlderWhenEnd
+import com.ojashealing.family.ui.adaptive.loadOlderRow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -124,7 +127,7 @@ fun istTime(millis: Long): String {
 @OptIn(ExperimentalCoroutinesApi::class)
 class CallsViewModel(
     private val requests: CallRequestRepository,
-    calls: CallRepository,
+    private val calls: CallRepository,
     profile: Flow<UserProfile?>
 ) : ViewModel() {
     private val me = profile.filterNotNull()
@@ -134,6 +137,9 @@ class CallsViewModel(
         val staff = Permissions.isChatStaff(p.viewer)
         calls.observeHistory(p.uid, isMember = !staff, isAdmin = p.viewer.role == Role.Admin)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val historyHasMore: StateFlow<Boolean> = calls.historyHasMore
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    fun loadOlderHistory() { viewModelScope.launch { calls.loadOlderHistory() } }
 
     val mine: StateFlow<List<CallRequest>?> = me.flatMapLatest { requests.observeMine(it.uid) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
@@ -181,6 +187,7 @@ private fun Header(title: String, onBack: () -> Unit) {
 @Composable
 fun CallHistoryScreen(vm: CallsViewModel, onBack: () -> Unit, onCallBack: (Call) -> Unit) {
     val list by vm.history.collectAsStateWithLifecycle()
+    val more by vm.historyHasMore.collectAsStateWithLifecycle()
     val me by vm.profile.collectAsStateWithLifecycle()
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
@@ -189,8 +196,13 @@ fun CallHistoryScreen(vm: CallsViewModel, onBack: () -> Unit, onCallBack: (Call)
             when {
                 calls == null -> LoadingState()
                 calls.isEmpty() -> EmptyState(Icons.Outlined.History, stringResource(R.string.calls_history_empty), stringResource(R.string.calls_history_empty_body), Modifier.weight(1f))
-                else -> LazyColumn(contentPadding = PaddingValues(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
-                    items(calls, key = { it.id }) { c -> HistoryRow(c, me?.uid.orEmpty(), onCallBack) }
+                else -> {
+                    val historyState = rememberLazyListState()
+                    LoadOlderWhenEnd(historyState, more, calls.size) { vm.loadOlderHistory() }
+                    LazyColumn(state = historyState, contentPadding = PaddingValues(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
+                        items(calls, key = { it.id }, contentType = { "call" }) { c -> HistoryRow(c, me?.uid.orEmpty(), onCallBack) }
+                        loadOlderRow(more) { vm.loadOlderHistory() }
+                    }
                 }
             }
         }
@@ -275,7 +287,7 @@ fun ScheduleCallScreen(
     val at = if (day != null && slot >= 0) pickedDateAt(day, slots[slot].first, slots[slot].second) else 0L
 
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).imePadding()) {
+        Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) {
                     Header(stringResource(if (channel == "admin") R.string.calls_schedule_admin else R.string.calls_schedule_swamiji), onBack)
@@ -452,10 +464,10 @@ fun MyCallsScreen(vm: CallsViewModel, onBack: () -> Unit, onOpen: (String) -> Un
                 if (onDay.isEmpty()) item(key = "none") {
                     Text(stringResource(R.string.calls_none_day), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                items(onDay, key = { "d" + it.id }) { r -> RequestCard(r, staffView) { onOpen(r.id) } }
+                items(onDay, key = { "d" + it.id }, contentType = { "request" }) { r -> RequestCard(r, staffView) { onOpen(r.id) } }
                 if (upcoming.isNotEmpty()) {
                     item(key = "upTitle") { Text(stringResource(R.string.calls_upcoming), style = MaterialTheme.typography.titleMedium) }
-                    items(upcoming, key = { "u" + it.id }) { r -> RequestCard(r, staffView) { onOpen(r.id) } }
+                    items(upcoming, key = { "u" + it.id }, contentType = { "request" }) { r -> RequestCard(r, staffView) { onOpen(r.id) } }
                 }
                 if (all.isEmpty()) item(key = "empty") {
                     EmptyState(Icons.Outlined.EventAvailable, stringResource(R.string.calls_none), stringResource(R.string.calls_none_body))

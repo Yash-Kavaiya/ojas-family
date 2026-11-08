@@ -109,6 +109,14 @@ class CommunityViewModel(
     val announcements: StateFlow<List<Announcement>?> = repo.observeAnnouncements()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    val questionsHasMore: StateFlow<Boolean> = repo.questionsHasMore
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    val announcementsHasMore: StateFlow<Boolean> = repo.announcementsHasMore
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun loadOlderQuestions() { viewModelScope.launch { repo.loadOlderQuestions() } }
+    fun loadOlderAnnouncements() { viewModelScope.launch { repo.loadOlderAnnouncements() } }
+
     fun answers(questionId: String): Flow<List<Post>> = me.flatMapLatest { p ->
         combine(repo.observeAnswers(questionId, p.viewer, p.uid), blocked) { a, b -> orderAnswers(a, b) }
     }

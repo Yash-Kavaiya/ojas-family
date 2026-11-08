@@ -15,6 +15,9 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import com.ojashealing.family.ui.adaptive.LoadOlderWhenEnd
+import com.ojashealing.family.ui.adaptive.loadOlderRow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
@@ -62,6 +65,8 @@ import kotlinx.coroutines.launch
 interface ModerationActions {
     val pending: Flow<List<PendingItem>>
     val reports: Flow<List<Report>>
+    val reportsHasMore: Flow<Boolean> get() = kotlinx.coroutines.flow.flowOf(false)
+    suspend fun loadOlderReports() {}
     suspend fun approve(path: String): Result<Unit>
     suspend fun remove(path: String): Result<Unit>
     suspend fun dismissReport(id: String): Result<Unit>
@@ -76,6 +81,8 @@ data class GoalReview(val submission: GoalSubmission, val goal: Goal?)
 fun ModerationRepository.asActions(goalRepo: GoalRepository) = object : ModerationActions {
     override val pending = observePending()
     override val reports = observeReports()
+    override val reportsHasMore = this@asActions.reportsHasMore
+    override suspend fun loadOlderReports() = this@asActions.loadOlderReports()
     override suspend fun approve(path: String) = this@asActions.approve(path)
     override suspend fun remove(path: String) = this@asActions.remove(path)
     override suspend fun dismissReport(id: String) = this@asActions.dismissReport(id)
@@ -87,6 +94,8 @@ fun ModerationRepository.asActions(goalRepo: GoalRepository) = object : Moderati
 class ModerationViewModel(private val actions: ModerationActions) : ViewModel() {
     val pending: StateFlow<List<PendingItem>> = actions.pending.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val reports: StateFlow<List<Report>> = actions.reports.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val reportsHasMore: StateFlow<Boolean> = actions.reportsHasMore.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    fun loadOlderReports() { viewModelScope.launch { actions.loadOlderReports() } }
 
     val goalReviews: StateFlow<List<GoalReview>> = combine(actions.goalSubmissions, actions.goals) { subs, goals ->
         val byId = goals.associateBy { it.id }
@@ -123,10 +132,14 @@ class ModerationViewModel(private val actions: ModerationActions) : ViewModel() 
 fun ModerationScreen(vm: ModerationViewModel, onBack: () -> Unit) {
     val pending by vm.pending.collectAsStateWithLifecycle()
     val reports by vm.reports.collectAsStateWithLifecycle()
+    val reportsMore by vm.reportsHasMore.collectAsStateWithLifecycle()
     val goalReviews by vm.goalReviews.collectAsStateWithLifecycle()
     val lang = goalLanguage()
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
+        val reportState = rememberLazyListState()
+        LoadOlderWhenEnd(reportState, reportsMore, reports.size) { vm.loadOlderReports() }
         LazyColumn(
+            state = reportState,
             modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing),
             contentPadding = PaddingValues(horizontal = Spacing.l, vertical = Spacing.s),
             verticalArrangement = Arrangement.spacedBy(Spacing.m)
@@ -186,6 +199,7 @@ fun ModerationScreen(vm: ModerationViewModel, onBack: () -> Unit) {
                     }
                 }
             }
+            loadOlderRow(reportsMore) { vm.loadOlderReports() }
         }
     }
 }

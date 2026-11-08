@@ -6,6 +6,8 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
+import com.ojashealing.family.data.paging.FEED_PAGE_SIZE
+import com.ojashealing.family.data.paging.LiveTailPager
 import com.ojashealing.family.domain.LocalDateLike
 import com.ojashealing.family.domain.Role
 import com.ojashealing.family.domain.Viewer
@@ -59,7 +61,7 @@ private fun FirebaseFirestore.posts(collection: String, viewerUid: String, admin
     val base = collection(collection)
     if (admin) return base.orderBy("createdAt", order).limit(200).flow().map { docs -> docs.map { it.toPost() } }
     val visible = base.whereEqualTo("status", "visible").orderBy("createdAt", order).limit(200).flow()
-    val mine = base.whereEqualTo("authorUid", viewerUid).whereEqualTo("status", "pending").flow()
+    val mine = base.whereEqualTo("authorUid", viewerUid).whereEqualTo("status", "pending").limit(FEED_PAGE_SIZE.toLong()).flow()
     return combine(visible, mine) { v, m ->
         (v + m).map { it.toPost() }.distinctBy { it.id }.sortedBy { if (order == Query.Direction.ASCENDING) it.createdAt else -it.createdAt }
     }
@@ -124,23 +126,39 @@ class ThoughtRepository(private val db: FirebaseFirestore) {
 
 class CommunityRepository(private val db: FirebaseFirestore) {
 
+    private val questionsPager = LiveTailPager<Question>(idOf = { it.id })
+    private val announcementsPager = LiveTailPager<Announcement>(idOf = { it.id })
+    val questionsHasMore = questionsPager.hasMore
+    val announcementsHasMore = announcementsPager.hasMore
+
+    private fun DocumentSnapshot.toQuestion() = Question(
+        id = id, author = author(), title = getString("title").orEmpty(), body = getString("body").orEmpty(),
+        createdAt = millis("createdAt"), likeCount = getLong("likeCount")?.toInt() ?: 0,
+        answerCount = getLong("answerCount")?.toInt() ?: 0, status = status(),
+        imageUrl = getString("imageUrl").orEmpty()
+    )
+
+    private fun DocumentSnapshot.toAnnouncement() = Announcement(
+        id, getString("title").orEmpty(), getString("body").orEmpty(), millis("createdAt"),
+        MediaKind.fromId(getString("mediaType")), getString("mediaUrl").orEmpty(),
+        (getLong("likeCount") ?: 0L).toInt().coerceAtLeast(0), (getLong("commentCount") ?: 0L).toInt().coerceAtLeast(0)
+    )
+
     fun observeQuestions(viewer: Viewer, uid: String): Flow<List<Question>> {
         val base = db.collection("questions")
         val admin = viewer.role == Role.Admin
         val visible = (if (admin) base else base.whereEqualTo("status", "visible"))
-            .orderBy("createdAt", Query.Direction.DESCENDING).limit(100).flow()
-        val mine = if (admin) flowOf(emptyList()) else base.whereEqualTo("authorUid", uid).whereEqualTo("status", "pending").flow()
-        return combine(visible, mine) { v, m ->
-            (v + m).distinctBy { it.id }.map { d ->
-                Question(
-                    id = d.id, author = d.author(), title = d.getString("title").orEmpty(), body = d.getString("body").orEmpty(),
-                    createdAt = d.millis("createdAt"), likeCount = d.getLong("likeCount")?.toInt() ?: 0,
-                    answerCount = d.getLong("answerCount")?.toInt() ?: 0, status = d.status(),
-                    imageUrl = d.getString("imageUrl").orEmpty()
-                )
-            }.sortedByDescending { it.createdAt }
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+        val page = questionsPager.observe(visible) { it.toQuestion() }
+        val mine = if (admin) flowOf(emptyList())
+        else base.whereEqualTo("authorUid", uid).whereEqualTo("status", "pending").limit(FEED_PAGE_SIZE.toLong()).flow()
+            .map { docs -> docs.map { it.toQuestion() } }
+        return combine(page, mine) { v, m ->
+            (v + m).distinctBy { it.id }.sortedByDescending { it.createdAt }
         }
     }
+
+    suspend fun loadOlderQuestions() = questionsPager.loadMore()
 
     fun observeLiked(questionId: String, uid: String): Flow<Boolean> = callbackFlow {
         val reg = db.document("questions/$questionId/likes/$uid").addSnapshotListener { s, _ -> trySend(s?.exists() == true) }
@@ -151,19 +169,14 @@ class CommunityRepository(private val db: FirebaseFirestore) {
         db.posts("questions/$questionId/answers", uid, viewer.role == Role.Admin, Query.Direction.ASCENDING)
 
     fun observeAnnouncements(): Flow<List<Announcement>> =
-        db.collection("announcements").orderBy("createdAt", Query.Direction.DESCENDING).limit(50).flow()
-            .map { docs ->
-                docs.map {
-                    Announcement(
-                        it.id, it.getString("title").orEmpty(), it.getString("body").orEmpty(), it.millis("createdAt"),
-                        MediaKind.fromId(it.getString("mediaType")), it.getString("mediaUrl").orEmpty(),
-                        (it.getLong("likeCount") ?: 0L).toInt().coerceAtLeast(0), (it.getLong("commentCount") ?: 0L).toInt().coerceAtLeast(0)
-                    )
-                }
-            }
+        announcementsPager.observe(
+            db.collection("announcements").orderBy("createdAt", Query.Direction.DESCENDING)
+        ) { it.toAnnouncement() }
+
+    suspend fun loadOlderAnnouncements() = announcementsPager.loadMore()
 
     fun observeBlocked(uid: String): Flow<Set<String>> =
-        db.collection("users/$uid/blocked").flow().map { docs -> docs.map { it.id }.toSet() }
+        db.collection("users/$uid/blocked").limit(200).flow().map { docs -> docs.map { it.id }.toSet() }
 
     // ---- Announcement likes and comments (counts kept by functions) ----
 
@@ -236,22 +249,29 @@ class CommunityRepository(private val db: FirebaseFirestore) {
 /** Daily Activities (spec 1.2): paid members read, like and reply; Member Level 3 posts photos. */
 class DailyRepository(private val db: FirebaseFirestore) {
 
+    private val postsPager = LiveTailPager<DailyPost>(idOf = { it.id })
+    val postsHasMore = postsPager.hasMore
+
+    private fun DocumentSnapshot.toDaily() = DailyPost(
+        id = id, author = author(), text = getString("text").orEmpty(), imageUrl = getString("imageUrl").orEmpty(),
+        createdAt = millis("createdAt"), likeCount = getLong("likeCount")?.toInt() ?: 0,
+        replyCount = getLong("replyCount")?.toInt() ?: 0, status = status()
+    )
+
     fun observePosts(viewer: Viewer, uid: String): Flow<List<DailyPost>> {
         val base = db.collection("dailyPosts")
         val admin = viewer.role == Role.Admin
         val visible = (if (admin) base else base.whereEqualTo("status", "visible"))
-            .orderBy("createdAt", Query.Direction.DESCENDING).limit(100).flow()
-        val mine = if (admin) flowOf(emptyList()) else base.whereEqualTo("authorUid", uid).whereEqualTo("status", "pending").flow()
-        return combine(visible, mine) { v, m ->
-            (v + m).distinctBy { it.id }.map { d ->
-                DailyPost(
-                    id = d.id, author = d.author(), text = d.getString("text").orEmpty(), imageUrl = d.getString("imageUrl").orEmpty(),
-                    createdAt = d.millis("createdAt"), likeCount = d.getLong("likeCount")?.toInt() ?: 0,
-                    replyCount = d.getLong("replyCount")?.toInt() ?: 0, status = d.status()
-                )
-            }.sortedByDescending { it.createdAt }
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+        val page = postsPager.observe(visible) { it.toDaily() }
+        val mine = if (admin) flowOf(emptyList()) else base.whereEqualTo("authorUid", uid).whereEqualTo("status", "pending")
+            .limit(FEED_PAGE_SIZE.toLong()).flow().map { docs -> docs.map { it.toDaily() } }
+        return combine(page, mine) { v, m ->
+            (v + m).distinctBy { it.id }.sortedByDescending { it.createdAt }
         }
     }
+
+    suspend fun loadOlderPosts() = postsPager.loadMore()
 
     fun observeLiked(postId: String, uid: String): Flow<Boolean> = callbackFlow {
         val reg = db.document("dailyPosts/$postId/likes/$uid").addSnapshotListener { s, _ -> trySend(s?.exists() == true) }
@@ -288,13 +308,16 @@ class DailyRepository(private val db: FirebaseFirestore) {
 
 class ModerationRepository(private val db: FirebaseFirestore) {
 
+    private val reportsPager = LiveTailPager<Report>(idOf = { it.id })
+    val reportsHasMore = reportsPager.hasMore
+
     /** Pending comments, answers and questions across the app (admin only). */
     fun observePending(): Flow<List<PendingItem>> {
-        fun group(name: String) = db.collectionGroup(name).whereEqualTo("status", "pending").flow()
+        fun group(name: String) = db.collectionGroup(name).whereEqualTo("status", "pending").limit(100).flow()
         return combine(
             group("comments"), group("answers"), group("replies"),
-            db.collection("questions").whereEqualTo("status", "pending").flow(),
-            db.collection("dailyPosts").whereEqualTo("status", "pending").flow()
+            db.collection("questions").whereEqualTo("status", "pending").limit(100).flow(),
+            db.collection("dailyPosts").whereEqualTo("status", "pending").limit(100).flow()
         ) { c, a, r, q, dp ->
             (c + a + r + q + dp).map { d ->
                 PendingItem(
@@ -309,8 +332,11 @@ class ModerationRepository(private val db: FirebaseFirestore) {
     }
 
     fun observeReports(): Flow<List<Report>> =
-        db.collection("reports").orderBy("createdAt", Query.Direction.DESCENDING).flow()
-            .map { docs -> docs.map { Report(it.id, it.getString("targetPath").orEmpty(), it.getString("reason").orEmpty(), it.millis("createdAt")) } }
+        reportsPager.observe(db.collection("reports").orderBy("createdAt", Query.Direction.DESCENDING)) { d ->
+            Report(d.id, d.getString("targetPath").orEmpty(), d.getString("reason").orEmpty(), d.millis("createdAt"))
+        }
+
+    suspend fun loadOlderReports() = reportsPager.loadMore()
 
     suspend fun approve(path: String): Result<Unit> = runCatching { db.document(path).update("status", "visible").await(); Unit }
     suspend fun remove(path: String): Result<Unit> = runCatching { db.document(path).delete().await(); Unit }

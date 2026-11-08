@@ -1,5 +1,6 @@
 package com.ojashealing.family
 
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -18,6 +19,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        if (Build.VERSION.SDK_INT >= 29) window.isNavigationBarContrastEnforced = false
         DeepLinks.from(intent)
         val settings = (application as OjasApp).container.settings
 

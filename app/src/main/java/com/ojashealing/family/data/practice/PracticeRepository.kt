@@ -55,6 +55,7 @@ class PracticeRepository(private val db: FirebaseFirestore, private val function
         val since = lastDays(today, 40).last()
         val reg = db.collection("users/$uid/practiceLog")
             .whereGreaterThanOrEqualTo(FieldPath.documentId(), since)
+            .limit(40)
             .addSnapshotListener { snap, _ ->
                 if (snap == null) return@addSnapshotListener
                 trySend(snap.documents.associate { d -> d.id to DayLog(d.getBoolean("morning") == true, d.getBoolean("night") == true) })

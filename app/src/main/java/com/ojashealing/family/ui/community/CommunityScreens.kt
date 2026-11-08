@@ -13,8 +13,12 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
+import com.ojashealing.family.ui.adaptive.LoadOlderWhenEnd
+import com.ojashealing.family.ui.adaptive.loadOlderRow
+import com.ojashealing.family.ui.adaptive.ownedInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Add
@@ -95,6 +99,8 @@ fun CommunityScreen(
     val perms by vm.permissions.collectAsStateWithLifecycle()
     val questions by vm.questions.collectAsStateWithLifecycle()
     val notices by vm.announcements.collectAsStateWithLifecycle()
+    val questionsMore by vm.questionsHasMore.collectAsStateWithLifecycle()
+    val noticesMore by vm.announcementsHasMore.collectAsStateWithLifecycle()
     val p = perms ?: return LoadingState()
 
     Box(Modifier.fillMaxSize()) {
@@ -115,9 +121,14 @@ fun CommunityScreen(
                 when {
                     list == null -> LoadingState()
                     list.isEmpty() -> EmptyState(Icons.Outlined.Forum, stringResource(R.string.community_empty_qa), stringResource(R.string.empty_community_body))
-                    else -> LazyColumn(contentPadding = PaddingValues(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
-                        if (!p.canAsk) item(key = "lock", contentType = "lock") { LockHint(stringResource(R.string.community_ask_locked)) }
-                        items(list, key = { it.id }, contentType = { "question" }) { q -> Box(Modifier.animateItem()) { QuestionCard(q) { onOpenQuestion(q.id) } } }
+                    else -> {
+                        val qaState = rememberLazyListState()
+                        LoadOlderWhenEnd(qaState, questionsMore, list.size) { vm.loadOlderQuestions() }
+                        LazyColumn(state = qaState, contentPadding = PaddingValues(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
+                            if (!p.canAsk) item(key = "lock", contentType = "lock") { LockHint(stringResource(R.string.community_ask_locked)) }
+                            items(list, key = { it.id }, contentType = { "question" }) { q -> Box(Modifier.animateItem()) { QuestionCard(q) { onOpenQuestion(q.id) } } }
+                            loadOlderRow(questionsMore) { vm.loadOlderQuestions() }
+                        }
                     }
                 }
             } else {
@@ -125,12 +136,17 @@ fun CommunityScreen(
                 when {
                     list == null -> LoadingState()
                     list.isEmpty() -> EmptyState(Icons.Outlined.Campaign, stringResource(R.string.community_empty_notices), stringResource(R.string.empty_community_body))
-                    else -> LazyColumn(contentPadding = PaddingValues(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
+                    else -> {
+                        val noticeState = rememberLazyListState()
+                        LoadOlderWhenEnd(noticeState, noticesMore, list.size) { vm.loadOlderAnnouncements() }
+                        LazyColumn(state = noticeState, contentPadding = PaddingValues(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
                         items(list, key = { it.id }, contentType = { "notice" }) { n ->
                             val liked by remember(n.id) { vm.announcementLiked(n.id) }.collectAsStateWithLifecycle(false)
                             Box(Modifier.animateItem()) {
                                 AnnouncementCard(n, liked, p.canLike, onLike = { vm.setAnnouncementLiked(n.id, !liked) }, onOpen = { onOpenAnnouncement(n.id) })
                             }
+                        }
+                        loadOlderRow(noticesMore) { vm.loadOlderAnnouncements() }
                         }
                     }
                 }
@@ -163,7 +179,13 @@ private fun QuestionCard(q: Question, onClick: () -> Unit) {
 }
 
 @Composable
-fun QuestionDetailScreen(vm: CommunityViewModel, questionId: String, onBack: () -> Unit) {
+fun QuestionDetailScreen(
+    vm: CommunityViewModel,
+    questionId: String,
+    onBack: () -> Unit,
+    showBack: Boolean = true,
+    embedded: Boolean = false,
+) {
     val perms by vm.permissions.collectAsStateWithLifecycle()
     val questions by vm.questions.collectAsStateWithLifecycle()
     val answers by remember(questionId) { vm.answers(questionId) }.collectAsStateWithLifecycle(emptyList())
@@ -179,14 +201,14 @@ fun QuestionDetailScreen(vm: CommunityViewModel, questionId: String, onBack: () 
 
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
       // The answer box sits under the list, pinned above the keyboard
-      Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+      Column(Modifier.fillMaxSize().ownedInsets(embedded)) {
         LazyColumn(
             modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(bottom = Spacing.l),
             verticalArrangement = Arrangement.spacedBy(Spacing.xs)
         ) {
             item(key = "top", contentType = "top") {
-                IconButton(onClick = onBack, modifier = Modifier.padding(Spacing.s)) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null) }
+                if (showBack) IconButton(onClick = onBack, modifier = Modifier.padding(Spacing.s)) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null) }
             }
             if (q == null || p == null) {
                 item(key = "loading", contentType = "loading") { LoadingState(Modifier.heightIn(min = 200.dp)) }

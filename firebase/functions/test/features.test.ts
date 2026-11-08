@@ -255,6 +255,27 @@ describe("chat and calls", () => {
     expect(sent.map((s) => s.to)).toEqual(["tok-staff"]);
   });
 
+  test("unread counts go up for the other side and clear for the sender", async () => {
+    await db.doc("users/staff").set({ role: "swamiji" }, { merge: true });
+    const { m } = fakeMessenger();
+    await onChatMessage(db, m, "m1", { senderUid: "m1", text: "One" });
+    await onChatMessage(db, m, "m1", { senderUid: "m1", text: "Two" });
+    expect((await db.doc("chats/m1").get()).get("unreadCountStaff")).toBe(2);
+    await onChatMessage(db, m, "m1", { senderUid: "staff", text: "Hari Om" });
+    const chat = (await db.doc("chats/m1").get()).data()!;
+    expect(chat.unreadCountStaff).toBe(0);
+    expect(chat.unreadCountMember).toBe(1);
+  });
+
+  test("a muted chat sends no push", async () => {
+    await db.doc("users/staff").set({ role: "swamiji", fcmTokens: ["tok-staff"] }, { merge: true });
+    await db.doc("users/staff/chatPrefs/swamiji_m1").set({ muted: true });
+    const { m, sent } = fakeMessenger();
+    await onChatMessage(db, m, "m1", { senderUid: "m1", text: "Quiet" });
+    expect(sent).toHaveLength(0);
+    expect((await db.doc("chats/m1").get()).get("unreadCountStaff")).toBe(1);
+  });
+
   test("an assigned senior member gets the message instead of Swamiji", async () => {
     await db.doc("users/staff").set({ role: "swamiji", fcmTokens: ["tok-staff"] }, { merge: true });
     await db.doc("users/m2").set({ role: "senior_member", fcmTokens: ["tok-senior"] }, { merge: true });

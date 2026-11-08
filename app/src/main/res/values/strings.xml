@@ -149,6 +149,8 @@
     <string name="community_empty_qa">No questions yet</string>
     <string name="community_empty_notices">No announcements yet</string>
     <string name="action_more">More options</string>
+    <string name="list_pick">Choose an item</string>
+    <string name="feed_older">Older</string>
     <string name="moderation_title">Moderation</string>
     <string name="moderation_pending">Waiting for approval</string>
     <string name="moderation_reports">Reports</string>
@@ -534,4 +536,26 @@
     <string name="session_back">Back to practice</string>
     <string name="session_loading">Getting the practice ready…</string>
     <string name="points_src_practice">Guided practice</string>
+    <string name="voice_hold">Hold to record a voice message</string>
+    <string name="voice_slide_cancel">Slide to cancel</string>
+    <string name="voice_speed">Change playback speed</string>
+    <string name="voice_too_short">Hold the mic button to record</string>
+    <string name="chat_today">Today</string>
+    <string name="chat_yesterday">Yesterday</string>
+    <string name="chat_typing">typing…</string>
+    <string name="chat_online">online</string>
+    <string name="chat_last_seen_min">last seen %1$d min ago</string>
+    <string name="chat_last_seen_at">last seen %1$s</string>
+    <string name="chat_muted">Muted</string>
+    <string name="chat_pinned">Pinned</string>
+    <string name="chat_pin">Pin chat</string>
+    <string name="chat_unpin">Unpin chat</string>
+    <string name="chat_mute">Mute notifications</string>
+    <string name="chat_unmute">Unmute notifications</string>
+    <string name="chat_quick_replies">Quick replies</string>
+    <string name="chat_quick_replies_hint">One reply per line. Tap one above the message box to use it.</string>
+    <string name="chat_seen">Seen</string>
+    <string name="chat_sent">Sent</string>
+    <string name="chat_sending">Sending</string>
+    <string name="chat_scroll_down">Go to newest message</string>
 </resources>

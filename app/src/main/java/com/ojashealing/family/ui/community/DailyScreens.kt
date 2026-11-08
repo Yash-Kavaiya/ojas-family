@@ -21,6 +21,10 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import com.ojashealing.family.ui.adaptive.LoadOlderWhenEnd
+import com.ojashealing.family.ui.adaptive.loadOlderRow
+import com.ojashealing.family.ui.adaptive.ownedInsets
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -105,6 +109,11 @@ class DailyViewModel(
         else combine(repo.observePosts(p.viewer, p.uid), blocked) { list, b -> list.filter { it.author.uid !in b } }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    val postsHasMore: StateFlow<Boolean> = repo.postsHasMore
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun loadOlderPosts() { viewModelScope.launch { repo.loadOlderPosts() } }
+
     val canView: StateFlow<Boolean?> = combine(me, flowOf(Unit)) { p, _ -> Permissions.canViewDailyActivities(p.viewer) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -152,6 +161,7 @@ class DailyViewModel(
 fun DailyFeed(vm: DailyViewModel, canPost: Boolean, onOpen: (String) -> Unit, onCompose: () -> Unit, onJoin: () -> Unit) {
     val canView by vm.canView.collectAsStateWithLifecycle()
     val posts by vm.posts.collectAsStateWithLifecycle()
+    val postsMore by vm.postsHasMore.collectAsStateWithLifecycle()
     when {
         canView == null -> LoadingState()
         canView == false -> Column(
@@ -174,9 +184,12 @@ fun DailyFeed(vm: DailyViewModel, canPost: Boolean, onOpen: (String) -> Unit, on
                     if (!canPost) Box(Modifier.padding(Spacing.l)) { LockHint(stringResource(R.string.daily_post_locked)) }
                 }
             } else {
-                LazyColumn(contentPadding = PaddingValues(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
+                val dailyState = rememberLazyListState()
+                LoadOlderWhenEnd(dailyState, postsMore, list.size) { vm.loadOlderPosts() }
+                LazyColumn(state = dailyState, contentPadding = PaddingValues(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
                     if (!canPost) item(key = "lock", contentType = "lock") { LockHint(stringResource(R.string.daily_post_locked)) }
                     items(list, key = { it.id }, contentType = { "daily" }) { post -> DailyCard(post) { onOpen(post.id) } }
+                    loadOlderRow(postsMore) { vm.loadOlderPosts() }
                 }
             }
             if (canPost) {
@@ -206,7 +219,7 @@ private fun DailyCard(post: DailyPost, onClick: () -> Unit) {
 }
 
 @Composable
-fun DailyPostScreen(vm: DailyViewModel, postId: String, onBack: () -> Unit) {
+fun DailyPostScreen(vm: DailyViewModel, postId: String, onBack: () -> Unit, showBack: Boolean = true, embedded: Boolean = false) {
     val posts by vm.posts.collectAsStateWithLifecycle()
     val replies by remember(postId) { vm.replies(postId) }.collectAsStateWithLifecycle(emptyList())
     val liked by remember(postId) { vm.liked(postId) }.collectAsStateWithLifecycle(false)
@@ -219,8 +232,8 @@ fun DailyPostScreen(vm: DailyViewModel, postId: String, onBack: () -> Unit) {
 
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
       // The reply box sits under the list, pinned above the keyboard
-      Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
-        IconButton(onClick = onBack, modifier = Modifier.padding(Spacing.xs)) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
+      Column(Modifier.fillMaxSize().ownedInsets(embedded)) {
+        if (showBack) IconButton(onClick = onBack, modifier = Modifier.padding(Spacing.xs)) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
         LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
             if (post == null) {
                 item(key = "loading") { LoadingState(Modifier.heightIn(min = 200.dp)) }

@@ -65,6 +65,11 @@ service cloud.firestore {
 
       allow delete: if false;
 
+      // Pinned and muted chats, and a staff member's quick replies: private to the owner
+      match /chatPrefs/{key} {
+        allow read, write: if signedIn() && request.auth.uid == uid;
+      }
+
       match /pointEvents/{eventId} {
         allow read: if signedIn() && request.auth.uid == uid;
         allow write: if false;
@@ -388,13 +393,37 @@ service cloud.firestore {
     }
 
     // A chat message: text and/or one photo, PDF or audio file
+    // What each side of a chat may change on the thread: its own read time, typing time and unread count
+    function memberThreadKeys() {
+      return ['unreadByMember', 'unreadCountMember', 'memberReadAt', 'typingMember'];
+    }
+
+    function staffThreadKeys() {
+      return ['unreadByStaff', 'unreadCountStaff', 'staffReadAt', 'typingStaff'];
+    }
+
+    // Read and typing times are the server's clock; an unread count may only be cleared, never raised
+    function validThreadUpdate(member) {
+      let d = request.resource.data;
+      let o = resource.data;
+      return member
+        ? (d.get('unreadCountMember', 0) == 0 || d.get('unreadCountMember', 0) == o.get('unreadCountMember', 0))
+          && (d.get('memberReadAt', null) == o.get('memberReadAt', null) || d.memberReadAt == request.time)
+          && (d.get('typingMember', null) == o.get('typingMember', null) || d.typingMember == request.time)
+        : (d.get('unreadCountStaff', 0) == 0 || d.get('unreadCountStaff', 0) == o.get('unreadCountStaff', 0))
+          && (d.get('staffReadAt', null) == o.get('staffReadAt', null) || d.staffReadAt == request.time)
+          && (d.get('typingStaff', null) == o.get('typingStaff', null) || d.typingStaff == request.time);
+    }
+
     function validMessage(d) {
       return d.keys().hasOnly(['senderUid', 'text', 'attachment', 'createdAt'])
         && d.senderUid == request.auth.uid
         && d.text is string && d.text.size() <= 2000
         && (d.text.size() > 0 || 'attachment' in d)
         && (!('attachment' in d) || (d.attachment is map
-          && d.attachment.keys().hasOnly(['url', 'name', 'mime', 'size'])
+          && d.attachment.keys().hasOnly(['url', 'name', 'mime', 'size', 'durationMs', 'waveform'])
+          && (!('durationMs' in d.attachment) || (d.attachment.durationMs is int && d.attachment.durationMs >= 0 && d.attachment.durationMs <= 300000))
+          && (!('waveform' in d.attachment) || (d.attachment.waveform is list && d.attachment.waveform.size() <= 64))
           && d.attachment.url is string && d.attachment.url.matches('https://.*') && d.attachment.url.size() < 1500
           && d.attachment.name is string && d.attachment.name.size() <= 200
           && d.attachment.mime is string
@@ -418,10 +447,13 @@ service cloud.firestore {
         && request.resource.data.memberUid == memberUid;
       allow update: if signedIn() && (
         (role() in ['admin', 'swamiji']
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['assigneeUid', 'assigneeName', 'unreadByStaff']))
-        || (canStaffChat(memberUid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['unreadByStaff']))
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['assigneeUid', 'assigneeName'].concat(staffThreadKeys()))
+          && validThreadUpdate(false))
+        || (canStaffChat(memberUid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(staffThreadKeys())
+          && validThreadUpdate(false))
         || (request.auth.uid == memberUid
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['unreadByMember', 'memberName', 'memberPhoto'])));
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberName', 'memberPhoto'].concat(memberThreadKeys()))
+          && validThreadUpdate(true)));
       allow delete: if false;
 
       match /messages/{messageId} {
@@ -440,9 +472,10 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['memberUid', 'memberName', 'memberPhoto', 'createdAt'])
         && request.resource.data.memberUid == memberUid;
       allow update: if signedIn() && (
-        (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['unreadByStaff']))
+        (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(staffThreadKeys()) && validThreadUpdate(false))
         || (request.auth.uid == memberUid
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['unreadByMember', 'memberName', 'memberPhoto'])));
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberName', 'memberPhoto'].concat(memberThreadKeys()))
+          && validThreadUpdate(true)));
       allow delete: if false;
 
       match /messages/{messageId} {
@@ -531,6 +564,13 @@ service cloud.firestore {
           && request.resource.data.from == request.auth.uid;
         allow update, delete: if false;
       }
+    }
+
+    // Online / last seen: the owner's heartbeat. Members see staff; staff see everyone
+    match /presence/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isStaff() || isStaffUid(uid));
+      allow write: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['lastActiveAt']) && request.resource.data.lastActiveAt == request.time;
     }
 
     match /config/{docId} {

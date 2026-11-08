@@ -148,6 +148,8 @@
     <string name="community_empty_qa">अभी कोई प्रश्न नहीं</string>
     <string name="community_empty_notices">अभी कोई घोषणा नहीं</string>
     <string name="action_more">और विकल्प</string>
+    <string name="list_pick">एक चीज़ चुनें</string>
+    <string name="feed_older">पुराने</string>
     <string name="moderation_title">मॉडरेशन</string>
     <string name="moderation_pending">मंज़ूरी के लिए</string>
     <string name="moderation_reports">रिपोर्ट</string>
@@ -533,4 +535,26 @@
     <string name="session_back">अभ्यास पर वापस</string>
     <string name="session_loading">अभ्यास तैयार हो रहा है…</string>
     <string name="points_src_practice">मार्गदर्शित अभ्यास</string>
+    <string name="voice_hold">वॉइस मैसेज रिकॉर्ड करने के लिए दबाकर रखें</string>
+    <string name="voice_slide_cancel">रद्द करने के लिए खिसकाएँ</string>
+    <string name="voice_speed">चलाने की गति बदलें</string>
+    <string name="voice_too_short">रिकॉर्ड करने के लिए माइक बटन दबाकर रखें</string>
+    <string name="chat_today">आज</string>
+    <string name="chat_yesterday">कल</string>
+    <string name="chat_typing">लिख रहे हैं…</string>
+    <string name="chat_online">ऑनलाइन</string>
+    <string name="chat_last_seen_min">%1$d मिनट पहले देखा</string>
+    <string name="chat_last_seen_at">आखिरी बार %1$s देखा</string>
+    <string name="chat_muted">म्यूट</string>
+    <string name="chat_pinned">पिन किया</string>
+    <string name="chat_pin">चैट पिन करें</string>
+    <string name="chat_unpin">पिन हटाएँ</string>
+    <string name="chat_mute">सूचनाएँ म्यूट करें</string>
+    <string name="chat_unmute">सूचनाएँ चालू करें</string>
+    <string name="chat_quick_replies">तुरंत जवाब</string>
+    <string name="chat_quick_replies_hint">हर लाइन में एक जवाब। मैसेज बॉक्स के ऊपर टैप करके इस्तेमाल करें।</string>
+    <string name="chat_seen">देखा गया</string>
+    <string name="chat_sent">भेजा गया</string>
+    <string name="chat_sending">भेजा जा रहा है</string>
+    <string name="chat_scroll_down">नए मैसेज पर जाएँ</string>
 </resources>

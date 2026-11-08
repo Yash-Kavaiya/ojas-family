@@ -82,9 +82,14 @@ class PostImages(
      * Photos are shrunk; other files go up as they are. Returns (url, name, mime, size).
      */
     suspend fun uploadChatFile(collection: String, memberUid: String, file: Uri): com.ojashealing.family.data.chat.Attachment {
-        val type = resolver.getType(file) ?: "application/octet-stream"
-        val name = resolver.query(file, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME, android.provider.OpenableColumns.SIZE), null, null, null)
-            ?.use { c -> if (c.moveToFirst()) c.getString(0) to c.getLong(1) else null }
+        // A voice note recorded by the app is a plain file, which the content resolver knows nothing about
+        val local = if (file.scheme == "file") file.path?.let { java.io.File(it) } else null
+        val type = if (local != null) (if (local.extension == "m4a") "audio/mp4"
+            else android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(local.extension) ?: "application/octet-stream")
+            else resolver.getType(file) ?: "application/octet-stream"
+        val name = if (local != null) local.name to local.length()
+            else resolver.query(file, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME, android.provider.OpenableColumns.SIZE), null, null, null)
+                ?.use { c -> if (c.moveToFirst()) c.getString(0) to c.getLong(1) else null }
         val id = UUID.randomUUID().toString()
         if (type.startsWith("image/")) {
             val bytes = resolver.shrunkJpeg(file, 1600)

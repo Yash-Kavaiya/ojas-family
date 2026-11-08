@@ -6,6 +6,7 @@ import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.tasks.await
 
 enum class CallStatus(val id: String) {
@@ -104,9 +105,13 @@ class CallRepository(private val db: FirebaseFirestore) {
             isMember -> base.whereEqualTo("memberUid", uid).orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
             else -> base.whereEqualTo("staffUid", uid).orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
         }
-        val reg = q.limit(200).addSnapshotListener { snap, _ -> if (snap != null) trySend(snap.documents.map(::call)) }
-        awaitClose { reg.remove() }
+        historyPager.observe(q, ::call).collect { trySend(it) }
+        awaitClose { }
     }
+
+    private val historyPager = com.ojashealing.family.data.paging.LiveTailPager<Call>(idOf = { it.id })
+    val historyHasMore = historyPager.hasMore
+    suspend fun loadOlderHistory() = historyPager.loadMore()
 
     fun observe(callId: String): Flow<Call?> = callbackFlow {
         val reg = db.document("calls/$callId").addSnapshotListener { s, _ -> trySend(s?.takeIf { it.exists() }?.let(::call)) }
@@ -115,7 +120,7 @@ class CallRepository(private val db: FirebaseFirestore) {
 
     /** Calls ringing for [uid] right now, so an incoming call shows even without a push. */
     fun observeIncoming(uid: String): Flow<List<Call>> = callbackFlow {
-        val reg = db.collection("calls").whereEqualTo("calleeUid", uid).whereEqualTo("status", "ringing")
+        val reg = db.collection("calls").whereEqualTo("calleeUid", uid).whereEqualTo("status", "ringing").limit(20)
             .addSnapshotListener { snap, _ -> if (snap != null) trySend(snap.documents.map(::call)) }
         awaitClose { reg.remove() }
     }
@@ -161,7 +166,7 @@ class CallRepository(private val db: FirebaseFirestore) {
 
     /** The other side's ICE candidates as they arrive. */
     fun listenCandidates(callId: String, myUid: String, onCandidate: (IceCandidateData) -> Unit): ListenerRegistration =
-        db.collection("calls/$callId/candidates").addSnapshotListener { snap, _ ->
+        db.collection("calls/$callId/candidates").limit(100).addSnapshotListener { snap, _ ->
             snap?.documentChanges?.filter { it.type == com.google.firebase.firestore.DocumentChange.Type.ADDED }?.forEach { ch ->
                 val d = ch.document
                 val from = d.getString("from").orEmpty()
