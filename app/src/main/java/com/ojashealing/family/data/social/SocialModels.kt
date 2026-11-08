@@ -39,7 +39,9 @@ data class Post(
     /** The top-level comment this one replies to; empty for a top-level comment. Replies are one level deep. */
     val parentId: String = "",
     /** Name of the person replied to, shown as "@name" when replying to a reply. */
-    val replyToName: String = ""
+    val replyToName: String = "",
+    /** Kept by the server from the comment's likes subcollection. */
+    val likeCount: Int = 0
 )
 
 /** Where a new comment goes: under top-level comment [parentId], answering [name]. */
@@ -164,5 +166,6 @@ internal fun DocumentSnapshot.millis(field: String) = getTimestamp(field)?.toDat
 internal fun DocumentSnapshot.toPost() =
     Post(
         id, author(), getString("text").orEmpty(), millis("createdAt"), status(), getString("imageUrl").orEmpty(),
-        parentId = getString("parentId").orEmpty(), replyToName = getString("replyToName").orEmpty()
+        parentId = getString("parentId").orEmpty(), replyToName = getString("replyToName").orEmpty(),
+        likeCount = getLong("likeCount")?.toInt() ?: 0
     )

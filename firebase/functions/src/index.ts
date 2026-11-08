@@ -21,7 +21,7 @@ import { refreshAuthorSnapshots, syncPublicProfile } from "./profiles";
 import { onCallCreated, onCallUpdated, onChatMessage } from "./chat";
 import { onCallRequestWritten, sendCallReminders } from "./schedule";
 import {
-  onAnnouncementCommentNotify, onAnnouncementCountChanged, onAnnouncementCreated, onAnswerNotify, onDailyLikeChanged, onDailyPostWritten, onDailyReplyWritten,
+  onAnnouncementCommentNotify, onAnnouncementCountChanged, onCommentLikeChanged, onAnnouncementCreated, onAnswerNotify, onDailyLikeChanged, onDailyPostWritten, onDailyReplyWritten,
   onQuestionNotify, onThoughtCommentNotify, onThoughtOfDay,
 } from "./community";
 import type { Messenger } from "./notify";
@@ -219,6 +219,24 @@ export const dailyPostWritten = onDocumentWritten("dailyPosts/{id}", (e) =>
 
 export const dailyReplyWritten = onDocumentWritten("dailyPosts/{id}/replies/{replyId}", (e) =>
   onDailyReplyWritten(db, messenger, e.params.id, e.data?.before.data(), e.data?.after.data()));
+
+// Likes on comments, answers and replies keep the comment's own likeCount
+const commentLikePaths = [
+  "thoughts/{p}/comments/{c}",
+  "announcements/{p}/comments/{c}",
+  "questions/{p}/answers/{c}",
+  "dailyPosts/{p}/replies/{c}",
+];
+const commentPathOf = (pattern: string, params: Record<string, string>) =>
+  pattern.replace("{p}", params.p).replace("{c}", params.c);
+export const thoughtCommentLikeAdded = onDocumentCreated(`${commentLikePaths[0]}/likes/{uid}`, (e) => onCommentLikeChanged(db, commentPathOf(commentLikePaths[0], e.params), 1));
+export const thoughtCommentLikeRemoved = onDocumentDeleted(`${commentLikePaths[0]}/likes/{uid}`, (e) => onCommentLikeChanged(db, commentPathOf(commentLikePaths[0], e.params), -1));
+export const announcementCommentLikeAdded = onDocumentCreated(`${commentLikePaths[1]}/likes/{uid}`, (e) => onCommentLikeChanged(db, commentPathOf(commentLikePaths[1], e.params), 1));
+export const announcementCommentLikeRemoved = onDocumentDeleted(`${commentLikePaths[1]}/likes/{uid}`, (e) => onCommentLikeChanged(db, commentPathOf(commentLikePaths[1], e.params), -1));
+export const answerLikeAdded = onDocumentCreated(`${commentLikePaths[2]}/likes/{uid}`, (e) => onCommentLikeChanged(db, commentPathOf(commentLikePaths[2], e.params), 1));
+export const answerLikeRemoved = onDocumentDeleted(`${commentLikePaths[2]}/likes/{uid}`, (e) => onCommentLikeChanged(db, commentPathOf(commentLikePaths[2], e.params), -1));
+export const dailyReplyLikeAdded = onDocumentCreated(`${commentLikePaths[3]}/likes/{uid}`, (e) => onCommentLikeChanged(db, commentPathOf(commentLikePaths[3], e.params), 1));
+export const dailyReplyLikeRemoved = onDocumentDeleted(`${commentLikePaths[3]}/likes/{uid}`, (e) => onCommentLikeChanged(db, commentPathOf(commentLikePaths[3], e.params), -1));
 
 export const dailyLikeAdded = onDocumentCreated("dailyPosts/{id}/likes/{uid}", (e) => onDailyLikeChanged(db, e.params.id, 1));
 export const dailyLikeRemoved = onDocumentDeleted("dailyPosts/{id}/likes/{uid}", (e) => onDailyLikeChanged(db, e.params.id, -1));

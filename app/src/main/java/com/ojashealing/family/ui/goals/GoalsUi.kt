@@ -253,20 +253,19 @@ fun GoalSubmitScreen(goal: Goal?, vm: GoalSubmitViewModel, onBack: () -> Unit) {
             goal?.descriptionIn(lang)?.takeIf { it.isNotEmpty() }?.let {
                 Text(it, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Box(
+            val pick = { if (!state.busy) picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+            // A picked photo shows whole at its own shape; tap it to choose another
+            if (state.photo != null) com.ojashealing.family.ui.components.ResponsiveImage(state.photo, onClick = pick)
+            else Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(4f / 3f)
                     .clip(RoundedCornerShape(16.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .clickable(enabled = !state.busy) {
-                        picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                    },
+                    .clickable(enabled = !state.busy, onClick = pick),
                 contentAlignment = Alignment.Center
             ) {
-                if (state.photo != null) {
-                    AsyncImage(model = state.photo, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                } else {
+                run {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
                         Icon(Icons.Outlined.AddAPhoto, contentDescription = null, modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(stringResource(R.string.goal_choose_photo), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)

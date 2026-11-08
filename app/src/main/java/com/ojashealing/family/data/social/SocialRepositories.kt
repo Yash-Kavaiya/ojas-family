@@ -316,3 +316,18 @@ class ModerationRepository(private val db: FirebaseFirestore) {
     suspend fun remove(path: String): Result<Unit> = runCatching { db.document(path).delete().await(); Unit }
     suspend fun dismissReport(id: String): Result<Unit> = runCatching { db.document("reports/$id").delete().await(); Unit }
 }
+
+/** Likes on any comment, answer or reply, addressed by the comment's document path. */
+class CommentLikeRepository(private val db: FirebaseFirestore) {
+
+    fun observeLiked(commentPath: String, uid: String): Flow<Boolean> = callbackFlow {
+        val reg = db.document("$commentPath/likes/$uid").addSnapshotListener { s, _ -> trySend(s?.exists() == true) }
+        awaitClose { reg.remove() }
+    }
+
+    suspend fun setLiked(commentPath: String, uid: String, liked: Boolean): Result<Unit> = runCatching {
+        val ref = db.document("$commentPath/likes/$uid")
+        if (liked) ref.set(mapOf("createdAt" to FieldValue.serverTimestamp())).await() else ref.delete().await()
+        Unit
+    }
+}

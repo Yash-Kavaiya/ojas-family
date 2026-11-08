@@ -219,7 +219,9 @@ fun QuestionDetailScreen(vm: CommunityViewModel, questionId: String, onBack: () 
                 onReply = if (p.canAnswer) ({ a: Post -> replyId = a.id }) else null,
                 trailing = { a: Post ->
                     PostMenu(a.author, onReport = { reportTarget = "questions/${q.id}/answers/${a.id}" }, onBlock = { vm.block(a.author.uid); notice = R.string.community_blocked })
-                }
+                },
+                pathOf = { a: Post -> "questions/${q.id}/answers/${a.id}" },
+                canLike = p.canLike
             )
         }
         if (q != null && p != null) {

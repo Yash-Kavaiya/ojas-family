@@ -178,7 +178,9 @@ fun AnnouncementDetailScreen(vm: CommunityViewModel, id: String, onBack: () -> U
             }
             commentThreads(
                 comments, openThreads,
-                onReply = if (p.canAnswer) ({ c: Post -> replyId = c.id }) else null
+                onReply = if (p.canAnswer) ({ c: Post -> replyId = c.id }) else null,
+                pathOf = { c: Post -> "announcements/$id/comments/${c.id}" },
+                canLike = p.canLike
             )
         }
         if (n != null && p != null) {

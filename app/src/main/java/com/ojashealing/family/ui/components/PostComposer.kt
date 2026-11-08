@@ -101,10 +101,7 @@ fun PostComposer(
         }
         photo?.let { uri ->
             Box {
-                AsyncImage(
-                    model = uri, contentDescription = null, contentScale = ContentScale.Crop,
-                    modifier = Modifier.size(72.dp).clip(RoundedCornerShape(12.dp))
-                )
+                ResponsiveImage(uri, Modifier.fillMaxWidth(0.4f), maxHeight = 120.dp)
                 IconButton(
                     onClick = { photo = null },
                     modifier = Modifier.align(Alignment.TopEnd).size(32.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.5f))
@@ -162,15 +159,10 @@ fun PostComposer(
 
 /** A post's picture; tapping opens it full screen. */
 @Composable
-fun PostImage(url: String, modifier: Modifier = Modifier, aspect: Float = 16f / 9f) {
+fun PostImage(url: String, modifier: Modifier = Modifier, maxHeight: androidx.compose.ui.unit.Dp = 480.dp) {
     var open by remember { mutableStateOf(false) }
-    AsyncImage(
-        model = url,
-        contentDescription = stringResource(R.string.thought_open_image),
-        contentScale = ContentScale.Crop,
-        modifier = modifier.fillMaxWidth().aspectRatio(aspect).clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant).clickable { open = true }
-    )
+    // Shown at its own shape, never cropped, whatever size the member uploaded
+    ResponsiveImage(url, modifier, maxHeight, stringResource(R.string.thought_open_image), onClick = { open = true })
     if (open) ImageViewer(url) { open = false }
 }
 

@@ -94,8 +94,7 @@ fun ScheduleThoughtScreen(vm: ThoughtViewModel, onDone: () -> Unit, editDate: St
         OutlinedTextField(value = title, onValueChange = { title = it.take(150) }, label = { Text(stringResource(R.string.field_title)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(value = text, onValueChange = { text = it.take(5000) }, label = { Text(stringResource(R.string.field_message)) }, modifier = Modifier.fillMaxWidth().heightIn(min = 200.dp))
         (image ?: existingImage.takeIf { it.isNotEmpty() })?.let {
-            AsyncImage(model = it, contentDescription = null, contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxWidth().aspectRatio(4f / 3f).clip(RoundedCornerShape(16.dp)))
+            com.ojashealing.family.ui.components.ResponsiveImage(it)
         }
         OutlinedButton(onClick = pickImage) {
             Icon(Icons.Outlined.Image, contentDescription = null)

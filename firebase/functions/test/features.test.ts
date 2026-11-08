@@ -2,7 +2,7 @@ import { Timestamp } from "firebase-admin/firestore";
 import { ensureUserDoc } from "../src/auth";
 import { adminGrantFor, countPaidDay, memberLevelFor, verifyPurchaseFor, type PlayApi } from "../src/billing";
 import { onCallUpdated, onChatMessage } from "../src/chat";
-import { onAnswerNotify, onDailyReplyWritten, onQuestionNotify, onThoughtCommentNotify } from "../src/community";
+import { onAnswerNotify, onCommentLikeChanged, onDailyReplyWritten, onQuestionNotify, onThoughtCommentNotify } from "../src/community";
 import { onGoalProgressWritten } from "../src/goals";
 import { wantsPersonal, type Messenger } from "../src/notify";
 import { dayBefore, logPracticeFor, streak } from "../src/practice";
@@ -223,6 +223,24 @@ describe("notifications", () => {
     const { m, sent } = fakeMessenger();
     await onAnswerNotify(db, m, "q2", undefined, { status: "visible", authorUid: "m2", text: "Agreed", parentId: "a1" });
     expect(sent.map((s) => [s.to, s.data.type])).toEqual([["tok-m1", "commentReply"], ["tok-asker", "answer"]]);
+  });
+});
+
+describe("comment likes", () => {
+  test("likes on a comment count up and down, never below zero", async () => {
+    await db.doc("thoughts/t9/comments/c1").set({ authorUid: "m1", text: "Jai" });
+    await onCommentLikeChanged(db, "thoughts/t9/comments/c1", 1);
+    await onCommentLikeChanged(db, "thoughts/t9/comments/c1", 1);
+    expect((await db.doc("thoughts/t9/comments/c1").get()).get("likeCount")).toBe(2);
+    await onCommentLikeChanged(db, "thoughts/t9/comments/c1", -1);
+    await onCommentLikeChanged(db, "thoughts/t9/comments/c1", -1);
+    await onCommentLikeChanged(db, "thoughts/t9/comments/c1", -1);
+    expect((await db.doc("thoughts/t9/comments/c1").get()).get("likeCount")).toBe(0);
+  });
+
+  test("a like on a removed comment does not bring it back", async () => {
+    await onCommentLikeChanged(db, "questions/q9/answers/gone", 1);
+    expect((await db.doc("questions/q9/answers/gone").get()).exists).toBe(false);
   });
 });
 

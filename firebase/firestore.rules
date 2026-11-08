@@ -206,6 +206,12 @@ service cloud.firestore {
         allow create: if canComment() && validPost(request.resource.data, 1000);
         allow update: if isAdmin();
         allow delete: if signedIn() && (resource.data.authorUid == request.auth.uid || isAdmin());
+        // Likes on a comment; the server keeps its likeCount
+        match /likes/{uid} {
+          allow read: if signedIn();
+          allow create: if canLike() && validLike(uid);
+          allow delete: if signedIn() && request.auth.uid == uid;
+        }
       }
     }
 
@@ -233,6 +239,12 @@ service cloud.firestore {
         allow create: if canComment() && validPost(request.resource.data, 1000);
         allow update: if isAdmin();
         allow delete: if signedIn() && (resource.data.authorUid == request.auth.uid || isAdmin());
+        // Likes on a comment; the server keeps its likeCount
+        match /likes/{uid} {
+          allow read: if signedIn();
+          allow create: if canLike() && validLike(uid);
+          allow delete: if signedIn() && request.auth.uid == uid;
+        }
       }
     }
 
@@ -252,6 +264,12 @@ service cloud.firestore {
         allow create: if canComment() && validPost(request.resource.data, 1000);
         allow update: if isAdmin();
         allow delete: if signedIn() && (resource.data.authorUid == request.auth.uid || isAdmin());
+        // Likes on a comment; the server keeps its likeCount
+        match /likes/{uid} {
+          allow read: if signedIn();
+          allow create: if canLike() && validLike(uid);
+          allow delete: if signedIn() && request.auth.uid == uid;
+        }
       }
     }
 
@@ -335,6 +353,12 @@ service cloud.firestore {
         allow create: if isPaid() && validPost(request.resource.data, 1000);
         allow update: if isAdmin();
         allow delete: if signedIn() && (resource.data.authorUid == request.auth.uid || isAdmin());
+        // Likes on a comment; the server keeps its likeCount
+        match /likes/{uid} {
+          allow read: if signedIn();
+          allow create: if isPaid() && validLike(uid);
+          allow delete: if signedIn() && request.auth.uid == uid;
+        }
       }
     }
 

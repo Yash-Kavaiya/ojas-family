@@ -40,12 +40,15 @@ fun LazyListScope.commentThreads(
     posts: List<Post>,
     openThreads: MutableState<Set<String>>,
     onReply: ((Post) -> Unit)?,
-    trailing: (@Composable (Post) -> Unit)? = null
+    trailing: (@Composable (Post) -> Unit)? = null,
+    /** Document path of a comment, for its likes; null leaves likes off. */
+    pathOf: ((Post) -> String)? = null,
+    canLike: Boolean = false
 ) {
     groupReplies(posts).forEach { group ->
         val top = group.comment
         item(key = top.id, contentType = "comment") {
-            PostRow(top, trailing = trailing?.let { t -> { t(top) } }, onReply = onReply?.let { { it(top) } })
+            PostRow(top, trailing = trailing?.let { t -> { t(top) } }, onReply = onReply?.let { { it(top) } }, likePath = pathOf?.invoke(top), canLike = canLike)
         }
         val open = top.id in openThreads.value
         val shown = if (open) group.replies else group.replies.take(REPLIES_SHOWN)
@@ -58,7 +61,9 @@ fun LazyListScope.commentThreads(
                     avatarSize = 24,
                     indent = ReplyIndent,
                     // "@name" only when answering someone other than the comment's author
-                    mentionName = reply.replyToName.takeIf { it.isNotEmpty() && it != top.author.name }.orEmpty()
+                    mentionName = reply.replyToName.takeIf { it.isNotEmpty() && it != top.author.name }.orEmpty(),
+                    likePath = pathOf?.invoke(reply),
+                    canLike = canLike
                 )
             }
         }

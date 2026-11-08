@@ -380,7 +380,7 @@ private fun Bubble(m: ChatMessage, mine: Boolean) {
         ) {
             m.attachment?.let { a ->
                 when {
-                    a.isImage -> PostImage(a.url)
+                    a.isImage -> PostImage(a.url, maxHeight = 320.dp)
                     a.isAudio -> AudioPlayer(a.url)
                     else -> Row(
                         Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))

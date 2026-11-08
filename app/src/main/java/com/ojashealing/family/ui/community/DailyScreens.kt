@@ -195,10 +195,7 @@ private fun DailyCard(post: DailyPost, onClick: () -> Unit) {
             AuthorAvatar(post.author, size = 28)
             AuthorLine(post.author)
         }
-        AsyncImage(
-            model = post.imageUrl, contentDescription = null, contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant)
-        )
+        com.ojashealing.family.ui.components.ResponsiveImage(post.imageUrl, maxHeight = 400.dp)
         if (post.text.isNotBlank()) Text(post.text, style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
         Text(
             listOf(stringResource(R.string.likes_count, post.likeCount), stringResource(R.string.replies_count, post.replyCount)).joinToString(" · "),
@@ -235,7 +232,7 @@ fun DailyPostScreen(vm: DailyViewModel, postId: String, onBack: () -> Unit) {
                         AuthorAvatar(post.author, size = 32)
                         AuthorLine(post.author)
                     }
-                    PostImage(post.imageUrl, aspect = 4f / 3f)
+                    PostImage(post.imageUrl)
                     if (post.text.isNotBlank()) Text(post.text, style = MaterialTheme.typography.bodyMedium)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         LikeButton(liked = liked, enabled = true, onToggle = { vm.setLiked(post.id, !liked) })
@@ -248,7 +245,11 @@ fun DailyPostScreen(vm: DailyViewModel, postId: String, onBack: () -> Unit) {
                 Text(stringResource(R.string.daily_no_replies), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = Spacing.l))
             }
-            commentThreads(replies, openThreads, onReply = { r: Post -> replyId = r.id })
+            commentThreads(
+                replies, openThreads, onReply = { r: Post -> replyId = r.id },
+                // Only paid members reach Daily Activities, and they may all like
+                pathOf = { r: Post -> "dailyPosts/${post.id}/replies/${r.id}" }, canLike = true
+            )
         }
         if (post != null) {
             com.ojashealing.family.ui.thought.CommentBar {
@@ -283,14 +284,15 @@ fun ComposeDailyScreen(vm: DailyViewModel, onBack: () -> Unit) {
             PrimaryButton(stringResource(R.string.action_send), onClick = { photo?.let { vm.post(text, it, onBack) } }, busy = busy, enabled = photo != null)
         }
     ) {
-        Box(
+        val p = photo
+        // Once picked, the photo shows whole at its own shape; tap it to pick another
+        if (p != null) com.ojashealing.family.ui.components.ResponsiveImage(p, onClick = { pickImage() })
+        else Box(
             Modifier.fillMaxWidth().aspectRatio(4f / 3f).clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceVariant)
                 .clickable { pickImage() },
             contentAlignment = Alignment.Center
         ) {
-            val p = photo
-            if (p != null) AsyncImage(model = p, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-            else Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
                 Icon(Icons.Outlined.AddAPhoto, contentDescription = null)
                 Text(stringResource(R.string.daily_photo_required), style = MaterialTheme.typography.labelLarge)
             }

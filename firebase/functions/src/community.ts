@@ -109,3 +109,17 @@ export async function onAnnouncementCountChanged(db: Firestore, id: string, fiel
   if (!(await ref.get()).exists) return; // the announcement itself was deleted
   await ref.set({ [field]: FieldValue.increment(delta) }, { merge: true });
 }
+
+/**
+ * A like added to or taken off a comment, answer or reply keeps that comment's likeCount.
+ * Nothing happens if the comment itself is gone. Never below zero.
+ */
+export async function onCommentLikeChanged(db: Firestore, commentPath: string, delta: 1 | -1): Promise<void> {
+  const ref = db.doc(commentPath);
+  await db.runTransaction(async (tx) => {
+    const c = await tx.get(ref);
+    if (!c.exists) return;
+    const now = Number(c.get("likeCount") ?? 0);
+    tx.update(ref, { likeCount: Math.max(0, now + delta) });
+  });
+}

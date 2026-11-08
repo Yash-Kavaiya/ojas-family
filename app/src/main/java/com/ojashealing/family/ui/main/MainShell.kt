@@ -337,7 +337,8 @@ fun MainShell(container: AppContainer) {
     val openPlans: (PaidAccess?) -> Unit = { nav.navigate(PlansRoute(it?.id.orEmpty())) }
     val openProfile: ((String) -> Unit)? = p?.takeIf { Permissions.canViewOtherProfiles(it.viewer) }?.let { { uid: String -> nav.navigate(MemberProfileRoute(uid)) } }
 
-    CompositionLocalProvider(LocalOpenProfile provides openProfile) {
+    val commentLikes = remember(profile?.uid) { profile?.uid?.let { com.ojashealing.family.ui.components.CommentLikes(container.commentLikes, it) } }
+    CompositionLocalProvider(LocalOpenProfile provides openProfile, com.ojashealing.family.ui.components.LocalCommentLikes provides commentLikes) {
     Box(
         modifier = Modifier
             .fillMaxSize()

@@ -239,13 +239,9 @@ fun ThoughtCard(
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
         if (thought.imageUrl.isNotEmpty()) {
-            if (preview) {
-                AsyncImage(
-                    model = thought.imageUrl, contentDescription = null, contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                )
-            } else PostImage(thought.imageUrl, aspect = 4f / 3f)
+            // Whole picture at its own shape; a little shorter on Home, where tapping opens the thought
+            if (preview) com.ojashealing.family.ui.components.ResponsiveImage(thought.imageUrl, maxHeight = 320.dp)
+            else PostImage(thought.imageUrl)
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             LikeButton(liked = liked, enabled = canLike, onToggle = onLike)
@@ -346,7 +342,9 @@ fun ThoughtDetailScreen(vm: ThoughtViewModel, thoughtId: String, onBack: () -> U
                 }
                 commentThreads(
                     comments, openThreads,
-                    onReply = if (state.canComment) ({ c: Post -> replyId = c.id }) else null
+                    onReply = if (state.canComment) ({ c: Post -> replyId = c.id }) else null,
+                    pathOf = { c: Post -> "thoughts/${thought.id}/comments/${c.id}" },
+                    canLike = state.canLike
                 )
             }
             if (state != null && thought != null) {
@@ -461,7 +459,9 @@ fun PostRow(
     onReply: (() -> Unit)? = null,
     avatarSize: Int = 32,
     indent: androidx.compose.ui.unit.Dp = 0.dp,
-    mentionName: String = ""
+    mentionName: String = "",
+    likePath: String? = null,
+    canLike: Boolean = false
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(start = Spacing.l + indent, end = Spacing.s, top = Spacing.xs, bottom = Spacing.xs),
@@ -493,20 +493,28 @@ fun PostRow(
                 }
             } else androidx.compose.ui.text.AnnotatedString(post.text)
             Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
-            if (post.imageUrl.isNotEmpty()) PostImage(post.imageUrl, Modifier.padding(top = Spacing.xs).heightIn(max = 200.dp), aspect = 16f / 9f)
+            if (post.imageUrl.isNotEmpty()) PostImage(post.imageUrl, Modifier.padding(top = Spacing.xs), maxHeight = 260.dp)
             if (post.status == PostStatus.Pending) {
                 Text(stringResource(R.string.post_pending), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
             }
-            if (onReply != null) {
-                Text(
-                    stringResource(R.string.action_reply),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onReply)
-                        .padding(vertical = Spacing.s, horizontal = Spacing.xs)
-                )
+            // Like and Reply sit together under the text, like a LinkedIn comment
+            if (likePath != null || onReply != null) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
+                    if (likePath != null && post.status == PostStatus.Visible) {
+                        com.ojashealing.family.ui.components.CommentLikeAction(likePath, post.likeCount, enabled = canLike)
+                    }
+                    if (onReply != null) {
+                        Text(
+                            stringResource(R.string.action_reply),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onReply)
+                                .padding(vertical = Spacing.s, horizontal = Spacing.xs)
+                        )
+                    }
+                }
             }
         }
         trailing?.invoke()

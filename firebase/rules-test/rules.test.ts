@@ -6,7 +6,7 @@ import {
   initializeTestEnvironment,
   RulesTestEnvironment,
 } from "@firebase/rules-unit-testing";
-import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { deleteDoc, doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { ref, uploadBytes } from "firebase/storage";
 
 let env: RulesTestEnvironment;
@@ -229,6 +229,23 @@ describe("social", () => {
   test("L2 can like with own uid only", async () => {
     await assertSucceeds(setDoc(doc(asUser(BOB), "thoughts", "today", "likes", BOB), { createdAt: ts(now) }));
     await assertFails(setDoc(doc(asUser(BOB), "thoughts", "today", "likes", ALICE), { createdAt: ts(now) }));
+  });
+  test("L2 can like a comment and an answer with their own uid; L1 cannot; counts are server-only", async () => {
+    const like = { createdAt: ts(now) };
+    await assertSucceeds(setDoc(doc(asUser(BOB), "thoughts", "today", "comments", "pending1", "likes", BOB), like));
+    await assertSucceeds(setDoc(doc(asUser(BOB), "questions", "q1", "answers", "a1", "likes", BOB), like));
+    await assertFails(setDoc(doc(asUser(BOB), "thoughts", "today", "comments", "pending1", "likes", ALICE), like));
+    await assertFails(setDoc(doc(asUser(ALICE), "thoughts", "today", "comments", "pending1", "likes", ALICE), like));
+    await assertSucceeds(deleteDoc(doc(asUser(BOB), "thoughts", "today", "comments", "pending1", "likes", BOB)));
+    // Members cannot set a comment's likeCount themselves
+    await assertFails(updateDoc(doc(asUser(BOB), "thoughts", "today", "comments", "pending1"), { likeCount: 99 }));
+  });
+  test("only paid members can like a daily reply", async () => {
+    const like = { createdAt: ts(now) };
+    await env.withSecurityRulesDisabled(async (ctx) =>
+      setDoc(doc(ctx.firestore(), "users", "payer"), { displayName: "P", userLevel: 1, memberLevel: 1, role: "member" }));
+    await assertFails(setDoc(doc(asUser(BOB), "dailyPosts", "p1", "replies", "r1", "likes", BOB), like));
+    await assertSucceeds(setDoc(doc(asUser("payer"), "dailyPosts", "p1", "replies", "r1", "likes", "payer"), like));
   });
   test("L2 cannot comment", async () => {
     await assertFails(setDoc(doc(asUser(BOB), "thoughts", "today", "comments", "c1"), comment(BOB, "Jai", "visible")));

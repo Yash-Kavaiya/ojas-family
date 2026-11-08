@@ -144,10 +144,7 @@ fun ModerationScreen(vm: ModerationViewModel, onBack: () -> Unit) {
                     Text(item.author, style = MaterialTheme.typography.labelLarge)
                     Text(item.text, style = MaterialTheme.typography.bodyLarge)
                     if (item.imageUrl.isNotEmpty()) {
-                        AsyncImage(
-                            model = item.imageUrl, contentDescription = null, contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxWidth().aspectRatio(4f / 3f).clip(RoundedCornerShape(12.dp))
-                        )
+                        com.ojashealing.family.ui.components.PostImage(item.imageUrl)
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                         OutlinedButton(onClick = { vm.approve(item.path) }) { Text(stringResource(R.string.moderation_approve)) }
@@ -169,12 +166,7 @@ fun ModerationScreen(vm: ModerationViewModel, onBack: () -> Unit) {
                             Text(review.goal?.titleIn(lang) ?: review.submission.goalId, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                         }
                     }
-                    AsyncImage(
-                        model = review.submission.photoUrl,
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxWidth().aspectRatio(4f / 3f).clip(RoundedCornerShape(12.dp))
-                    )
+                    com.ojashealing.family.ui.components.PostImage(review.submission.photoUrl)
                     if (review.submission.note.isNotEmpty()) Text(review.submission.note, style = MaterialTheme.typography.bodyLarge)
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                         OutlinedButton(onClick = { vm.reviewGoal(review.submission, approve = true) }) { Text(stringResource(R.string.moderation_approve)) }
