@@ -1,4 +1,5 @@
-import { FieldValue, Timestamp, type Firestore } from "firebase-admin/firestore";
+import { Timestamp, type Firestore } from "firebase-admin/firestore";
+import { bumpCount } from "./counters";
 import { awardPoints } from "./points";
 import { istDay } from "./time";
 
@@ -24,8 +25,7 @@ function publishedOn(data: FirebaseFirestore.DocumentData | undefined): string |
  */
 export async function onLikeChanged(db: Firestore, parentPath: string, uid: string, delta: 1 | -1, now: Date): Promise<void> {
   const parent = db.doc(parentPath);
-  await parent.set({ likeCount: FieldValue.increment(delta) }, { merge: true });
-  if (delta < 0) return;
+  if (!(await bumpCount(db, parentPath, "likeCount", delta)) || delta < 0) return;
 
   const today = istDay(now);
   if (publishedOn((await parent.get()).data()) !== today) return;
@@ -42,8 +42,8 @@ export async function onLikeChanged(db: Firestore, parentPath: string, uid: stri
 export async function onCommentWritten(
   db: Firestore, thoughtPath: string, commentId: string, before: PostData | undefined, after: PostData | undefined, now: Date,
 ): Promise<void> {
-  if (!before && after) await db.doc(thoughtPath).set({ commentCount: FieldValue.increment(1) }, { merge: true });
-  if (before && !after) await db.doc(thoughtPath).set({ commentCount: FieldValue.increment(-1) }, { merge: true });
+  if (!before && after) await bumpCount(db, thoughtPath, "commentCount", 1);
+  if (before && !after) await bumpCount(db, thoughtPath, "commentCount", -1);
   if (after?.authorUid && becameVisible(before, after)) {
     await awardPoints(db, after.authorUid, {
       eventKey: `comment:${thoughtPath.split("/")[1]}:${commentId}`,
@@ -72,9 +72,8 @@ export async function onQuestionWritten(
 export async function onAnswerWritten(
   db: Firestore, questionId: string, answerId: string, before: PostData | undefined, after: PostData | undefined, now: Date,
 ): Promise<void> {
-  const question = db.doc(`questions/${questionId}`);
-  if (!before && after) await question.set({ answerCount: FieldValue.increment(1) }, { merge: true });
-  if (before && !after) await question.set({ answerCount: FieldValue.increment(-1) }, { merge: true });
+  if (!before && after) await bumpCount(db, `questions/${questionId}`, "answerCount", 1);
+  if (before && !after) await bumpCount(db, `questions/${questionId}`, "answerCount", -1);
   if (after?.authorUid && becameVisible(before, after)) {
     await awardPoints(db, after.authorUid, {
       eventKey: `answer:${questionId}:${answerId}`,

@@ -114,6 +114,40 @@ describe("config", () => {
   });
 });
 
+describe("hardening", () => {
+  test("only admins read the admin email list", async () => {
+    await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), "config", "admins"), { emails: ["a@example.com"] }));
+    await assertFails(getDoc(doc(asUser(ALICE), "config", "admins")));
+    await assertFails(getDoc(doc(asUser("s", { role: "swamiji" }), "config", "admins")));
+    await assertSucceeds(getDoc(doc(asUser("root", { role: "admin" }), "config", "admins")));
+  });
+
+  test("profile fields keep their type and a sane length", async () => {
+    const db = asUser(ALICE);
+    await assertSucceeds(updateDoc(doc(db, "users", ALICE), { photoUrl: "https://example.com/a.jpg", gender: "female", country: "IN", state: "GJ", morningReminder: "06:30" }));
+    await assertFails(updateDoc(doc(db, "users", ALICE), { photoUrl: "x".repeat(1000) }));
+    await assertFails(updateDoc(doc(db, "users", ALICE), { gender: 5 }));
+    await assertFails(updateDoc(doc(db, "users", ALICE), { country: "x".repeat(81) }));
+    await assertFails(updateDoc(doc(db, "users", ALICE), { nightReminder: "half past nine" }));
+    await assertFails(updateDoc(doc(db, "users", ALICE), { fcmTokens: "token" }));
+  });
+
+  test("a report carries only its own fields", async () => {
+    const db = asUser(ALICE);
+    await assertSucceeds(setDoc(doc(db, "reports", "r1"), { reporterUid: ALICE, targetPath: "questions/q1", reason: "spam" }));
+    await assertFails(setDoc(doc(db, "reports", "r2"), { reporterUid: ALICE, targetPath: "questions/q1", reason: "spam", extra: "x".repeat(5000) }));
+    await assertFails(setDoc(doc(db, "reports", "r3"), { reporterUid: ALICE, targetPath: "q".repeat(501), reason: "spam" }));
+    await assertFails(setDoc(doc(db, "reports", "r4"), { reporterUid: BOB, targetPath: "questions/q1", reason: "spam" }));
+    // "Remove the post" deletes the reported path with an admin's rights
+    for (const path of ["config/levels", "content/yt_x", "announcements/a1", "thoughts/2026-11-01", "users/bob"]) {
+      await assertFails(setDoc(doc(db, "reports", "bad"), { reporterUid: ALICE, targetPath: path, reason: "remove this" }));
+    }
+    for (const path of ["questions/q1/answers/a1", "thoughts/2026-11-01/comments/c1", "dailyPosts/d1", "dailyPosts/d1/replies/r1"]) {
+      await assertSucceeds(setDoc(doc(db, "reports", `ok-${path.replace(/\//g, "-")}`), { reporterUid: ALICE, targetPath: path, reason: "spam" }));
+    }
+  });
+});
+
 describe("unauthenticated", () => {
   test("unauthenticated user can read nothing", async () => {
     const db = env.unauthenticatedContext().firestore();

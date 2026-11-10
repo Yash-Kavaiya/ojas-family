@@ -1,4 +1,5 @@
-import { FieldValue, type Firestore } from "firebase-admin/firestore";
+import type { Firestore } from "firebase-admin/firestore";
+import { bumpCount } from "./counters";
 import { mentionsOf, notifyTopic, notifyUser, type Messenger } from "./notify";
 
 type Data = Record<string, unknown> | undefined;
@@ -87,8 +88,8 @@ export async function onDailyPostWritten(db: Firestore, m: Messenger, id: string
 
 export async function onDailyReplyWritten(db: Firestore, m: Messenger, postId: string, before: Data, after: Data): Promise<void> {
   const post = db.doc(`dailyPosts/${postId}`);
-  if (!before && after) await post.set({ replyCount: FieldValue.increment(1) }, { merge: true });
-  if (before && !after) await post.set({ replyCount: FieldValue.increment(-1) }, { merge: true });
+  if (!before && after) await bumpCount(db, post.path, "replyCount", 1);
+  if (before && !after) await bumpCount(db, post.path, "replyCount", -1);
   if (!becameVisible(before, after)) return;
   const from = str(after?.authorUid);
   const msg = { title: str(after?.authorName), body: str(after?.text), target: `dailyPosts/${postId}`, fromUid: from };
@@ -100,14 +101,12 @@ export async function onDailyReplyWritten(db: Firestore, m: Messenger, postId: s
 }
 
 export async function onDailyLikeChanged(db: Firestore, postId: string, delta: 1 | -1): Promise<void> {
-  await db.doc(`dailyPosts/${postId}`).set({ likeCount: FieldValue.increment(delta) }, { merge: true });
+  await bumpCount(db, `dailyPosts/${postId}`, "likeCount", delta);
 }
 
 /** Announcement likes and comments only keep counts (no points, no pushes). */
 export async function onAnnouncementCountChanged(db: Firestore, id: string, field: "likeCount" | "commentCount", delta: 1 | -1): Promise<void> {
-  const ref = db.doc(`announcements/${id}`);
-  if (!(await ref.get()).exists) return; // the announcement itself was deleted
-  await ref.set({ [field]: FieldValue.increment(delta) }, { merge: true });
+  await bumpCount(db, `announcements/${id}`, field, delta);
 }
 
 /**

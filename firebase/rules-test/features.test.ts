@@ -138,6 +138,15 @@ describe("calls", () => {
     await assertSucceeds(updateDoc(doc(as("sw"), "calls", "c3"), { restartOffer: { n: 1, sdp: "x" } }));
     await assertSucceeds(updateDoc(doc(as("free"), "calls", "c3"), { restartAnswer: { n: 1, sdp: "y" } }));
   });
+
+  test("a call that is over cannot be answered late or have its outcome rewritten", async () => {
+    await assertSucceeds(setDoc(doc(as("sw"), "calls", "c4"), call("sw", "free", "free", "sw")));
+    await assertSucceeds(updateDoc(doc(as("sw"), "calls", "c4"), { status: "missed", endedAt: serverTimestamp() }));
+    await assertFails(updateDoc(doc(as("free"), "calls", "c4"), { status: "active", answer: { sdp: "y", type: "answer" } }));
+    await assertFails(updateDoc(doc(as("sw"), "calls", "c4"), { status: "ended" }));
+    // The phone that rang late may still say so
+    await assertSucceeds(updateDoc(doc(as("free"), "calls", "c4"), { deliveredAt: serverTimestamp() }));
+  });
 });
 
 describe("server-only data", () => {
