@@ -6,10 +6,19 @@ on:
   pull_request:
   workflow_dispatch:
 
+# The jobs only read the code; no token here can push or change the repository
+permissions:
+  contents: read
+
+# A newer push to the same branch replaces the run still in progress
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - uses: actions/checkout@v4
@@ -64,12 +73,20 @@ jobs:
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
 
+      # Release shrinking (R8) can fail on a missing keep rule that debug builds never notice
+      - name: Check the release build shrinks
+        run: gradle minifyReleaseWithR8
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: ojas-family-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+
+      # Lint catches calls that crash on older Android versions (minSdk is 24), which tests cannot see
+      - name: Lint
+        run: gradle lintDebug
 
       - name: Run unit tests
         run: gradle testDebugUnitTest

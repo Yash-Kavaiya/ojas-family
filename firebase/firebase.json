@@ -75,6 +75,10 @@
             "value": "strict-origin-when-cross-origin"
           },
           {
+            "key": "Content-Security-Policy",
+            "value": "script-src 'self' https://www.gstatic.com https://apis.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+          },
+          {
             "key": "Cache-Control",
             "value": "no-cache"
           }
