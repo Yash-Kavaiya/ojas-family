@@ -183,7 +183,7 @@ class ChatViewModel(
     repository: ChatRepository,
     profile: Flow<UserProfile?>,
     entitlements: Flow<Entitlements>,
-    memberUidOrNull: String?,
+    private val memberUidOrNull: String?,
     val channel: ChatChannel = ChatChannel.Swamiji,
     private val upload: suspend (collection: String, memberUid: String, file: Uri) -> Attachment = { _, _, _ -> error("uploads not available") },
     private val presence: (uid: String) -> Flow<Long?> = { flowOf(null) },
@@ -218,19 +218,26 @@ class ChatViewModel(
     val sending: StateFlow<Boolean> = _sending
     private val _failed = MutableStateFlow(false)
     val failed: StateFlow<Boolean> = _failed
+    private val _textFailed = MutableStateFlow(false)
+    /** A typed message did not go; it is still in the box. */
+    val textFailed: StateFlow<Boolean> = _textFailed
     private val _seniors = MutableStateFlow<List<StaffMember>>(emptyList())
     val seniors: StateFlow<List<StaffMember>> = _seniors
     private var lastTypingPing = 0L
 
-    private val memberUid get() = ui.value?.let { it.thread?.memberUid ?: if (it.iAmStaff) null else it.me.uid }
+    // Known from how the chat was opened, so staff can write first to a member who has no conversation yet
+    private val memberUid get() = ui.value?.let { it.thread?.memberUid ?: memberUidOrNull ?: it.me.uid }
 
     fun send(text: String, onDone: () -> Unit) {
         val u = ui.value ?: return
         if (text.isBlank() || _sending.value) return
         val member = memberUid ?: return
         _sending.value = true
+        _failed.value = false
+        _textFailed.value = false
         viewModelScope.launch {
-            repo.send(member, u.me.uid, text, u.me.displayName, u.me.photoUrl).onSuccess { onDone() }
+            // The text stays in the box when sending fails; say so, as for files and voice notes
+            repo.send(member, u.me.uid, text, u.me.displayName, u.me.photoUrl).onSuccess { onDone() }.onFailure { _textFailed.value = true }
             _sending.value = false
         }
     }
@@ -351,6 +358,7 @@ fun ChatScreen(
     val ui by vm.ui.collectAsStateWithLifecycle()
     val sending by vm.sending.collectAsStateWithLifecycle()
     val failed by vm.failed.collectAsStateWithLifecycle()
+    val textFailed by vm.textFailed.collectAsStateWithLifecycle()
     val seniors by vm.seniors.collectAsStateWithLifecycle()
     var held by rememberSaveable(saveKey, stateSaver = DraftScrollSaver) { mutableStateOf(DraftScroll("", 0, 0)) }
     var draft by remember(saveKey) { mutableStateOf(held.draft) }
@@ -527,6 +535,7 @@ fun ChatScreen(
                 Modifier.background(MaterialTheme.colorScheme.surface).padding(horizontal = Spacing.s, vertical = Spacing.xs)
             ) {
                 if (failed) Text(stringResource(R.string.chat_file_failed), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = Spacing.s))
+                if (textFailed) Text(stringResource(R.string.chat_send_failed), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = Spacing.s))
                 if (u.canWrite) {
                     // Staff quick replies: one tap fills the box
                     if (u.iAmStaff && u.quickReplies.isNotEmpty() && !recording) {

@@ -5,6 +5,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.Image
 import android.app.Activity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -88,7 +89,8 @@ private fun DebugSigningHint(error: AuthError?) {
 @Composable
 fun SignInScreen(vm: SignInViewModel, onPhone: () -> Unit, onEmail: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
-    val activity = LocalContext.current as Activity
+    // Null only if the screen is ever hosted outside an activity; sign-in needs one to show its dialogs
+    val activity = LocalActivity.current ?: return
     OnboardingLayout(
         title = stringResource(R.string.signin_title),
         subtitle = stringResource(R.string.signin_subtitle),
@@ -120,7 +122,8 @@ fun SignInScreen(vm: SignInViewModel, onPhone: () -> Unit, onEmail: () -> Unit) 
 @Composable
 fun PhoneSignInScreen(vm: SignInViewModel, onBack: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
-    val activity = LocalContext.current as Activity
+    // Null only if the screen is ever hosted outside an activity; sign-in needs one to show its dialogs
+    val activity = LocalActivity.current ?: return
     val verification = state.verification
     if (verification == null) {
         val error = state.errorFor(ErrorField.Phone, fallback = true)

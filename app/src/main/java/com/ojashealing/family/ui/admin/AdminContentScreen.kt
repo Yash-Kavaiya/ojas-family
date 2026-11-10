@@ -66,7 +66,7 @@ fun AdminContentScreen(vm: AdminContentViewModel, onBack: () -> Unit) {
         ) {
             item(key = "top", contentType = "top") {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null) }
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
                     Text(stringResource(R.string.admin_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
                 }
             }

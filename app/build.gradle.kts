@@ -43,6 +43,8 @@ android {
     release {
       isCrunchPngs = false
       isMinifyEnabled = true
+      // Drops unused resources (mostly from libraries) from the release APK
+      isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       signingConfig = signingConfigs.getByName("release")
     }

@@ -1,5 +1,6 @@
 package com.ojashealing.family.ui.main
 
+import com.ojashealing.family.data.retryBriefly
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.outlined.Call
 import androidx.compose.material.icons.outlined.Videocam
@@ -310,7 +311,10 @@ fun MainShell(container: AppContainer) {
     val noSwamiji = stringResource(R.string.call_no_swamiji)
     val swamijiName = stringResource(R.string.role_swamiji)
 
-    LifecycleEventEffect(Lifecycle.Event.ON_START) { vm.onAppForeground() }
+    LifecycleEventEffect(Lifecycle.Event.ON_START) {
+        vm.onAppForeground()
+        thoughtVm.refreshDay()
+    }
 
     // Keep push topics, the FCM token and practice reminders in step with the profile and Settings
     val p = profile
@@ -361,7 +365,7 @@ fun MainShell(container: AppContainer) {
     // A call ringing for me opens the call screen, even if its push never arrived
     LaunchedEffect(p?.uid) {
         val uid = p?.uid ?: return@LaunchedEffect
-        container.calls.observeIncoming(uid).catch { }.collect { calls ->
+        container.calls.observeIncoming(uid).retryBriefly().catch { }.collect { calls ->
             val call = calls.firstOrNull() ?: return@collect
             val onCall = nav.currentBackStackEntry?.destination?.route?.contains("CallRoute") == true
             if (!onCall) nav.navigate(CallRoute(callId = call.id, video = call.video))

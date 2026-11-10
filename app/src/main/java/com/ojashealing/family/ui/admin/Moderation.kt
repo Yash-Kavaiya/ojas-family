@@ -118,7 +118,8 @@ class ModerationViewModel(private val actions: ModerationActions) : ViewModel() 
     // Removing the reported post also closes the report
     fun removeReported(report: Report) {
         viewModelScope.launch {
-            actions.remove(report.targetPath)
+            // The path came from the member who reported: only ever remove a member's post through it
+            if (com.ojashealing.family.data.social.isReportablePath(report.targetPath)) actions.remove(report.targetPath)
             actions.dismissReport(report.id)
         }
     }
@@ -146,7 +147,7 @@ fun ModerationScreen(vm: ModerationViewModel, onBack: () -> Unit) {
         ) {
             item(key = "top", contentType = "top") {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null) }
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
                     Text(stringResource(R.string.moderation_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
                 }
             }

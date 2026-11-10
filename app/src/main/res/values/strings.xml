@@ -206,6 +206,7 @@
     <string name="error_photo_upload">Could not upload the photo. Please try again.</string>
     <string name="profile_change_photo">Add or change photo</string>
     <string name="error_google_setup">Google sign-in could not start on this phone. Please install the latest app, or sign in with phone or email.</string>
+    <string name="error_no_google_account">No Google account was found on this phone. Add one in the phone’s Settings, or continue with phone or email.</string>
     <string name="moderation_unknown_member">A member</string>
     <string name="channel_community">Community and announcements</string>
     <string name="channel_practice">Practice reminders</string>
@@ -428,6 +429,7 @@
     <string name="chat_tab_swamiji">Swamiji</string>
     <string name="chat_tab_admin">Admin team</string>
     <string name="chat_file_failed">Could not send the file. It must be a photo, PDF or audio under 20 MB.</string>
+    <string name="chat_send_failed">Could not send the message. Check your connection and try again.</string>
     <string name="chat_attach">Attach a file</string>
     <string name="chat_attach_photo">Photo</string>
     <string name="chat_attach_pdf">PDF document</string>
@@ -455,6 +457,8 @@
     <string name="calls_history_empty">No calls yet</string>
     <string name="calls_history_empty_body">Your audio and video calls will be listed here.</string>
     <string name="calls_call_back">Call back</string>
+    <string name="calls_prev_month">Previous month</string>
+    <string name="calls_next_month">Next month</string>
     <string name="calls_requests">Call requests</string>
     <string name="calls_my_calls">My scheduled calls</string>
     <string name="calls_pick_time">Pick a time</string>

@@ -205,6 +205,7 @@
     <string name="error_photo_upload">फ़ोटो अपलोड नहीं हो सकी। कृपया फिर से प्रयास करें।</string>
     <string name="profile_change_photo">फ़ोटो जोड़ें या बदलें</string>
     <string name="error_google_setup">इस फ़ोन पर Google साइन-इन शुरू नहीं हो सका। कृपया ऐप का नया संस्करण इंस्टॉल करें, या फ़ोन या ईमेल से साइन इन करें।</string>
+    <string name="error_no_google_account">इस फ़ोन पर कोई Google खाता नहीं मिला। फ़ोन की सेटिंग्स में खाता जोड़ें, या फ़ोन या ईमेल से जारी रखें।</string>
     <string name="moderation_unknown_member">एक सदस्य</string>
     <string name="channel_community">समुदाय और घोषणाएँ</string>
     <string name="channel_practice">साधना रिमाइंडर</string>
@@ -427,6 +428,7 @@
     <string name="chat_tab_swamiji">स्वामीजी</string>
     <string name="chat_tab_admin">एडमिन टीम</string>
     <string name="chat_file_failed">फ़ाइल नहीं भेजी जा सकी। यह 20 MB से छोटी फ़ोटो, PDF या ऑडियो होनी चाहिए।</string>
+    <string name="chat_send_failed">संदेश नहीं भेजा जा सका। अपना कनेक्शन जाँचें और फिर कोशिश करें।</string>
     <string name="chat_attach">फ़ाइल जोड़ें</string>
     <string name="chat_attach_photo">फ़ोटो</string>
     <string name="chat_attach_pdf">PDF दस्तावेज़</string>
@@ -454,6 +456,8 @@
     <string name="calls_history_empty">अभी कोई कॉल नहीं</string>
     <string name="calls_history_empty_body">आपकी ऑडियो और वीडियो कॉल यहाँ दिखेंगी।</string>
     <string name="calls_call_back">वापस कॉल करें</string>
+    <string name="calls_prev_month">पिछला महीना</string>
+    <string name="calls_next_month">अगला महीना</string>
     <string name="calls_requests">कॉल अनुरोध</string>
     <string name="calls_my_calls">मेरी तय कॉल</string>
     <string name="calls_pick_time">समय चुनें</string>

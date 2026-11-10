@@ -26,6 +26,8 @@ fun authErrorFor(e: Throwable, phoneStep: PhoneStep? = null): AuthError {
         is FirebaseNetworkException -> AuthError(R.string.error_offline)
         is FirebaseTooManyRequestsException -> AuthError(R.string.error_too_many_attempts)
         is GoogleSetupException -> AuthError(R.string.error_google_setup, null, "GOOGLE_PICKER_CLOSED")
+        // "Continue with Google" on a phone with no Google account signed in
+        is androidx.credentials.exceptions.NoCredentialException -> AuthError(R.string.error_no_google_account)
         is AuthTimeoutException -> AuthError(R.string.error_with_code, phoneStep?.let { codeField }, "TIMEOUT")
         is FirebaseAuthWeakPasswordException -> AuthError(R.string.error_password_weak, ErrorField.Password)
         is FirebaseAuthUserCollisionException -> AuthError(R.string.error_email_in_use, ErrorField.Email)

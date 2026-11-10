@@ -66,7 +66,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.s, vertical = Spacing.s)
             ) {
-                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null) }
+                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
                 Text(
                     stringResource(R.string.settings_title),
                     style = MaterialTheme.typography.titleLarge,

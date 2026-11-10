@@ -208,7 +208,7 @@ fun QuestionDetailScreen(
             verticalArrangement = Arrangement.spacedBy(Spacing.xs)
         ) {
             item(key = "top", contentType = "top") {
-                if (showBack) IconButton(onClick = onBack, modifier = Modifier.padding(Spacing.s)) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null) }
+                if (showBack) IconButton(onClick = onBack, modifier = Modifier.padding(Spacing.s)) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
             }
             if (q == null || p == null) {
                 item(key = "loading", contentType = "loading") { LoadingState(Modifier.heightIn(min = 200.dp)) }

@@ -68,14 +68,15 @@ class PlayBilling(context: Context, private val paid: PaidRepository) {
     /** Loads prices and re-sends any purchase the server has not confirmed yet (e.g. the app closed mid-way). */
     fun refresh() {
         scope.launch {
-            if (!connect()) {
+            if (kotlinx.coroutines.withTimeoutOrNull(CONNECT_TIMEOUT_MS) { connect() } != true) {
                 _offers.value = emptyList()
                 return@launch
             }
             _offers.value = query(BillingClient.ProductType.SUBS) + query(BillingClient.ProductType.INAPP)
             for (type in listOf(BillingClient.ProductType.SUBS, BillingClient.ProductType.INAPP)) {
+                // Quietly: a failed retry here must not show "payment failed" to someone who only opened the screen
                 ownedPurchases(type).filter { it.purchaseState == Purchase.PurchaseState.PURCHASED && !it.isAcknowledged }
-                    .forEach { verify(it) }
+                    .forEach { verify(it, quiet = true) }
             }
         }
     }
@@ -131,15 +132,20 @@ class PlayBilling(context: Context, private val paid: PaidRepository) {
         }
     }
 
-    private suspend fun verify(p: Purchase) {
+    private suspend fun verify(p: Purchase, quiet: Boolean = false) {
         val productId = p.products.firstOrNull() ?: return
         paid.verify(productId, p.purchaseToken)
             .onSuccess { _state.value = PurchaseState.Done }
-            .onFailure { _state.value = PurchaseState.Failed(-1) }
+            .onFailure { if (!quiet) _state.value = PurchaseState.Failed(-1) }
     }
 
     fun resetState() {
         _state.value = PurchaseState.Idle
+    }
+
+    private companion object {
+        // Play normally answers at once; this only stops the price list loading forever when it never does
+        const val CONNECT_TIMEOUT_MS = 15_000L
     }
 
     private fun sha256(s: String) = MessageDigest.getInstance("SHA-256").digest(s.toByteArray()).joinToString("") { "%02x".format(it) }

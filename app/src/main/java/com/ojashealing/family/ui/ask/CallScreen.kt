@@ -174,16 +174,25 @@ fun CallScreen(vm: CallViewModel, onClose: () -> Unit, onMinimise: () -> Unit = 
         if (ui.video) arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.CAMERA) else arrayOf(Manifest.permission.RECORD_AUDIO)
     }
     var micOk by remember { mutableStateOf(false) }
+    // Refused with "Don't ask again": Android shows no more dialogs, so the button must open Settings instead
+    var micBlocked by remember { mutableStateOf(false) }
     val perms = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { r ->
         if (r[Manifest.permission.RECORD_AUDIO] == true) { micOk = true; vm.begin() }
+        else micBlocked = activity != null && !androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.RECORD_AUDIO)
+    }
+    // Back from Settings with the microphone now allowed: carry on with the call
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+        if (!micOk && ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) { micOk = true; vm.begin() }
     }
     LaunchedEffect(Unit) {
         if (needed.all { ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED }) { micOk = true; vm.begin() }
         else perms.launch(needed)
     }
     // Answer tapped on the notification: answer as soon as the microphone may be used
-    LaunchedEffect(micOk, ui.phase) {
-        if (vm.autoAnswer && micOk && ui.phase == CallPhase.Incoming) vm.answer()
+    // Answer pressed before the microphone was allowed: ask, then answer once it is
+    var wantAnswer by remember { mutableStateOf(false) }
+    LaunchedEffect(micOk, ui.phase, wantAnswer) {
+        if ((vm.autoAnswer || wantAnswer) && micOk && ui.phase == CallPhase.Incoming) vm.answer()
     }
     // The call timer
     val now by produceState(System.currentTimeMillis(), ui.connectedAt) { while (true) { value = System.currentTimeMillis(); delay(1_000) } }
@@ -273,8 +282,28 @@ fun CallScreen(vm: CallViewModel, onClose: () -> Unit, onMinimise: () -> Unit = 
             if (!ended) Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xl), verticalAlignment = Alignment.CenterVertically) {
                 if (ui.phase == CallPhase.Incoming) {
                     RoundButton(Icons.Filled.CallEnd, stringResource(R.string.call_decline), Color(0xFFC62828), vm::decline)
-                    RoundButton(Icons.Filled.Call, stringResource(R.string.call_answer), Color(0xFF2E7D32), vm::answer)
-                } else if (ui.phase != CallPhase.NeedsMic) {
+                    RoundButton(Icons.Filled.Call, stringResource(R.string.call_answer), Color(0xFF2E7D32)) {
+                        if (micOk) vm.answer()
+                        else {
+                            wantAnswer = true
+                            if (micBlocked) runCatching {
+                                context.startActivity(
+                                    android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:" + context.packageName))
+                                )
+                            } else perms.launch(needed)
+                        }
+                    }
+                } else if (ui.phase == CallPhase.NeedsMic) {
+                    // Without these the screen had no buttons at all once the microphone was refused
+                    RoundButton(Icons.Filled.CallEnd, stringResource(R.string.call_hang_up), Color(0xFFC62828), vm::hangUp)
+                    androidx.compose.material3.Button(onClick = {
+                        if (micBlocked) runCatching {
+                            context.startActivity(
+                                android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:" + context.packageName))
+                            )
+                        } else perms.launch(needed)
+                    }) { Text(stringResource(R.string.action_allow)) }
+                } else {
                     FilledTonalIconToggleButton(checked = ui.muted, onCheckedChange = { vm.toggleMute() }, modifier = Modifier.size(56.dp)) {
                         Icon(if (ui.muted) Icons.Outlined.MicOff else Icons.Outlined.Mic, contentDescription = stringResource(R.string.call_mute))
                     }

@@ -54,14 +54,25 @@ class LiveTailPager<T>(
         }
     }
 
+    /**
+     * Loads the next older page. A failed read (offline, or the listener's query is no longer allowed)
+     * changes nothing, so scrolling to the end again retries; it must never crash the screen.
+     */
     suspend fun loadMore() {
         val source = query ?: return
         val map = mapper ?: return
-        val cursor = tail ?: return
         if (!hasMore.value) return
         gate.withLock {
+            // Read inside the lock: a second call waiting here continues from the page the first one loaded
+            val cursor = tail ?: return
             if (!hasMore.value) return
-            val snap = source.startAfter(cursor).limit(pageSize.toLong()).get().await()
+            val snap = try {
+                source.startAfter(cursor).limit(pageSize.toLong()).get().await()
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                return
+            }
             val incoming = snap.documents.map(map)
             val shown = (head.value + older.value).map(idOf).toSet()
             val page = nextPage(shown, incoming, pageSize, idOf)

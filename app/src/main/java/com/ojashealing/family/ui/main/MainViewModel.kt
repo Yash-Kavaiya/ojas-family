@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.ojashealing.family.data.retryBriefly
 
 /** App-wide state for the signed-in shell: the live profile, the daily-open claim and point animations. */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -33,7 +34,7 @@ class MainViewModel(
 ) : ViewModel() {
 
     val profile: StateFlow<UserProfile?> = auth.currentUid
-        .flatMapLatest { uid -> if (uid == null) flowOf(null) else users.observe(uid).catch { emit(null) } }
+        .flatMapLatest { uid -> if (uid == null) flowOf(null) else users.observe(uid).retryBriefly().catch { emit(null) } }
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     private val _reward = MutableStateFlow<RewardEvent?>(null)
@@ -45,7 +46,7 @@ class MainViewModel(
         // Awards (daily point now, likes and comments later) arrive from the server's pointEvents ledger
         viewModelScope.launch {
             auth.currentUid.filterNotNull()
-                .flatMapLatest { uid -> points.observeNewEvents(uid).catch { } }
+                .flatMapLatest { uid -> points.observeNewEvents(uid).retryBriefly().catch { } }
                 .collect { e -> _reward.value = RewardEvent(e.amount, e.reason, e.milestone) }
         }
     }
