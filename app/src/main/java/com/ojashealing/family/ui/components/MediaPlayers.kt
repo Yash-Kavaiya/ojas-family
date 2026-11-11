@@ -63,6 +63,35 @@ private fun rememberPlayer(url: String): ExoPlayer {
     return player
 }
 
+/**
+ * A player that is only built when the member first presses play. A chat or feed can show many
+ * voice notes and audio clips at once; opening a player for each one (and starting to download it)
+ * wastes mobile data and can run the phone out of audio decoders.
+ */
+class LazyPlayer internal constructor(private val context: android.content.Context, private val url: String) {
+    var player by mutableStateOf<ExoPlayer?>(null)
+        private set
+
+    /** The player, built and prepared on first use. */
+    fun start(): ExoPlayer = player ?: ExoPlayer.Builder(context).build().apply {
+        setMediaItem(MediaItem.fromUri(url))
+        prepare()
+    }.also { player = it }
+
+    internal fun release() {
+        player?.release()
+        player = null
+    }
+}
+
+@Composable
+fun rememberLazyPlayer(url: String): LazyPlayer {
+    val context = LocalContext.current.applicationContext
+    val holder = remember(url) { LazyPlayer(context, url) }
+    DisposableEffect(holder) { onDispose { holder.release() } }
+    return holder
+}
+
 private fun clock(ms: Long): String {
     val s = (ms / 1000).coerceAtLeast(0)
     return "%d:%02d".format(s / 60, s % 60)
@@ -71,7 +100,8 @@ private fun clock(ms: Long): String {
 /** A compact audio player card: play/pause, seek bar and times. */
 @Composable
 fun AudioPlayer(url: String, modifier: Modifier = Modifier) {
-    val player = rememberPlayer(url)
+    val holder = rememberLazyPlayer(url)
+    val player = holder.player
     var playing by remember { mutableStateOf(false) }
     var position by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(0L) }
@@ -79,22 +109,24 @@ fun AudioPlayer(url: String, modifier: Modifier = Modifier) {
     var dragValue by remember { mutableFloatStateOf(0f) }
 
     DisposableEffect(player) {
+        val p = player
         val listener = object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) { playing = isPlaying }
             override fun onPlaybackStateChanged(state: Int) {
-                if (state == Player.STATE_READY) duration = player.duration.coerceAtLeast(0)
-                if (state == Player.STATE_ENDED) { player.pause(); player.seekTo(0) }
+                if (p == null) return
+                if (state == Player.STATE_READY) duration = p.duration.coerceAtLeast(0)
+                if (state == Player.STATE_ENDED) { p.pause(); p.seekTo(0) }
             }
         }
-        player.addListener(listener)
-        onDispose { player.removeListener(listener) }
+        p?.addListener(listener)
+        onDispose { p?.removeListener(listener) }
     }
     LaunchedEffect(player, playing) {
         while (playing) {
-            position = player.currentPosition
+            position = player?.currentPosition ?: 0L
             delay(250)
         }
-        position = player.currentPosition
+        position = player?.currentPosition ?: 0L
     }
 
     Row(
@@ -110,7 +142,7 @@ fun AudioPlayer(url: String, modifier: Modifier = Modifier) {
             Modifier.size(44.dp).clip(CircleShape).background(Brush.linearGradient(OjasGradients.saffron)),
             contentAlignment = Alignment.Center
         ) {
-            IconButton(onClick = { if (playing) player.pause() else player.play() }) {
+            IconButton(onClick = { if (playing) player?.pause() else holder.start().play() }) {
                 Icon(
                     if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                     contentDescription = stringResource(if (playing) R.string.media_pause else R.string.media_play),
@@ -123,10 +155,12 @@ fun AudioPlayer(url: String, modifier: Modifier = Modifier) {
                 value = if (dragging) dragValue else if (duration > 0) position.toFloat() / duration else 0f,
                 onValueChange = { dragging = true; dragValue = it },
                 onValueChangeFinished = {
-                    player.seekTo((dragValue * duration).toLong())
+                    player?.seekTo((dragValue * duration).toLong())
                     position = (dragValue * duration).toLong()
                     dragging = false
                 },
+                // Nothing to seek in until the clip has been started once
+                enabled = duration > 0,
                 colors = SliderDefaults.colors(thumbColor = MaterialTheme.colorScheme.primary, activeTrackColor = MaterialTheme.colorScheme.primary)
             )
             Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {

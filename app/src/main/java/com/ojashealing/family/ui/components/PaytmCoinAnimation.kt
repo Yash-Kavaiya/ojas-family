@@ -1,7 +1,5 @@
 package com.ojashealing.family.ui.components
 
-import androidx.compose.ui.res.painterResource
-import androidx.compose.foundation.Image
 import android.content.Context
 import android.os.Build
 import android.os.VibrationEffect
@@ -17,7 +15,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -26,8 +23,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -55,7 +50,10 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
 
-/** A Moksha Point award to animate. isMilestone shows the full burst; otherwise a small coin flies to the counter. */
+/** How long a like or comment's blue star takes to reach the points counter, including its opening glow. */
+internal const val REWARD_LAND_MS = 1800
+
+/** A Moksha Point award to animate. isMilestone shows the full burst; otherwise a blue star drifts to the counter. */
 data class RewardEvent(
     val amount: Int,
     val reason: String,
@@ -67,10 +65,14 @@ data class RewardEvent(
 @Composable
 fun rewardReasonLabel(reason: String): String = when (reason) {
     "daily" -> stringResource(R.string.reward_daily)
-    else -> reason
+    // Goals and gifts also get the big animation: say what it was for in the member's language, not the server's key
+    "goal" -> stringResource(R.string.points_src_goal)
+    "gift" -> stringResource(R.string.points_src_gift)
+    "practice_media" -> stringResource(R.string.points_src_practice)
+    else -> stringResource(R.string.points_src_other)
 }
 
-// Screen positions the small coin animation flies between, both in root coordinates
+// Screen positions the blue star drifts between, both in root coordinates
 class RewardAnchors {
     var lastTap by mutableStateOf<Offset?>(null)
     var counterCenter by mutableStateOf<Offset?>(null)
@@ -84,9 +86,9 @@ fun PaytmCoinOverlay(
 ) {
     if (rewardEvent == null) return
 
-    // Everyday likes and comments get the quick, non-blocking coin; milestones get the full burst
+    // Everyday likes and comments get the slow blue star; milestones get the full burst
     if (!rewardEvent.isMilestone) {
-        CoinFlyToCounter(rewardEvent = rewardEvent, anchors = anchors, onDismiss = onDismiss)
+        StarFlyToCounter(rewardEvent = rewardEvent, anchors = anchors, onDismiss = onDismiss)
         return
     }
 
@@ -106,8 +108,8 @@ fun PaytmCoinOverlay(
             }
         } catch (_: Exception) {}
 
-        // Auto dismiss after 2.2 seconds
-        delay(2200)
+        // Held long enough to see the star open, then the points line
+        delay(3200)
         onDismiss()
     }
 
@@ -155,11 +157,11 @@ private fun PaytmBurstEffect(
                 stiffness = Spring.StiffnessLow
             )
         )
-        coinScale.animateTo(1.0f, animationSpec = tween(150))
+        coinScale.animateTo(1.0f, animationSpec = tween(480))
     }
 
     LaunchedEffect(Unit) {
-        burstProgress.animateTo(1f, animationSpec = tween(1200, easing = FastOutSlowInEasing))
+        burstProgress.animateTo(1f, animationSpec = tween(2200, easing = FastOutSlowInEasing))
     }
 
     // Gentle rotating aura rays
@@ -186,7 +188,7 @@ private fun PaytmBurstEffect(
                 .size(260.dp),
             contentAlignment = Alignment.Center
         ) {
-            // Rotating Sunburst / Aura Rays behind coin
+            // Slow blue aura behind the star, the same light as the healing-light intro
             Canvas(
                 modifier = Modifier
                     .fillMaxSize()
@@ -219,8 +221,8 @@ private fun PaytmBurstEffect(
                         path = path,
                         brush = Brush.radialGradient(
                             colors = listOf(
-                                Color(0xFFFFD54F).copy(alpha = 0.45f),
-                                Color(0xFFFFA000).copy(alpha = 0.15f),
+                                Color(0xFFBFE9FF).copy(alpha = 0.5f),
+                                HealingBlue.copy(alpha = 0.18f),
                                 Color.Transparent
                             ),
                             center = center,
@@ -248,10 +250,10 @@ private fun PaytmBurstEffect(
 
                     val alpha = (1f - p).coerceIn(0f, 1f)
                     val color = when (i % 4) {
-                        0 -> Color(0xFFFFD700)
-                        1 -> Color(0xFFFF9800)
-                        2 -> Color(0xFF00E5FF)
-                        else -> Color(0xFFFF4081)
+                        0 -> Color(0xFFF4FBFF)
+                        1 -> Color(0xFF7AD7FF)
+                        2 -> HealingBlue
+                        else -> HealingCyan
                     }
 
                     drawCircle(
@@ -262,62 +264,15 @@ private fun PaytmBurstEffect(
                 }
             }
 
-            // Central Glowing Paytm-style Gold Moksha Coin
-            Box(
+            Canvas(
                 modifier = Modifier
-                    .size(130.dp)
+                    .size(168.dp)
                     .graphicsLayer {
                         scaleX = coinScale.value
                         scaleY = coinScale.value
                     }
-                    .shadow(18.dp, shape = CircleShape, spotColor = Color(0xFFFFD54F))
-                    .clip(CircleShape)
-                    .background(
-                        Brush.radialGradient(
-                            colors = listOf(
-                                Color(0xFFFFF9C4),
-                                Color(0xFFFFD54F),
-                                Color(0xFFFFA000),
-                                Color(0xFFE65100)
-                            )
-                        )
-                    ),
-                contentAlignment = Alignment.Center
             ) {
-                // Outer coin rim
-                Box(
-                    modifier = Modifier
-                        .size(112.dp)
-                        .clip(CircleShape)
-                        .background(
-                            Brush.linearGradient(
-                                listOf(
-                                    Color(0xFFFFF176),
-                                    Color(0xFFFFB300),
-                                    Color(0xFFB7410E)
-                                )
-                            )
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Image(
-                            painter = painterResource(R.drawable.ojas_lotus),
-                            contentDescription = null,
-                            modifier = Modifier.size(56.dp).clip(CircleShape)
-                        )
-                        Text(
-                            text = "MOKSHA",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 1.2.sp,
-                            color = Color(0xFF3E1F00)
-                        )
-                    }
-                }
+                drawLightStar(Offset(size.width / 2f, size.height / 2f), size.minDimension * 0.32f, 1f)
             }
         }
 
@@ -347,7 +302,7 @@ private fun PaytmBurstEffect(
                     Icon(
                         imageVector = Icons.Default.Stars,
                         contentDescription = null,
-                        tint = SacredGold,
+                        tint = HealingCyan,
                         modifier = Modifier.size(24.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -372,21 +327,21 @@ private fun PaytmBurstEffect(
 }
 
 @Composable
-private fun CoinFlyToCounter(
+private fun StarFlyToCounter(
     rewardEvent: RewardEvent,
     anchors: RewardAnchors,
     onDismiss: () -> Unit
 ) {
     val view = LocalView.current
     val density = LocalDensity.current
-    val coinSizePx = with(density) { 28.dp.toPx() }
+    val starPx = with(density) { 18.dp.toPx() }
 
-    // Captured once per event so later taps do not bend the flight path mid-air
+    // Captured once per event so later taps do not bend the path mid-flight
     val start = remember(rewardEvent.timestamp) {
         anchors.lastTap ?: Offset(view.width / 2f, view.height / 2f)
     }
     val end = remember(rewardEvent.timestamp) {
-        anchors.counterCenter ?: Offset(view.width - coinSizePx, coinSizePx * 2)
+        anchors.counterCenter ?: Offset(view.width - starPx, starPx * 2)
     }
 
     val pop = remember(rewardEvent.timestamp) { Animatable(0f) }
@@ -397,53 +352,76 @@ private fun CoinFlyToCounter(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) HapticFeedbackConstants.CONFIRM
             else HapticFeedbackConstants.KEYBOARD_TAP
         )
-        pop.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium))
-        flight.animateTo(1f, tween(520, easing = FastOutSlowInEasing))
+        pop.animateTo(1f, tween(400, easing = FastOutSlowInEasing))
+        flight.animateTo(1f, tween(REWARD_LAND_MS - 400, easing = LinearOutSlowInEasing))
         onDismiss()
     }
 
-    // Quadratic bezier with the control point lifted above both ends gives a Paytm-style arc
+    // A lifted arc, with a soft sideways drift that settles as the star reaches the counter
     val t = flight.value
-    val control = Offset((start.x + end.x) / 2f, minOf(start.y, end.y) - coinSizePx * 4)
-    val x = (1 - t) * (1 - t) * start.x + 2 * (1 - t) * t * control.x + t * t * end.x
-    val y = (1 - t) * (1 - t) * start.y + 2 * (1 - t) * t * control.y + t * t * end.y
-    val coinScale = pop.value * (1f - 0.45f * t)
+    val control = Offset((start.x + end.x) / 2f, minOf(start.y, end.y) - starPx * 4)
+    val along = quad(start, control, end, t)
+    val wobble = (sin(t * Math.PI * 2) * starPx * 0.85f * (1f - t)).toFloat()
+    val tangent = quad(start, control, end, (t + 0.02f).coerceAtMost(1f)) - along
+    val len = kotlin.math.hypot(tangent.x.toDouble(), tangent.y.toDouble()).toFloat().coerceAtLeast(1f)
+    val side = Offset(-tangent.y / len, tangent.x / len)
+    val at = along + side * wobble
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // "+1" label rises from the tap point and fades while the coin travels
         Text(
             text = "+${rewardEvent.amount}",
             fontSize = 18.sp,
             fontWeight = FontWeight.ExtraBold,
-            color = SacredGold,
+            color = Color(0xFF4FC3F7),
             modifier = Modifier
-                .offset { IntOffset(start.x.roundToInt() - coinSizePx.roundToInt(), (start.y - coinSizePx * (1.6f + t)).roundToInt()) }
+                .offset { IntOffset(start.x.roundToInt() - starPx.roundToInt(), (start.y - starPx * (1.8f + t)).roundToInt()) }
                 .graphicsLayer { alpha = (pop.value * (1f - t)).coerceIn(0f, 1f) }
         )
 
-        Box(
-            modifier = Modifier
-                .offset { IntOffset((x - coinSizePx / 2).roundToInt(), (y - coinSizePx / 2).roundToInt()) }
-                .size(28.dp)
-                .graphicsLayer {
-                    scaleX = coinScale
-                    scaleY = coinScale
-                    rotationY = t * 360f
-                }
-                .shadow(6.dp, shape = CircleShape, spotColor = Color(0xFFFFD54F))
-                .clip(CircleShape)
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(Color(0xFFFFF9C4), Color(0xFFFFD54F), Color(0xFFFFA000))
-                    )
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Image(
-                painter = painterResource(R.drawable.ojas_lotus),
-                contentDescription = null,
-                modifier = Modifier.size(22.dp).clip(CircleShape)
-            )
+        Canvas(Modifier.fillMaxSize()) {
+            val trail = listOf(0.22f, 0.14f, 0.07f)
+            for (back in trail) {
+                val u = t - back
+                if (u <= 0f) continue
+                val p = quad(start, control, end, u)
+                drawLightStar(p, starPx * (0.35f + 0.2f * (1f - back)), alpha = pop.value * (1f - back / 0.28f) * 0.55f)
+            }
+            val pulse = 0.92f + 0.08f * sin(t * Math.PI * 4).toFloat()
+            drawLightStar(at, starPx * pulse * (1f - 0.2f * t), alpha = pop.value)
         }
     }
+}
+
+private fun quad(a: Offset, b: Offset, c: Offset, t: Float): Offset {
+    val u = 1f - t
+    return Offset(u * u * a.x + 2 * u * t * b.x + t * t * c.x, u * u * a.y + 2 * u * t * b.y + t * t * c.y)
+}
+
+/** A four-point star of blue healing light: white core, cyan points, soft blue halo. */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawLightStar(center: Offset, outer: Float, alpha: Float) {
+    if (alpha <= 0f || outer <= 0f) return
+    drawCircle(HealingBlue.copy(alpha = 0.22f * alpha), outer * 2.1f, center)
+    drawCircle(Color(0xFF7AD7FF).copy(alpha = 0.35f * alpha), outer * 1.25f, center)
+    drawPath(
+        starPath(center, outer, outer * 0.38f),
+        Brush.radialGradient(listOf(Color(0xFFF7FCFF), Color(0xFFBFE9FF), HealingBlue), center = center, radius = outer),
+        alpha = alpha
+    )
+    drawPath(starPath(center, outer * 0.42f, outer * 0.12f, rotationDeg = 45f), Color.White.copy(alpha = 0.9f * alpha))
+}
+
+private fun starPath(center: Offset, outer: Float, inner: Float, rotationDeg: Float = -90f): Path {
+    val path = Path()
+    val rot = Math.toRadians(rotationDeg.toDouble())
+    val points = 4
+    val steps = points * 2
+    for (i in 0 until steps) {
+        val r = if (i % 2 == 0) outer else inner
+        val a = rot + i * Math.PI / points
+        val x = center.x + (r * cos(a)).toFloat()
+        val y = center.y + (r * sin(a)).toFloat()
+        if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+    }
+    path.close()
+    return path
 }

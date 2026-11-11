@@ -70,6 +70,10 @@
             android:exported="false" />
 
         <receiver
+            android:name=".push.CallReminderReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".push.BootReceiver"
             android:exported="false">
             <intent-filter>

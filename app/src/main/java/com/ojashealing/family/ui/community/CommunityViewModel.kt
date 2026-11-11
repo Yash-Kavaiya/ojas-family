@@ -80,11 +80,17 @@ class CommunityViewModel(
     private val _sending = kotlinx.coroutines.flow.MutableStateFlow(false)
     val sending: StateFlow<Boolean> = _sending
 
+    private val _postFailed = kotlinx.coroutines.flow.MutableStateFlow(false)
+    /** True after a question, answer or comment did not go (upload or send), until the next try. */
+    val postFailed: StateFlow<Boolean> = _postFailed
+
     /** Runs [send] with the photo's URL ("" when none); a failed upload sends nothing. */
-    private fun withPhoto(photo: Uri?, send: suspend (UserProfile, String) -> Unit) = withMe { p ->
+    private fun withPhoto(photo: Uri?, send: suspend (UserProfile, String) -> Result<*>) = withMe { p ->
         if (_sending.value) return@withMe
         _sending.value = true
-        runCatching { photo?.let { uploadImage(p.uid, it) }.orEmpty() }.onSuccess { send(p, it) }
+        _postFailed.value = false
+        val sent = runCatching { photo?.let { uploadImage(p.uid, it) }.orEmpty() }.mapCatching { url -> send(p, url).getOrThrow() }
+        _postFailed.value = sent.isFailure
         _sending.value = false
     }
 

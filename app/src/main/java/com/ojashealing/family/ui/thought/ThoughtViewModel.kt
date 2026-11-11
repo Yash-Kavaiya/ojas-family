@@ -74,7 +74,9 @@ class ThoughtViewModel(
     private val repo: ThoughtRepository,
     private val profile: Flow<UserProfile?>,
     private val uploadPostImage: suspend (uid: String, photo: Uri) -> String = { _, _ -> error("uploads not available") },
-    private val uploadThoughtImage: suspend (thoughtId: String, photo: Uri) -> String = { _, _ -> error("uploads not available") }
+    private val uploadThoughtImage: suspend (thoughtId: String, photo: Uri) -> String = { _, _ -> error("uploads not available") },
+    /** People this member blocked; their comments are left out, as in Q&A and Daily Activities. */
+    private val blocked: Flow<Set<String>> = flowOf(emptySet())
 ) : ViewModel() {
 
     // "Today" moves on at midnight in India. The app is often still open from the day before when the
@@ -101,7 +103,8 @@ class ThoughtViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     val comments: StateFlow<List<Post>> = selectedThought.flatMapLatest { (id, p) ->
-        if (id == null) flowOf(emptyList()) else repo.observeComments(id, p.viewer, p.uid)
+        if (id == null) flowOf(emptyList())
+        else combine(repo.observeComments(id, p.viewer, p.uid), blocked) { list, b -> list.filter { it.author.uid !in b } }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** Admins only: thoughts scheduled after today, soonest first; empty for everyone else. */

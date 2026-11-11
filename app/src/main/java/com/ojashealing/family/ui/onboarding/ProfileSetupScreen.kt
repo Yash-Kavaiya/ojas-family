@@ -62,7 +62,13 @@ import java.util.TimeZone
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ProfileSetupScreen(vm: ProfileSetupViewModel, onBack: (() -> Unit)? = null, onSaved: () -> Unit = {}) {
+fun ProfileSetupScreen(
+    vm: ProfileSetupViewModel,
+    onBack: (() -> Unit)? = null,
+    onSaved: () -> Unit = {},
+    /** First-time setup only: a way out for someone who signed in with the wrong account. */
+    onSignOut: (() -> Unit)? = null
+) {
     val state by vm.state.collectAsStateWithLifecycle()
     val form = state.form
     fun errorFor(field: ProfileField) = state.errors[field]?.takeIf { state.showErrors }
@@ -85,6 +91,11 @@ fun ProfileSetupScreen(vm: ProfileSetupViewModel, onBack: (() -> Unit)? = null, 
         bottom = {
             ErrorText(state.saveError?.let { stringResource(it) })
             PrimaryButton(stringResource(R.string.action_save), onClick = vm::save, busy = state.saving)
+            if (onSignOut != null) {
+                androidx.compose.material3.TextButton(onClick = onSignOut, enabled = !state.saving, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.action_sign_out))
+                }
+            }
         }
     ) {
         // Photo

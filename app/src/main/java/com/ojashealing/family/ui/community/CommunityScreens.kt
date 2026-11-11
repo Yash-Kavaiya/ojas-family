@@ -273,6 +273,24 @@ fun QuestionDetailScreen(
     }
 }
 
+/** Report and Block, provided by the main shell so every list of members' posts can offer them. */
+class PostActions(val myUid: String, val report: (path: String, reason: String) -> Unit, val block: (uid: String) -> Unit)
+
+val LocalPostActions = androidx.compose.runtime.compositionLocalOf<PostActions?> { null }
+
+/**
+ * The three-dot menu on someone else's post, comment or reply: report it, or block its author.
+ * Shows nothing on your own posts. [path] is the post's document path, as firestore.rules expects.
+ */
+@Composable
+fun ReportMenu(author: Author, path: String, onBlocked: () -> Unit = {}) {
+    val actions = LocalPostActions.current ?: return
+    if (author.uid == actions.myUid) return
+    var reporting by remember { mutableStateOf(false) }
+    PostMenu(author, onReport = { reporting = true }, onBlock = { actions.block(author.uid); onBlocked() })
+    if (reporting) ReportDialog(onDismiss = { reporting = false }, onSend = { reason -> actions.report(path, reason); reporting = false })
+}
+
 @Composable
 private fun PostMenu(author: Author, onReport: () -> Unit, onBlock: () -> Unit) {
     var open by remember { mutableStateOf(false) }
@@ -308,11 +326,13 @@ fun ComposePostScreen(
     onBack: () -> Unit,
     onSubmit: (String, String, () -> Unit) -> Unit,
     canAttachImage: Boolean = false,
-    onSubmitWithPhoto: ((String, String, Uri?, () -> Unit) -> Unit)? = null
+    onSubmitWithPhoto: ((String, String, Uri?, () -> Unit) -> Unit)? = null,
+    /** Whether the post is on its way, and whether the last try failed; the text stays so it can be sent again. */
+    sending: Boolean = false,
+    failed: Boolean = false
 ) {
     var first by rememberSaveable { mutableStateOf("") }
     var second by rememberSaveable { mutableStateOf("") }
-    var busy by rememberSaveable { mutableStateOf(false) }
     var photo by rememberSaveable { mutableStateOf<Uri?>(null) }
     val pickImage = com.ojashealing.family.ui.components.rememberImagePicker { photo = it }
     OnboardingLayout(
@@ -321,14 +341,14 @@ fun ComposePostScreen(
         onBack = onBack,
         bottom = {
             PrimaryButton(stringResource(R.string.action_send), onClick = {
-                busy = true
-                val done = { busy = false; onBack() }
+                val done = { onBack() }
                 if (onSubmitWithPhoto != null) onSubmitWithPhoto(first, second, photo, done) else onSubmit(first, second, done)
-            }, busy = busy, enabled = first.isNotBlank())
+            }, busy = sending, enabled = first.isNotBlank())
         }
     ) {
         OutlinedTextField(value = first, onValueChange = { first = it.take(150) }, label = { Text(firstLabel) }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(value = second, onValueChange = { second = it.take(2000) }, label = { Text(secondLabel) }, modifier = Modifier.fillMaxWidth().heightIn(min = 160.dp))
+        if (failed) Text(stringResource(R.string.error_generic), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
         if (canAttachImage) {
             photo?.let { PostImage(it.toString()) }
             OutlinedButton(onClick = { pickImage() }) {

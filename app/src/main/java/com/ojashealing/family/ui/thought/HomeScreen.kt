@@ -72,6 +72,7 @@ import com.ojashealing.family.ui.components.EmptyState
 import com.ojashealing.family.ui.components.LoadingState
 import com.ojashealing.family.ui.components.OjasCard
 import com.ojashealing.family.ui.components.SectionHeader
+import com.ojashealing.family.ui.settings.NotificationControls
 import com.ojashealing.family.ui.theme.SacredGold
 import com.ojashealing.family.ui.theme.Spacing
 import androidx.compose.foundation.clickable
@@ -98,7 +99,9 @@ fun HomeScreen(
     onOpenThought: (String) -> Unit = {},
     about: AboutInfo = AboutInfo(),
     onOpenAbout: (String) -> Unit = {},
-    onOpenScheduled: () -> Unit = {}
+    onOpenScheduled: () -> Unit = {},
+    notificationPrefs: Map<String, Boolean> = emptyMap(),
+    onNotificationPrefs: (Map<String, Boolean>) -> Unit = {},
 ) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val liked by vm.liked.collectAsStateWithLifecycle()
@@ -129,7 +132,8 @@ fun HomeScreen(
                     }
                 }
                 item(key = "card", contentType = "card") {
-                    // The thought sits in its own box; tapping it opens the thought with all its comments
+                    // The thought sits in its own box; tapping it opens the thought with all its comments.
+                    // The yellow-orange "Thought of the Day" strip stays off Home for every role.
                     ThoughtCard(
                         thought = thought,
                         dayText = if (thought.id == vm.todayId) stringResource(R.string.home_today) else dayLabel(thought.id),
@@ -138,9 +142,17 @@ fun HomeScreen(
                         onLike = vm::toggleLike,
                         onOpen = { onOpenThought(thought.id) },
                         preview = true,
+                        showBanner = false,
                         modifier = Modifier.padding(horizontal = Spacing.l)
                     )
                 }
+            }
+            item(key = "notifications", contentType = "notifications") {
+                NotificationControls(
+                    prefs = notificationPrefs,
+                    onChange = onNotificationPrefs,
+                    modifier = Modifier.padding(horizontal = Spacing.l),
+                )
             }
             item(key = "about", contentType = "about") { AboutBox(about, onOpenAbout, Modifier.padding(horizontal = Spacing.l)) }
         }
@@ -215,22 +227,30 @@ fun ThoughtCard(
     onLike: () -> Unit,
     onOpen: (() -> Unit)?,
     preview: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showBanner: Boolean = true,
 ) {
     OjasCard(modifier = modifier, onClick = onOpen) {
-        Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
-                .background(Brush.linearGradient(OjasGradients.sunrise))
-                .padding(horizontal = Spacing.m, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(Spacing.s)
-        ) {
-            Icon(Icons.Outlined.WbSunny, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-            Text(stringResource(R.string.notif_thought), style = MaterialTheme.typography.labelMedium, color = Color.White, modifier = Modifier.weight(1f))
-            Text(dayText, style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.9f))
+        if (showBanner) {
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                    .background(Brush.linearGradient(OjasGradients.sunrise))
+                    .padding(horizontal = Spacing.m, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.s)
+            ) {
+                Icon(Icons.Outlined.WbSunny, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                Text(stringResource(R.string.notif_thought), style = MaterialTheme.typography.labelMedium, color = Color.White, modifier = Modifier.weight(1f))
+                Text(dayText, style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.9f))
+            }
+        }
+        if (thought.imageUrl.isNotEmpty()) {
+            // Picture first, then the words, as the thought cards used to be. A little shorter on Home.
+            if (preview) com.ojashealing.family.ui.components.ResponsiveImage(thought.imageUrl, maxHeight = 320.dp)
+            else PostImage(thought.imageUrl)
         }
         Text(thought.title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-        // On Home a short preview; the whole thought, picture and comments open on tap
+        // On Home a short preview; the whole thought and its comments open on tap
         Text(
             thought.text,
             style = LocalQuoteStyle.current,
@@ -238,11 +258,6 @@ fun ThoughtCard(
             maxLines = if (preview) 3 else Int.MAX_VALUE,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
-        if (thought.imageUrl.isNotEmpty()) {
-            // Whole picture at its own shape; a little shorter on Home, where tapping opens the thought
-            if (preview) com.ojashealing.family.ui.components.ResponsiveImage(thought.imageUrl, maxHeight = 320.dp)
-            else PostImage(thought.imageUrl)
-        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             LikeButton(liked = liked, enabled = canLike, onToggle = onLike)
             com.ojashealing.family.ui.components.RollingCount(thought.likeCount, { stringResource(R.string.likes_count, it) })
@@ -343,6 +358,7 @@ fun ThoughtDetailScreen(vm: ThoughtViewModel, thoughtId: String, onBack: () -> U
                 commentThreads(
                     comments, openThreads,
                     onReply = if (state.canComment) ({ c: Post -> replyId = c.id }) else null,
+                    trailing = { c: Post -> com.ojashealing.family.ui.community.ReportMenu(c.author, "thoughts/${thought.id}/comments/${c.id}") },
                     pathOf = { c: Post -> "thoughts/${thought.id}/comments/${c.id}" },
                     canLike = state.canLike
                 )

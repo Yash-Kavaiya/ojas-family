@@ -8,6 +8,9 @@ import com.ojashealing.family.data.social.Author
 import com.ojashealing.family.data.social.mentionedUids
 import com.ojashealing.family.data.social.needsReview
 import com.ojashealing.family.data.user.ageFromBirthMonth
+import com.ojashealing.family.push.CallReminderPlan
+import com.ojashealing.family.push.callAlarmInstants
+import com.ojashealing.family.push.callRemindersToKeep
 import com.ojashealing.family.push.nextOccurrence
 import com.ojashealing.family.ui.paid.PlanGate
 import com.ojashealing.family.ui.paid.gateFor
@@ -97,5 +100,26 @@ class FeaturesTest {
         assertEquals(7, night.get(Calendar.DAY_OF_MONTH))
         assertEquals(21, night.get(Calendar.HOUR_OF_DAY))
         assertNull(nextOccurrence("25:00", now))
+    }
+
+    @Test
+    fun callReminderRingsFifteenMinutesBeforeAndAtTheStart() {
+        val at = 1_000_000_000_000L
+        val ahead = at - 2 * 60 * 60 * 1000
+        assertEquals(
+            listOf("soon" to at - 15 * 60_000, "now" to at),
+            callAlarmInstants(at, ahead),
+        )
+        // Inside the last 15 minutes the early reminder has passed, so only the start remains.
+        assertEquals(listOf("now" to at), callAlarmInstants(at, at - 5 * 60_000))
+        assertEquals(emptyList<Pair<String, Long>>(), callAlarmInstants(at, at + 1))
+    }
+
+    @Test
+    fun confirmedCallReminderStaysUntilTenMinutesAfterTheStart() {
+        val at = 5_000_000L
+        val plan = CallReminderPlan("a", at, video = true, peer = "Swamiji")
+        assertEquals(listOf(plan), callRemindersToKeep(listOf(plan, plan), at))
+        assertEquals(emptyList<CallReminderPlan>(), callRemindersToKeep(listOf(plan), at + 10 * 60_000 + 1))
     }
 }

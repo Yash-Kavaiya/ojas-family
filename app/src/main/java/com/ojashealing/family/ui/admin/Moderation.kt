@@ -1,5 +1,6 @@
 package com.ojashealing.family.ui.admin
 
+import androidx.compose.runtime.setValue
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.size
@@ -133,6 +134,16 @@ class ModerationViewModel(private val actions: ModerationActions) : ViewModel() 
 fun ModerationScreen(vm: ModerationViewModel, onBack: () -> Unit) {
     val pending by vm.pending.collectAsStateWithLifecycle()
     val reports by vm.reports.collectAsStateWithLifecycle()
+    // Removing a post cannot be undone: one stray tap in a long list must not do it
+    var confirmRemove by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<(() -> Unit)?>(null) }
+    confirmRemove?.let { remove ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { confirmRemove = null },
+            text = { Text(stringResource(R.string.moderation_remove_confirm)) },
+            confirmButton = { TextButton(onClick = { remove(); confirmRemove = null }) { Text(stringResource(R.string.moderation_remove_post), color = MaterialTheme.colorScheme.error) } },
+            dismissButton = { TextButton(onClick = { confirmRemove = null }) { Text(stringResource(R.string.action_cancel)) } }
+        )
+    }
     val reportsMore by vm.reportsHasMore.collectAsStateWithLifecycle()
     val goalReviews by vm.goalReviews.collectAsStateWithLifecycle()
     val lang = goalLanguage()
@@ -162,7 +173,7 @@ fun ModerationScreen(vm: ModerationViewModel, onBack: () -> Unit) {
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                         OutlinedButton(onClick = { vm.approve(item.path) }) { Text(stringResource(R.string.moderation_approve)) }
-                        TextButton(onClick = { vm.remove(item.path) }) { Text(stringResource(R.string.moderation_remove_post), color = MaterialTheme.colorScheme.error) }
+                        TextButton(onClick = { confirmRemove = { vm.remove(item.path) } }) { Text(stringResource(R.string.moderation_remove_post), color = MaterialTheme.colorScheme.error) }
                     }
                 }
             }
@@ -196,7 +207,7 @@ fun ModerationScreen(vm: ModerationViewModel, onBack: () -> Unit) {
                     Text(report.targetPath, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                         OutlinedButton(onClick = { vm.dismiss(report) }) { Text(stringResource(R.string.moderation_dismiss)) }
-                        TextButton(onClick = { vm.removeReported(report) }) { Text(stringResource(R.string.moderation_remove_post), color = MaterialTheme.colorScheme.error) }
+                        TextButton(onClick = { confirmRemove = { vm.removeReported(report) } }) { Text(stringResource(R.string.moderation_remove_post), color = MaterialTheme.colorScheme.error) }
                     }
                 }
             }

@@ -70,19 +70,19 @@ fun OjasTopBar(
 ) {
     val points = profile?.mokshaPoints ?: 0
 
-    // Count up just as the flying coin lands, then bump the pill
+    // Count up just as the blue star lands, then bump the pill
     val shownPoints by animateIntAsState(
         targetValue = points,
-        animationSpec = tween(durationMillis = 450, delayMillis = 550),
+        animationSpec = tween(durationMillis = 700, delayMillis = REWARD_LAND_MS - 400),
         label = "mokshaCount"
     )
     val counterBump = remember { Animatable(1f) }
     var lastPoints by remember { mutableIntStateOf(points) }
     LaunchedEffect(points) {
         if (points > lastPoints) {
-            delay(550)
-            counterBump.animateTo(1.25f, tween(120))
-            counterBump.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+            delay((REWARD_LAND_MS - 80).toLong())
+            counterBump.animateTo(1.18f, tween(320))
+            counterBump.animateTo(1f, spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow))
         }
         lastPoints = points
     }

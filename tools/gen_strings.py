@@ -156,6 +156,7 @@ S = {
 "moderation_empty": ('Nothing to review', 'देखने के लिए कुछ नहीं', 'જોવા માટે કંઈ નથી'),
 "moderation_approve": ('Approve', 'मंज़ूर करें', 'મંજૂર કરો'),
 "moderation_remove_post": ('Remove post', 'पोस्ट हटाएँ', 'પોસ્ટ દૂર કરો'),
+"moderation_remove_confirm": ('Remove this post for everyone? This cannot be undone.', 'यह पोस्ट सबके लिए हटाएँ? इसे वापस नहीं लाया जा सकता।', 'આ પોસ્ટ બધા માટે દૂર કરવી છે? તે પાછી લાવી શકાશે નહીં.'),
 "moderation_dismiss": ('Dismiss', 'खारिज करें', 'રદ કરો'),
 "settings_title": ('Settings', 'सेटिंग्स', 'સેટિંગ્સ'),
 "settings_appearance": ('Appearance', 'रूप', 'દેખાવ'),

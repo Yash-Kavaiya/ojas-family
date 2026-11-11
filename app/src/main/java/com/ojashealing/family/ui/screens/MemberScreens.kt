@@ -254,10 +254,20 @@ private fun GrantPanel(vm: MembersViewModel, member: MemberRow) {
     var access by rememberSaveable { mutableStateOf(PaidAccess.Membership) }
     var days by rememberSaveable { mutableStateOf("30") }
     var credits by rememberSaveable { mutableStateOf("") }
+    // A role is one tap away from making someone an admin: ask first
+    var pendingRole by remember { mutableStateOf<Role?>(null) }
+    pendingRole?.let { r ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { pendingRole = null },
+            text = { Text(stringResource(R.string.members_role_confirm, member.name.ifEmpty { member.uid.take(8) }, stringResource(r.label()))) },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { vm.setRole(r); pendingRole = null }) { Text(stringResource(R.string.action_ok)) } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { pendingRole = null }) { Text(stringResource(R.string.action_cancel)) } }
+        )
+    }
     Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
         Text(stringResource(R.string.members_role), style = MaterialTheme.typography.titleLarge)
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-            Role.entries.forEach { r -> FilterChip(selected = member.role == r, onClick = { vm.setRole(r) }, label = { Text(stringResource(r.label())) }) }
+            Role.entries.forEach { r -> FilterChip(selected = member.role == r, onClick = { if (member.role != r) pendingRole = r }, label = { Text(stringResource(r.label())) }) }
         }
         Text(stringResource(R.string.members_grant), style = MaterialTheme.typography.titleLarge)
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {

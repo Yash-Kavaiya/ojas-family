@@ -33,9 +33,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberTimePickerState
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -100,13 +103,6 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit) {
                     SwitchRow(stringResource(R.string.settings_hide_goals), state.hideGoals, onChange = vm::setHideGoals)
                 }
 
-                Section(stringResource(R.string.settings_notifications)) {
-                    SwitchRow(stringResource(R.string.notif_all), state.categoriesEnabled) { vm.setNotification(NotificationKeys.ALL, it) }
-                    NotificationKeys.categories.forEach { (key, label) ->
-                        SwitchRow(stringResource(label), state.isOn(key), enabled = state.categoriesEnabled) { vm.setNotification(key, it) }
-                    }
-                }
-
                 Section(stringResource(R.string.settings_reminders)) {
                     ValueRow(stringResource(R.string.settings_morning_reminder), state.morningReminder) { editingReminder = true }
                     ValueRow(stringResource(R.string.settings_night_reminder), state.nightReminder) { editingReminder = false }
@@ -143,6 +139,34 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit) {
             onConfirm = vm::deleteAccount,
             onDismiss = { if (!state.deleting) confirmDelete = false }
         )
+    }
+}
+
+/** The notification switches. A missing key counts as on, matching [SettingsUiState.isOn]. */
+@Composable
+fun NotificationControls(
+    prefs: Map<String, Boolean>,
+    onChange: (Map<String, Boolean>) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var pending by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
+    LaunchedEffect(prefs) {
+        pending = pending.filter { (key, on) -> (prefs[key] ?: true) != on }
+    }
+    val shown = prefs + pending
+    val allOn = shown[NotificationKeys.ALL] ?: true
+    fun set(key: String, on: Boolean) {
+        val nextPending = pending + (key to on)
+        pending = nextPending
+        onChange(prefs + nextPending)
+    }
+    Box(modifier) {
+        Section(stringResource(R.string.settings_notifications)) {
+            SwitchRow(stringResource(R.string.notif_all), allOn) { set(NotificationKeys.ALL, it) }
+            NotificationKeys.categories.forEach { (key, label) ->
+                SwitchRow(stringResource(label), (shown[key] ?: true), enabled = allOn) { set(key, it) }
+            }
+        }
     }
 }
 

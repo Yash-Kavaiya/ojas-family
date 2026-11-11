@@ -508,6 +508,7 @@ fun CallRequestScreen(vm: CallsViewModel, id: String, onBack: () -> Unit, onJoin
                     }
                 } else if (req.status == RequestStatus.Confirmed) {
                     Text(stringResource(R.string.calls_join_later), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.calls_reminder_stays), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (iAmStaff && req.status == RequestStatus.Pending) {
                     Button(onClick = { vm.answer(req, RequestStatus.Confirmed) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.calls_confirm)) }

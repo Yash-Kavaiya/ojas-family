@@ -222,31 +222,33 @@ fun RecordingTicker(recorder: VoiceRecorder, active: Boolean, onTick: (elapsedMs
 /** A voice note: play/pause, a waveform that fills as it plays, the time, and 1×/1.5×/2× speed. */
 @Composable
 fun VoiceBubble(url: String, durationMs: Long, waveform: List<Int>, mine: Boolean) {
-    val context = LocalContext.current
-    val player = remember(url) { ExoPlayer.Builder(context).build().apply { setMediaItem(MediaItem.fromUri(url)); prepare() } }
+    // Built on the first press of play, not for every voice note on screen
+    val holder = com.ojashealing.family.ui.components.rememberLazyPlayer(url)
+    val player = holder.player
     var playing by remember { mutableStateOf(false) }
     var position by remember { mutableLongStateOf(0L) }
     var speed by remember { mutableFloatStateOf(1f) }
     DisposableEffect(player) {
+        val p = player
         val l = object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) { playing = isPlaying }
             override fun onPlaybackStateChanged(state: Int) {
-                if (state == Player.STATE_ENDED) { player.pause(); player.seekTo(0); position = 0 }
+                if (p != null && state == Player.STATE_ENDED) { p.pause(); p.seekTo(0); position = 0 }
             }
         }
-        player.addListener(l)
-        onDispose { player.removeListener(l); player.release() }
+        p?.addListener(l)
+        onDispose { p?.removeListener(l) }
     }
-    LaunchedEffect(playing) {
-        while (playing) { position = player.currentPosition; delay(100) }
+    LaunchedEffect(player, playing) {
+        while (playing) { position = player?.currentPosition ?: 0L; delay(100) }
     }
-    val total = if (durationMs > 0) durationMs else player.duration.coerceAtLeast(1)
+    val total = if (durationMs > 0) durationMs else (player?.duration ?: 0L).coerceAtLeast(1)
     val progress = (position.toFloat() / total).coerceIn(0f, 1f)
     val played = if (mine) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary
     val rest = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
 
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.xs), modifier = Modifier.width(240.dp)) {
-        IconButton(onClick = { if (playing) player.pause() else player.play() }, modifier = Modifier.size(40.dp)) {
+        IconButton(onClick = { if (playing) player?.pause() else holder.start().apply { playbackParameters = PlaybackParameters(speed) }.play() }, modifier = Modifier.size(40.dp)) {
             Icon(
                 if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                 contentDescription = stringResource(if (playing) R.string.media_pause else R.string.media_play),
@@ -275,7 +277,7 @@ fun VoiceBubble(url: String, durationMs: Long, waveform: List<Int>, mine: Boolea
                 .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f))
                 .clickable(role = androidx.compose.ui.semantics.Role.Button, onClickLabel = stringResource(R.string.voice_speed)) {
                     speed = when (speed) { 1f -> 1.5f; 1.5f -> 2f; else -> 1f }
-                    player.playbackParameters = PlaybackParameters(speed)
+                    player?.playbackParameters = PlaybackParameters(speed)
                 }
                 .padding(horizontal = 8.dp, vertical = 6.dp)
         )

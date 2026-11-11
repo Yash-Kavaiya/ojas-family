@@ -157,6 +157,7 @@
     <string name="moderation_empty">Nothing to review</string>
     <string name="moderation_approve">Approve</string>
     <string name="moderation_remove_post">Remove post</string>
+    <string name="moderation_remove_confirm">Remove this post for everyone? This cannot be undone.</string>
     <string name="moderation_dismiss">Dismiss</string>
     <string name="settings_title">Settings</string>
     <string name="settings_appearance">Appearance</string>
@@ -252,6 +253,7 @@
     <string name="post_remove_photo">Remove photo</string>
     <string name="post_photo_review">Posts with photos or links are shown after an admin approves them.</string>
     <string name="mention_title">Mention someone</string>
+    <string name="composer_more">Add photo or mention</string>
     <string name="membership_title">Membership</string>
     <string name="membership_benefits">Daily practices, Daily Activities, photos in posts and higher member levels.</string>
     <string name="membership_active_until">Member until %1$s</string>
@@ -288,6 +290,8 @@
     <string name="ask_see_plans">See plans</string>
     <string name="ask_staff_inbox">Member chats</string>
     <string name="ask_staff_inbox_desc">Chats and calls from members.</string>
+    <string name="find_member_title">Find a member</string>
+    <string name="find_member_action">Find member</string>
     <string name="chat_title">Chat with Swamiji</string>
     <string name="chat_hint">Write a message</string>
     <string name="chat_empty">Say Hari Om. Swamiji or a senior member will reply here.</string>
@@ -430,6 +434,7 @@
     <string name="chat_tab_admin">Admin team</string>
     <string name="chat_file_failed">Could not send the file. It must be a photo, PDF or audio under 20 MB.</string>
     <string name="chat_send_failed">Could not send the message. Check your connection and try again.</string>
+    <string name="members_role_confirm">Change the role of %1$s to %2$s?</string>
     <string name="chat_attach">Attach a file</string>
     <string name="chat_attach_photo">Photo</string>
     <string name="chat_attach_pdf">PDF document</string>
@@ -483,6 +488,10 @@
     <string name="calls_start">Start the call</string>
     <string name="calls_join">Join the call</string>
     <string name="calls_join_later">The Join button opens 10 minutes before the call.</string>
+    <string name="calls_reminder">Reminder</string>
+    <string name="calls_waiting_approval">Waiting for approval</string>
+    <string name="calls_waiting_you">Waiting for your approval</string>
+    <string name="calls_reminder_stays">This phone keeps a reminder: 15 minutes before, and when the call starts.</string>
     <string name="calls_confirm">Confirm this time</string>
     <string name="calls_propose">Suggest another time</string>
     <string name="calls_decline">Decline</string>
@@ -497,7 +506,9 @@
     <string name="push_call_declined">Your call request was declined</string>
     <string name="push_call_cancelled">%1$s cancelled a call</string>
     <string name="push_call_soon">Call with %1$s in 15 minutes</string>
+    <string name="push_call_soon_video">Video call with %1$s in 15 minutes</string>
     <string name="push_call_now">Your call is starting now</string>
+    <string name="push_call_now_video">Your video call is starting now</string>
     <string name="push_call_now_body">%1$s · tap to join</string>
     <string name="ai_answer_general">Thank you for your question. 🙏 The simplest path is daily practice: a few minutes of morning meditation, gratitude at night, and kindness through the day. Explore the Spiritual tab for guided videos, and ask the Community.</string>
     <string name="action_reply">Reply</string>

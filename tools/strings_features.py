@@ -224,6 +224,7 @@ F = {
 "chat_tab_admin": ('Admin team', 'एडमिन टीम', 'એડમિન ટીમ'),
 "chat_file_failed": ('Could not send the file. It must be a photo, PDF or audio under 20 MB.', 'फ़ाइल नहीं भेजी जा सकी। यह 20 MB से छोटी फ़ोटो, PDF या ऑडियो होनी चाहिए।', 'ફાઇલ મોકલી શકાઈ નહીં. તે 20 MB થી નાની ફોટો, PDF અથવા ઑડિયો હોવી જોઈએ.'),
 "chat_send_failed": ('Could not send the message. Check your connection and try again.', 'संदेश नहीं भेजा जा सका। अपना कनेक्शन जाँचें और फिर कोशिश करें।', 'સંદેશ મોકલી શકાયો નહીં. તમારું કનેક્શન તપાસો અને ફરી પ્રયત્ન કરો.'),
+"members_role_confirm": ('Change the role of %1$s to %2$s?', '%1$s की भूमिका बदलकर %2$s करें?', '%1$s ની ભૂમિકા બદલીને %2$s કરવી છે?'),
 "chat_attach": ('Attach a file', 'फ़ाइल जोड़ें', 'ફાઇલ જોડો'),
 "chat_attach_photo": ('Photo', 'फ़ोटो', 'ફોટો'),
 "chat_attach_pdf": ('PDF document', 'PDF दस्तावेज़', 'PDF દસ્તાવેજ'),

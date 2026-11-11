@@ -17,8 +17,10 @@ import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.NotificationsOff
+import androidx.compose.material.icons.outlined.PersonSearch
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material3.Button
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.SmallFloatingActionButton
@@ -785,6 +787,9 @@ class InboxViewModel(private val repo: ChatRepository, profile: Flow<UserProfile
     }
     val isAdmin: StateFlow<Boolean> = me.flatMapLatest { flowOf(it.viewer.role == Role.Admin) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    /** Swamiji and admins may look up any member to start a chat or call; senior members only answer. */
+    val canFind: StateFlow<Boolean> = me.flatMapLatest { flowOf(it.viewer.role == Role.Admin || it.viewer.role == Role.Swamiji) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
     val threads: StateFlow<List<ChatThread>?> = me.flatMapLatest { p -> repo.observeInbox(p.viewer, p.uid) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     val threadsHasMore: StateFlow<Boolean> = repo.inboxHasMore
@@ -809,9 +814,11 @@ fun InboxScreen(
     onOpen: (memberUid: String, channel: ChatChannel) -> Unit,
     onRequests: () -> Unit = {},
     onHistory: () -> Unit = {},
+    onFind: () -> Unit = {},
     showBack: Boolean = true,
     embedded: Boolean = false,
 ) {
+    val canFind by vm.canFind.collectAsStateWithLifecycle()
     val threads by vm.threads.collectAsStateWithLifecycle()
     val adminThreads by vm.adminThreads.collectAsStateWithLifecycle()
     val isAdmin by vm.isAdmin.collectAsStateWithLifecycle()
@@ -823,6 +830,12 @@ fun InboxScreen(
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(Spacing.s)) {
                 if (showBack) IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
                 Text(stringResource(R.string.ask_staff_inbox), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+            }
+            if (canFind) {
+                Button(onClick = onFind, modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.l, vertical = Spacing.xs)) {
+                    Icon(Icons.Outlined.PersonSearch, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Text(stringResource(R.string.find_member_action), modifier = Modifier.padding(start = Spacing.xs), maxLines = 1)
+                }
             }
             Row(Modifier.padding(horizontal = Spacing.l), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                 OutlinedButton(onClick = onRequests, modifier = Modifier.weight(1f)) {
