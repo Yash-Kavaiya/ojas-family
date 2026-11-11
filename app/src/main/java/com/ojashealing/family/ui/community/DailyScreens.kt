@@ -243,7 +243,8 @@ fun DailyPostScreen(vm: DailyViewModel, postId: String, onBack: () -> Unit, show
                 OjasCard(modifier = Modifier.padding(horizontal = Spacing.l)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s), verticalAlignment = Alignment.CenterVertically) {
                         AuthorAvatar(post.author, size = 32)
-                        AuthorLine(post.author)
+                        Box(Modifier.weight(1f)) { AuthorLine(post.author) }
+                        ReportMenu(post.author, "dailyPosts/${post.id}", onBlocked = onBack)
                     }
                     PostImage(post.imageUrl)
                     if (post.text.isNotBlank()) Text(post.text, style = MaterialTheme.typography.bodyMedium)
@@ -260,6 +261,7 @@ fun DailyPostScreen(vm: DailyViewModel, postId: String, onBack: () -> Unit, show
             }
             commentThreads(
                 replies, openThreads, onReply = { r: Post -> replyId = r.id },
+                trailing = { r: Post -> ReportMenu(r.author, "dailyPosts/${post.id}/replies/${r.id}") },
                 // Only paid members reach Daily Activities, and they may all like
                 pathOf = { r: Post -> "dailyPosts/${post.id}/replies/${r.id}" }, canLike = true
             )

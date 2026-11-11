@@ -17,8 +17,10 @@ import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.NotificationsOff
+import androidx.compose.material.icons.outlined.PersonSearch
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material3.Button
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.SmallFloatingActionButton
@@ -183,7 +185,7 @@ class ChatViewModel(
     repository: ChatRepository,
     profile: Flow<UserProfile?>,
     entitlements: Flow<Entitlements>,
-    memberUidOrNull: String?,
+    private val memberUidOrNull: String?,
     val channel: ChatChannel = ChatChannel.Swamiji,
     private val upload: suspend (collection: String, memberUid: String, file: Uri) -> Attachment = { _, _, _ -> error("uploads not available") },
     private val presence: (uid: String) -> Flow<Long?> = { flowOf(null) },
@@ -218,19 +220,26 @@ class ChatViewModel(
     val sending: StateFlow<Boolean> = _sending
     private val _failed = MutableStateFlow(false)
     val failed: StateFlow<Boolean> = _failed
+    private val _textFailed = MutableStateFlow(false)
+    /** A typed message did not go; it is still in the box. */
+    val textFailed: StateFlow<Boolean> = _textFailed
     private val _seniors = MutableStateFlow<List<StaffMember>>(emptyList())
     val seniors: StateFlow<List<StaffMember>> = _seniors
     private var lastTypingPing = 0L
 
-    private val memberUid get() = ui.value?.let { it.thread?.memberUid ?: if (it.iAmStaff) null else it.me.uid }
+    // Known from how the chat was opened, so staff can write first to a member who has no conversation yet
+    private val memberUid get() = ui.value?.let { it.thread?.memberUid ?: memberUidOrNull ?: it.me.uid }
 
     fun send(text: String, onDone: () -> Unit) {
         val u = ui.value ?: return
         if (text.isBlank() || _sending.value) return
         val member = memberUid ?: return
         _sending.value = true
+        _failed.value = false
+        _textFailed.value = false
         viewModelScope.launch {
-            repo.send(member, u.me.uid, text, u.me.displayName, u.me.photoUrl).onSuccess { onDone() }
+            // The text stays in the box when sending fails; say so, as for files and voice notes
+            repo.send(member, u.me.uid, text, u.me.displayName, u.me.photoUrl).onSuccess { onDone() }.onFailure { _textFailed.value = true }
             _sending.value = false
         }
     }
@@ -351,6 +360,7 @@ fun ChatScreen(
     val ui by vm.ui.collectAsStateWithLifecycle()
     val sending by vm.sending.collectAsStateWithLifecycle()
     val failed by vm.failed.collectAsStateWithLifecycle()
+    val textFailed by vm.textFailed.collectAsStateWithLifecycle()
     val seniors by vm.seniors.collectAsStateWithLifecycle()
     var held by rememberSaveable(saveKey, stateSaver = DraftScrollSaver) { mutableStateOf(DraftScroll("", 0, 0)) }
     var draft by remember(saveKey) { mutableStateOf(held.draft) }
@@ -527,6 +537,7 @@ fun ChatScreen(
                 Modifier.background(MaterialTheme.colorScheme.surface).padding(horizontal = Spacing.s, vertical = Spacing.xs)
             ) {
                 if (failed) Text(stringResource(R.string.chat_file_failed), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = Spacing.s))
+                if (textFailed) Text(stringResource(R.string.chat_send_failed), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = Spacing.s))
                 if (u.canWrite) {
                     // Staff quick replies: one tap fills the box
                     if (u.iAmStaff && u.quickReplies.isNotEmpty() && !recording) {
@@ -776,6 +787,9 @@ class InboxViewModel(private val repo: ChatRepository, profile: Flow<UserProfile
     }
     val isAdmin: StateFlow<Boolean> = me.flatMapLatest { flowOf(it.viewer.role == Role.Admin) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    /** Swamiji and admins may look up any member to start a chat or call; senior members only answer. */
+    val canFind: StateFlow<Boolean> = me.flatMapLatest { flowOf(it.viewer.role == Role.Admin || it.viewer.role == Role.Swamiji) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
     val threads: StateFlow<List<ChatThread>?> = me.flatMapLatest { p -> repo.observeInbox(p.viewer, p.uid) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     val threadsHasMore: StateFlow<Boolean> = repo.inboxHasMore
@@ -800,9 +814,11 @@ fun InboxScreen(
     onOpen: (memberUid: String, channel: ChatChannel) -> Unit,
     onRequests: () -> Unit = {},
     onHistory: () -> Unit = {},
+    onFind: () -> Unit = {},
     showBack: Boolean = true,
     embedded: Boolean = false,
 ) {
+    val canFind by vm.canFind.collectAsStateWithLifecycle()
     val threads by vm.threads.collectAsStateWithLifecycle()
     val adminThreads by vm.adminThreads.collectAsStateWithLifecycle()
     val isAdmin by vm.isAdmin.collectAsStateWithLifecycle()
@@ -814,6 +830,12 @@ fun InboxScreen(
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(Spacing.s)) {
                 if (showBack) IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
                 Text(stringResource(R.string.ask_staff_inbox), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+            }
+            if (canFind) {
+                Button(onClick = onFind, modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.l, vertical = Spacing.xs)) {
+                    Icon(Icons.Outlined.PersonSearch, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Text(stringResource(R.string.find_member_action), modifier = Modifier.padding(start = Spacing.xs), maxLines = 1)
+                }
             }
             Row(Modifier.padding(horizontal = Spacing.l), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                 OutlinedButton(onClick = onRequests, modifier = Modifier.weight(1f)) {

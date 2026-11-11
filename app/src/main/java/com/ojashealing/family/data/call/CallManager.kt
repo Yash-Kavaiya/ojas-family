@@ -283,7 +283,9 @@ class CallManager(context: Context, private val repo: CallRepository) {
             }.getOrNull()
         }
         if (audio.ringerMode != AudioManager.RINGER_MODE_SILENT) {
-            vibrator()?.vibrate(VibrationEffect.createWaveform(RING_VIBRATION, 0))
+            // VibrationEffect arrived in Android 8; on Android 7 the older call does the same
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) vibrator()?.vibrate(VibrationEffect.createWaveform(RING_VIBRATION, 0))
+            else @Suppress("DEPRECATION") vibrator()?.vibrate(RING_VIBRATION, 0)
             vibrating = true
         }
     }

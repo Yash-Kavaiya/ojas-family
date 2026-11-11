@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import { FieldValue, Timestamp, type Firestore } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
+import { istDay } from "./time";
 
 /**
  * Paid access is stored as users/{uid}/entitlements/{membership|chat|call} with an expiry. Play Billing
@@ -85,13 +86,20 @@ export async function revokeEntitlement(db: Firestore, uid: string, entitlement:
 /** Daily: every active member earns one paid day; expired members drop to memberLevel 0. */
 export async function countPaidDay(db: Firestore, now: Date): Promise<number> {
   const snap = await db.collectionGroup("entitlements").where("expiresAt", ">", Timestamp.fromDate(now)).get();
+  const day = istDay(now);
   let counted = 0;
   for (const d of snap.docs) {
     if (d.id !== "membership") continue;
-    const uid = d.ref.parent.parent!.id;
-    await db.doc(`users/${uid}`).set({ paidDays: FieldValue.increment(1) }, { merge: true });
-    await refreshMemberLevel(db, uid, now);
-    counted++;
+    const userRef = d.ref.parent.parent!;
+    // Scheduled functions can run twice for one tick: a day is counted once per member
+    const added = await db.runTransaction(async (tx) => {
+      const user = await tx.get(userRef);
+      if (!user.exists || user.get("lastPaidDay") === day) return false;
+      tx.set(userRef, { paidDays: Number(user.get("paidDays") ?? 0) + 1, lastPaidDay: day }, { merge: true });
+      return true;
+    });
+    await refreshMemberLevel(db, userRef.id, now);
+    if (added) counted++;
   }
   // Members whose membership lapsed since yesterday lose their level until they renew
   const lapsed = await db.collection("users").where("memberLevel", ">", 0).get();
@@ -133,6 +141,8 @@ export async function verifyPurchaseFor(
   let until: Date;
   if (product.kind === "subs") {
     const sub = await api.getSubscription(token);
+    // The token says what was bought: a cheaper subscription must not be claimed as a dearer one
+    if (sub.productId !== input.productId) throw new HttpsError("invalid-argument", "This purchase is for a different product");
     if (!sub.active) throw new HttpsError("failed-precondition", "Subscription is not active");
     until = await grantEntitlement(db, uid, product.entitlement, { until: sub.expiry, source: "play", productId: input.productId }, now);
     if (!sub.acknowledged) await api.acknowledgeSubscription(input.productId!, token);

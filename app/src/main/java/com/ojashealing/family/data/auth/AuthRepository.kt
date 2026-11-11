@@ -171,6 +171,7 @@ class FirebaseAuthRepository(
         fun report(step: String, e: Throwable) {
             Log.w(TAG, "Sign-in failed at $step", e)
             val userMistake = e is FirebaseNetworkException || e is GetCredentialCancellationException ||
+                e is androidx.credentials.exceptions.NoCredentialException ||
                 e is FirebaseAuthInvalidCredentialsException || e is FirebaseAuthInvalidUserException ||
                 e is FirebaseAuthUserCollisionException || e is FirebaseAuthWeakPasswordException
             if (!userMistake) runCatching {

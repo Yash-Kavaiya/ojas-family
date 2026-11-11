@@ -74,16 +74,27 @@ class ThoughtViewModel(
     private val repo: ThoughtRepository,
     private val profile: Flow<UserProfile?>,
     private val uploadPostImage: suspend (uid: String, photo: Uri) -> String = { _, _ -> error("uploads not available") },
-    private val uploadThoughtImage: suspend (thoughtId: String, photo: Uri) -> String = { _, _ -> error("uploads not available") }
+    private val uploadThoughtImage: suspend (thoughtId: String, photo: Uri) -> String = { _, _ -> error("uploads not available") },
+    /** People this member blocked; their comments are left out, as in Q&A and Daily Activities. */
+    private val blocked: Flow<Set<String>> = flowOf(emptySet())
 ) : ViewModel() {
 
-    val todayId: String = todayIst().iso()
+    // "Today" moves on at midnight in India. The app is often still open from the day before when the
+    // 6 am notification arrives, so the day is re-read whenever the app comes forward or a thought is opened
+    private val today = MutableStateFlow(todayIst())
+    val todayId: String get() = today.value.iso()
+
+    fun refreshDay() {
+        today.value = todayIst()
+    }
     private val selectedId = MutableStateFlow<String?>(null)
     private val me = profile.filterNotNull()
     private val meNow = profile.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    val ui: StateFlow<ThoughtUi?> = combine(repo.observeThoughts(todayIst()), selectedId, me) { thoughts, sel, p ->
-        buildThoughtUi(thoughts, sel, p.viewer, todayId)
+    val ui: StateFlow<ThoughtUi?> = today.flatMapLatest { day ->
+        combine(repo.observeThoughts(day), selectedId, me) { thoughts, sel, p ->
+            buildThoughtUi(thoughts, sel, p.viewer, day.iso())
+        }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     private val selectedThought = combine(ui, me) { u, p -> u?.selected?.id to p }
@@ -92,18 +103,21 @@ class ThoughtViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     val comments: StateFlow<List<Post>> = selectedThought.flatMapLatest { (id, p) ->
-        if (id == null) flowOf(emptyList()) else repo.observeComments(id, p.viewer, p.uid)
+        if (id == null) flowOf(emptyList())
+        else combine(repo.observeComments(id, p.viewer, p.uid), blocked) { list, b -> list.filter { it.author.uid !in b } }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** Admins only: thoughts scheduled after today, soonest first; empty for everyone else. */
-    val scheduled: StateFlow<List<Thought>?> = me.map { it.viewer.role == Role.Admin }.distinctUntilChanged().flatMapLatest { admin ->
-        if (admin) repo.observeScheduled(todayIst()).catch { emit(emptyList()) } else flowOf(null)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val scheduled: StateFlow<List<Thought>?> = combine(me.map { it.viewer.role == Role.Admin }.distinctUntilChanged(), today) { admin, day -> admin to day }
+        .flatMapLatest { (admin, day) ->
+            if (admin) repo.observeScheduled(day).catch { emit(emptyList()) } else flowOf(null)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    val scheduleSummary: StateFlow<ScheduleSummary?> = scheduled.map { list -> list?.let { scheduleSummary(it, todayIst()) } }
+    val scheduleSummary: StateFlow<ScheduleSummary?> = scheduled.map { list -> list?.let { scheduleSummary(it, today.value) } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun select(id: String) {
+        refreshDay()
         selectedId.value = id
     }
 

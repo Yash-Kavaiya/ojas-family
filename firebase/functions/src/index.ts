@@ -81,7 +81,8 @@ export const syncRole = onCall(async (req) => {
   return { roleChanged };
 });
 
-export const adminGivePoints = onCall(async (req) => {
+// Up to 500 members in one go, one transaction each
+export const adminGivePoints = onCall({ timeoutSeconds: 300 }, async (req) => {
   requireUid(req);
   return givePointsFor(db, req.auth?.token, (req.data ?? {}) as Record<string, unknown>);
 });
@@ -103,7 +104,8 @@ export const adminApplyAdminList = onCall(async (req) => {
   }, (target, claims) => getAuth().setCustomUserClaims(target, claims));
 });
 
-export const deleteAccount = onCall({ enforceAppCheck: enforceAppCheck }, async (req) => {
+// Removes posts, conversations and files too, which takes a while for an active member
+export const deleteAccount = onCall({ enforceAppCheck: enforceAppCheck, timeoutSeconds: 300 }, async (req) => {
   const uid = requireUid(req);
   await deleteAccountData(db, uid, {
     deleteFiles: (prefix) => getStorage().bucket().deleteFiles({ prefix }),

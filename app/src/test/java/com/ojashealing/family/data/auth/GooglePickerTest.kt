@@ -26,4 +26,10 @@ class GooglePickerTest {
         assertEquals(R.string.error_google_setup, error.message)
         assertEquals("GOOGLE_PICKER_CLOSED", error.code)
     }
+
+    @Test fun aPhoneWithNoGoogleAccountIsToldSoPlainly() {
+        val error = authErrorFor(androidx.credentials.exceptions.NoCredentialException("no account"))
+        assertEquals(R.string.error_no_google_account, error.message)
+        assertEquals(null, error.code)
+    }
 }

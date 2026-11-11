@@ -156,6 +156,7 @@
     <string name="moderation_empty">જોવા માટે કંઈ નથી</string>
     <string name="moderation_approve">મંજૂર કરો</string>
     <string name="moderation_remove_post">પોસ્ટ દૂર કરો</string>
+    <string name="moderation_remove_confirm">આ પોસ્ટ બધા માટે દૂર કરવી છે? તે પાછી લાવી શકાશે નહીં.</string>
     <string name="moderation_dismiss">રદ કરો</string>
     <string name="settings_title">સેટિંગ્સ</string>
     <string name="settings_appearance">દેખાવ</string>
@@ -205,6 +206,7 @@
     <string name="error_photo_upload">ફોટો અપલોડ થઈ શક્યો નહીં. કૃપા કરીને ફરી પ્રયાસ કરો.</string>
     <string name="profile_change_photo">ફોટો ઉમેરો અથવા બદલો</string>
     <string name="error_google_setup">આ ફોન પર Google સાઇન-ઇન શરૂ થઈ શક્યું નહીં. કૃપા કરીને એપનું નવું વર્ઝન ઇન્સ્ટોલ કરો, અથવા ફોન કે ઈમેલથી સાઇન ઇન કરો.</string>
+    <string name="error_no_google_account">આ ફોન પર કોઈ Google એકાઉન્ટ મળ્યું નથી. ફોનના સેટિંગ્સમાં એકાઉન્ટ ઉમેરો, અથવા ફોન કે ઈમેલ સાથે આગળ વધો.</string>
     <string name="moderation_unknown_member">એક સભ્ય</string>
     <string name="channel_community">સમુદાય અને જાહેરાતો</string>
     <string name="channel_practice">સાધના રિમાઇન્ડર</string>
@@ -250,6 +252,7 @@
     <string name="post_remove_photo">ફોટો કાઢો</string>
     <string name="post_photo_review">ફોટો અથવા લિંકવાળી પોસ્ટ એડમિનની મંજૂરી પછી દેખાય છે.</string>
     <string name="mention_title">કોઈનો ઉલ્લેખ કરો</string>
+    <string name="composer_more">ફોટો અથવા મેન્શન ઉમેરો</string>
     <string name="membership_title">સભ્યપદ</string>
     <string name="membership_benefits">દૈનિક સાધના, દૈનિક પ્રવૃત્તિઓ, પોસ્ટમાં ફોટા અને ઊંચા સભ્ય લેવલ.</string>
     <string name="membership_active_until">%1$s સુધી સભ્ય</string>
@@ -286,6 +289,8 @@
     <string name="ask_see_plans">પ્લાન જુઓ</string>
     <string name="ask_staff_inbox">સભ્યોની ચૅટ</string>
     <string name="ask_staff_inbox_desc">સભ્યોની ચૅટ અને કૉલ.</string>
+    <string name="find_member_title">સભ્ય શોધો</string>
+    <string name="find_member_action">સભ્ય શોધો</string>
     <string name="chat_title">સ્વામીજી સાથે ચૅટ</string>
     <string name="chat_hint">સંદેશ લખો</string>
     <string name="chat_empty">હરિ ઓમ કહો. સ્વામીજી અથવા કોઈ વરિષ્ઠ સભ્ય અહીં જવાબ આપશે.</string>
@@ -427,6 +432,8 @@
     <string name="chat_tab_swamiji">સ્વામીજી</string>
     <string name="chat_tab_admin">એડમિન ટીમ</string>
     <string name="chat_file_failed">ફાઇલ મોકલી શકાઈ નહીં. તે 20 MB થી નાની ફોટો, PDF અથવા ઑડિયો હોવી જોઈએ.</string>
+    <string name="chat_send_failed">સંદેશ મોકલી શકાયો નહીં. તમારું કનેક્શન તપાસો અને ફરી પ્રયત્ન કરો.</string>
+    <string name="members_role_confirm">%1$s ની ભૂમિકા બદલીને %2$s કરવી છે?</string>
     <string name="chat_attach">ફાઇલ જોડો</string>
     <string name="chat_attach_photo">ફોટો</string>
     <string name="chat_attach_pdf">PDF દસ્તાવેજ</string>
@@ -454,6 +461,8 @@
     <string name="calls_history_empty">હજી કોઈ કૉલ નથી</string>
     <string name="calls_history_empty_body">તમારા ઑડિયો અને વીડિયો કૉલ અહીં દેખાશે.</string>
     <string name="calls_call_back">પાછો કૉલ કરો</string>
+    <string name="calls_prev_month">પાછલો મહિનો</string>
+    <string name="calls_next_month">આવતો મહિનો</string>
     <string name="calls_requests">કૉલ વિનંતીઓ</string>
     <string name="calls_my_calls">મારા નક્કી કૉલ</string>
     <string name="calls_pick_time">સમય પસંદ કરો</string>
@@ -478,6 +487,10 @@
     <string name="calls_start">કૉલ શરૂ કરો</string>
     <string name="calls_join">કૉલમાં જોડાઓ</string>
     <string name="calls_join_later">જોડાવાનું બટન કૉલના 10 મિનિટ પહેલાં ખૂલશે.</string>
+    <string name="calls_reminder">રિમાઇન્ડર</string>
+    <string name="calls_waiting_approval">મંજૂરીની રાહ</string>
+    <string name="calls_waiting_you">તમારી મંજૂરીની રાહ</string>
+    <string name="calls_reminder_stays">આ ફોન રિમાઇન્ડર રાખે છે: 15 મિનિટ પહેલાં, અને કૉલ શરૂ થાય ત્યારે.</string>
     <string name="calls_confirm">આ સમય પાક્કો કરો</string>
     <string name="calls_propose">બીજો સમય સૂચવો</string>
     <string name="calls_decline">નકારો</string>
@@ -492,7 +505,9 @@
     <string name="push_call_declined">તમારી કૉલ વિનંતી નકારાઈ</string>
     <string name="push_call_cancelled">%1$s એ કૉલ રદ કર્યો</string>
     <string name="push_call_soon">15 મિનિટમાં %1$s સાથે કૉલ</string>
+    <string name="push_call_soon_video">15 મિનિટમાં %1$s સાથે વીડિયો કૉલ</string>
     <string name="push_call_now">તમારો કૉલ હમણાં શરૂ થાય છે</string>
+    <string name="push_call_now_video">તમારો વીડિયો કૉલ હમણાં શરૂ થાય છે</string>
     <string name="push_call_now_body">%1$s · જોડાવા ટૅપ કરો</string>
     <string name="ai_answer_general">તમારા પ્રશ્ન માટે આભાર. 🙏 સૌથી સરળ માર્ગ રોજની સાધના છે: સવારે થોડી મિનિટ ધ્યાન, રાત્રે કૃતજ્ઞતા અને આખો દિવસ દયાળુતા. માર્ગદર્શિત વીડિયો માટે આધ્યાત્મિક ટૅબ જુઓ અને સમુદાયને પૂછો.</string>
     <string name="action_reply">જવાબ આપો</string>

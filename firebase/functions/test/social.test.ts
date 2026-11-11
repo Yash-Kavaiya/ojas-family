@@ -60,9 +60,18 @@ test("pending comment awards nothing until approved", async () => {
 });
 
 test("question awards +1 and answer awards +1 to answerer", async () => {
+  await db.doc("questions/q1").set({ authorUid: "u1", status: "visible" });
   await onQuestionWritten(db, "q1", undefined, { authorUid: "u1", status: "visible" }, NOW);
   await onAnswerWritten(db, "q1", "a1", undefined, { authorUid: "author", status: "visible" }, NOW);
   expect(await points("u1")).toBe(1);
   expect(await points("author")).toBe(1);
   expect((await db.doc("questions/q1").get()).get("answerCount")).toBe(1);
+});
+
+test("likes and answers removed along with a deleted post do not bring it back", async () => {
+  await onLikeChanged(db, "questions/gone", "u1", -1, NOW);
+  await onAnswerWritten(db, "gone", "a1", { authorUid: "author", status: "visible" }, undefined, NOW);
+  await onCommentWritten(db, "thoughts/gone", "c1", { authorUid: "author", status: "visible" }, undefined, NOW);
+  expect((await db.doc("questions/gone").get()).exists).toBe(false);
+  expect((await db.doc("thoughts/gone").get()).exists).toBe(false);
 });

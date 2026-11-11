@@ -61,11 +61,11 @@ fun LikeButton(liked: Boolean, enabled: Boolean, onToggle: () -> Unit, modifier:
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     scope.launch {
                         scale.snapTo(0.6f)
-                        scale.animateTo(1f, spring(dampingRatio = 0.35f, stiffness = Spring.StiffnessMedium))
+                        scale.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = Spring.StiffnessLow))
                     }
                     scope.launch {
                         burst.snapTo(0f)
-                        burst.animateTo(1f, tween(450))
+                        burst.animateTo(1f, tween(900))
                     }
                 }
                 onToggle()
@@ -91,8 +91,8 @@ fun RollingCount(count: Int, label: @Composable (Int) -> String, modifier: Modif
         targetState = count,
         transitionSpec = {
             val up = targetState > initialState
-            (androidx.compose.animation.slideInVertically(tween(220)) { if (up) it else -it } + androidx.compose.animation.fadeIn(tween(220))) togetherWith
-                (androidx.compose.animation.slideOutVertically(tween(220)) { if (up) -it else it } + androidx.compose.animation.fadeOut(tween(160)))
+            (androidx.compose.animation.slideInVertically(tween(480)) { if (up) it else -it } + androidx.compose.animation.fadeIn(tween(480))) togetherWith
+                (androidx.compose.animation.slideOutVertically(tween(480)) { if (up) -it else it } + androidx.compose.animation.fadeOut(tween(320)))
         },
         label = "count",
         modifier = modifier

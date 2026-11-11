@@ -65,6 +65,13 @@ fun pickedDateAt(utcMidnight: Long, hour: Int, minute: Int): Long {
 fun canJoinNow(r: CallRequest, now: Long = System.currentTimeMillis()): Boolean =
     r.status == RequestStatus.Confirmed && now >= r.at - 10 * 60_000 && now <= r.at + 60 * 60_000
 
+/** Pending, proposed and confirmed calls stay listed until an hour after their time. */
+fun staysAsReminder(r: CallRequest, now: Long = System.currentTimeMillis()): Boolean {
+    if (!r.status.isOpen) return false
+    val whenAt = if (r.status == RequestStatus.Proposed) r.proposedAt else r.at
+    return whenAt >= now - 60 * 60_000
+}
+
 class CallRequestRepository(private val db: FirebaseFirestore) {
 
     private fun request(d: DocumentSnapshot) = CallRequest(

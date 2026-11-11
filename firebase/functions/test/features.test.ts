@@ -76,6 +76,15 @@ describe("membership", () => {
     expect((await db.doc("users/m1").get()).get("memberLevel")).toBe(2);
   });
 
+  test("the daily tick counts a day once even if it runs twice", async () => {
+    await adminGrantFor(db, ADMIN, { uid: "m1", entitlement: "membership", days: 30 }, NOW);
+    expect(await countPaidDay(db, NOW)).toBe(1);
+    expect(await countPaidDay(db, new Date(NOW.getTime() + 60_000))).toBe(0);
+    expect((await db.doc("users/m1").get()).get("paidDays")).toBe(1);
+    expect(await countPaidDay(db, new Date(NOW.getTime() + DAY))).toBe(1);
+    expect((await db.doc("users/m1").get()).get("paidDays")).toBe(2);
+  });
+
   test("lapsed membership drops the member level but keeps paid days", async () => {
     await adminGrantFor(db, ADMIN, { uid: "m1", entitlement: "membership", days: 1 }, NOW);
     await db.doc("users/m1").set({ paidDays: 100 }, { merge: true });
@@ -113,6 +122,13 @@ describe("Play purchases", () => {
     const r = await verifyPurchaseFor(db, api(), "m1", { productId: "membership_monthly", purchaseToken: "token-abcdef-1" }, NOW);
     expect(r.entitlement).toBe("membership");
     expect((await db.doc("users/m1").get()).get("memberLevel")).toBe(1);
+  });
+
+  test("a subscription token cannot be claimed as a different product", async () => {
+    const chat = api({ async getSubscription() { return { productId: "chat_monthly", expiry: new Date(NOW.getTime() + 30 * DAY), active: true, acknowledged: false }; } });
+    await expect(verifyPurchaseFor(db, chat, "m1", { productId: "membership_monthly", purchaseToken: "token-abcdef-9" }, NOW))
+      .rejects.toThrow(/different product/);
+    expect((await db.doc("users/m1/entitlements/membership").get()).exists).toBe(false);
   });
 
   test("a token claimed by one account cannot unlock another", async () => {
@@ -265,6 +281,18 @@ describe("chat and calls", () => {
     const chat = (await db.doc("chats/m1").get()).data()!;
     expect(chat.unreadCountStaff).toBe(0);
     expect(chat.unreadCountMember).toBe(1);
+  });
+
+  test("a conversation staff start is named after the member", async () => {
+    await db.doc("users/m1").set({ displayName: "Meera", photoUrl: "https://example.com/m.jpg" }, { merge: true });
+    const { m } = fakeMessenger();
+    await onChatMessage(db, m, "m1", { senderUid: "staff", text: "Hari Om" });
+    const chat = (await db.doc("chats/m1").get()).data()!;
+    expect([chat.memberUid, chat.memberName, chat.memberPhoto]).toEqual(["m1", "Meera", "https://example.com/m.jpg"]);
+    // A name the member's app already wrote is left alone
+    await db.doc("chats/m1").set({ memberName: "Meera ji" }, { merge: true });
+    await onChatMessage(db, m, "m1", { senderUid: "staff", text: "Again" });
+    expect((await db.doc("chats/m1").get()).get("memberName")).toBe("Meera ji");
   });
 
   test("a muted chat sends no push", async () => {

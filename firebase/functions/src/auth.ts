@@ -31,10 +31,26 @@ export async function ensureUserDoc(db: Firestore, uid: string): Promise<void> {
   });
 }
 
-// Removes the profile and every subcollection (pointEvents, later entitlements, practiceLog, ...)
+/**
+ * Removes everything a member left behind: the profile and its subcollections (pointEvents, entitlements,
+ * practiceLog, ...), both conversations, bookings and call records, presence, and what they posted
+ * (questions, Daily Activities posts, comments, answers and replies). Counters on other people's
+ * posts are kept right by the usual delete triggers.
+ */
 export async function deleteUserData(db: Firestore, uid: string): Promise<void> {
+  const own = async (q: FirebaseFirestore.Query) => {
+    for (const d of (await q.get()).docs) await db.recursiveDelete(d.ref);
+  };
+  await own(db.collection("questions").where("authorUid", "==", uid));
+  await own(db.collection("dailyPosts").where("authorUid", "==", uid));
+  for (const group of ["comments", "answers", "replies"]) await own(db.collectionGroup(group).where("authorUid", "==", uid));
+  await own(db.collection("callRequests").where("memberUid", "==", uid));
+  await own(db.collection("calls").where("memberUid", "==", uid));
+
   await db.recursiveDelete(db.doc(`users/${uid}`));
   await db.recursiveDelete(db.doc(`chats/${uid}`));
+  await db.recursiveDelete(db.doc(`adminChats/${uid}`));
+  await db.doc(`presence/${uid}`).delete();
   await db.doc(`publicProfiles/${uid}`).delete();
 }
 
@@ -48,12 +64,18 @@ export interface AccountCleanup {
  * error must not leave a signed-in account with no profile behind.
  */
 export async function deleteAccountData(db: Firestore, uid: string, cleanup: AccountCleanup): Promise<void> {
-  try {
-    await cleanup.deleteFiles(`users/${uid}/`);
-  } catch (e) {
-    console.warn(`Storage cleanup failed for ${uid}`, e);
+  // Photos and posts, then the files sent in either conversation
+  for (const prefix of [`users/${uid}/`, `chats/${uid}/`, `adminChats/${uid}/`]) {
+    try {
+      await cleanup.deleteFiles(prefix);
+    } catch (e) {
+      console.warn(`Storage cleanup failed for ${prefix}`, e);
+    }
   }
   await deleteUserData(db, uid);
+  // Members would otherwise keep calling and messaging an account that is gone
+  const staff = db.doc("config/staff");
+  if ((await staff.get()).get("swamijiUid") === uid) await staff.set({ swamijiUid: FieldValue.delete() }, { merge: true });
   await cleanup.deleteAuthUser(uid);
 }
 

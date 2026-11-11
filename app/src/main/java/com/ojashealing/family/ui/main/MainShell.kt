@@ -1,5 +1,6 @@
 package com.ojashealing.family.ui.main
 
+import com.ojashealing.family.data.retryBriefly
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.outlined.Call
 import androidx.compose.material.icons.outlined.Videocam
@@ -86,6 +87,9 @@ import com.ojashealing.family.di.AppContainer
 import com.ojashealing.family.domain.ContentItem
 import com.ojashealing.family.domain.ContentSection
 import com.ojashealing.family.domain.Permissions
+import com.ojashealing.family.data.call.RequestStatus
+import com.ojashealing.family.push.CallReminderPlan
+import com.ojashealing.family.push.CallReminders
 import com.ojashealing.family.push.DeepLinks
 import com.ojashealing.family.push.PushTopics
 import com.ojashealing.family.push.Reminders
@@ -176,6 +180,7 @@ import kotlinx.serialization.Serializable
 @Serializable data class PlansRoute(val access: String = "")
 @Serializable data class ChatRoute(val memberUid: String = "", val channel: String = "swamiji")
 @Serializable object InboxRoute
+@Serializable object FindMemberRoute
 @Serializable data class CallRoute(
     val callId: String = "",
     val calleeUid: String = "",
@@ -212,6 +217,7 @@ fun MainShell(container: AppContainer) {
     val profile by vm.profile.collectAsStateWithLifecycle()
     val nav = rememberNavController()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val reward by vm.reward.collectAsStateWithLifecycle()
     val uploadPostImage: suspend (String, android.net.Uri) -> String = container.images::upload
     val entitlementsFlow = remember {
@@ -233,7 +239,12 @@ fun MainShell(container: AppContainer) {
     })
     val guided by guidedVm.cards.collectAsStateWithLifecycle()
     val thoughtVm: ThoughtViewModel = viewModel(factory = viewModelFactory {
-        initializer { ThoughtViewModel(container.thoughts, vm.profile, uploadPostImage, container.images::uploadThought) }
+        initializer {
+            ThoughtViewModel(
+                container.thoughts, vm.profile, uploadPostImage, container.images::uploadThought,
+                blocked = container.auth.currentUid.flatMapLatest { uid -> uid?.let(container.community::observeBlocked) ?: flowOf(emptySet()) }
+            )
+        }
     })
     val communityVm: CommunityViewModel = viewModel(factory = viewModelFactory {
         initializer { CommunityViewModel(container.community, vm.profile, uploadPostImage, container.images::uploadAnnouncement) }
@@ -310,7 +321,10 @@ fun MainShell(container: AppContainer) {
     val noSwamiji = stringResource(R.string.call_no_swamiji)
     val swamijiName = stringResource(R.string.role_swamiji)
 
-    LifecycleEventEffect(Lifecycle.Event.ON_START) { vm.onAppForeground() }
+    LifecycleEventEffect(Lifecycle.Event.ON_START) {
+        vm.onAppForeground()
+        thoughtVm.refreshDay()
+    }
 
     // Keep push topics, the FCM token and practice reminders in step with the profile and Settings
     val p = profile
@@ -361,7 +375,7 @@ fun MainShell(container: AppContainer) {
     // A call ringing for me opens the call screen, even if its push never arrived
     LaunchedEffect(p?.uid) {
         val uid = p?.uid ?: return@LaunchedEffect
-        container.calls.observeIncoming(uid).catch { }.collect { calls ->
+        container.calls.observeIncoming(uid).retryBriefly().catch { }.collect { calls ->
             val call = calls.firstOrNull() ?: return@collect
             val onCall = nav.currentBackStackEntry?.destination?.route?.contains("CallRoute") == true
             if (!onCall) nav.navigate(CallRoute(callId = call.id, video = call.video))
@@ -436,11 +450,47 @@ fun MainShell(container: AppContainer) {
     val callsVm: com.ojashealing.family.ui.ask.CallsViewModel = viewModel(factory = viewModelFactory {
         initializer { com.ojashealing.family.ui.ask.CallsViewModel(container.callRequests, container.calls, vm.profile) }
     })
+    val myCallRequests by callsVm.mine.collectAsStateWithLifecycle()
+    val staffCallRequests by callsVm.forStaff.collectAsStateWithLifecycle()
+    // Confirmed audio and video calls keep a reminder on this phone until the call.
+    LaunchedEffect(myCallRequests, staffCallRequests, p?.uid) {
+        val uid = p?.uid ?: return@LaunchedEffect
+        val mine = myCallRequests ?: return@LaunchedEffect
+        val staff = staffCallRequests ?: return@LaunchedEffect
+        val plans = buildList {
+            for (r in mine) {
+                if (r.status != RequestStatus.Confirmed) continue
+                val peer = r.staffName.ifBlank { if (r.channel == "admin") adminTeamName else swamijiName }
+                add(CallReminderPlan(r.id, r.at, r.video, peer))
+            }
+            for (r in staff) {
+                if (r.status != RequestStatus.Confirmed || r.memberUid == uid) continue
+                add(CallReminderPlan(r.id, r.at, r.video, r.memberName.ifBlank { swamijiName }))
+            }
+        }
+        CallReminders.sync(context, plans)
+    }
     val openPlans: (PaidAccess?) -> Unit = { nav.navigate(PlansRoute(it?.id.orEmpty())) }
     val openProfile: ((String) -> Unit)? = p?.takeIf { Permissions.canViewOtherProfiles(it.viewer) }?.let { { uid: String -> nav.navigate(MemberProfileRoute(uid)) } }
 
     val commentLikes = remember(profile?.uid) { profile?.uid?.let { com.ojashealing.family.ui.components.CommentLikes(container.commentLikes, it) } }
-    CompositionLocalProvider(LocalOpenProfile provides openProfile, com.ojashealing.family.ui.components.LocalCommentLikes provides commentLikes) {
+    // Report and Block on every member's post, comment and reply (Q&A, Daily Activities, thoughts, announcements)
+    val reportedText = stringResource(R.string.community_reported)
+    val blockedText = stringResource(R.string.community_blocked)
+    val postActions = remember(profile?.uid) {
+        profile?.uid?.let { uid ->
+            com.ojashealing.family.ui.community.PostActions(
+                myUid = uid,
+                report = { path, reason -> communityVm.report(path, reason) { Toast.makeText(context, reportedText, Toast.LENGTH_SHORT).show() } },
+                block = { other -> communityVm.block(other); Toast.makeText(context, blockedText, Toast.LENGTH_SHORT).show() }
+            )
+        }
+    }
+    CompositionLocalProvider(
+        LocalOpenProfile provides openProfile,
+        com.ojashealing.family.ui.components.LocalCommentLikes provides commentLikes,
+        com.ojashealing.family.ui.community.LocalPostActions provides postActions
+    ) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -539,6 +589,11 @@ fun MainShell(container: AppContainer) {
                                         about = about,
                                         onOpenAbout = { nav.navigate(AboutRoute(it)) },
                                         onOpenScheduled = { nav.navigate(ScheduledThoughtsRoute) },
+                                        notificationPrefs = profile?.notificationPrefs.orEmpty(),
+                                        onNotificationPrefs = { next ->
+                                            val uid = profile?.uid ?: return@HomeScreen
+                                            scope.launch { container.users.updateSettings(uid, mapOf("notificationPrefs" to next)) }
+                                        },
                                     )
                                     MainTab.Ask -> AskPanes(
                                         beside = beside,
@@ -559,6 +614,9 @@ fun MainShell(container: AppContainer) {
                                                 onHistory = { nav.navigate(CallHistoryRoute) },
                                                 onMyCalls = { nav.navigate(MyCallsRoute) },
                                                 adminCallsReady = staffContact?.supportUid?.isNotEmpty() == true,
+                                                scheduled = (if (p != null && Permissions.isChatStaff(p.viewer)) staffCallRequests else myCallRequests).orEmpty(),
+                                                approving = p != null && Permissions.isChatStaff(p.viewer),
+                                                onOpenRequest = { nav.navigate(CallRequestRoute(it)) },
                                             )
                                         },
                                         inbox = { onOpen, showBack, onBack ->
@@ -569,6 +627,7 @@ fun MainShell(container: AppContainer) {
                                                 onOpen = { member, channel -> onOpen(member, channel.id) },
                                                 onRequests = { nav.navigate(StaffRequestsRoute) },
                                                 onHistory = { nav.navigate(CallHistoryRoute) },
+                                                onFind = { nav.navigate(FindMemberRoute) },
                                                 showBack = showBack,
                                                 embedded = true,
                                             )
@@ -617,7 +676,9 @@ fun MainShell(container: AppContainer) {
                     onBack = { nav.popBackStack() },
                     onSubmit = { t, b, done -> communityVm.ask(t, b, done) },
                     canAttachImage = perms?.canAttachImage == true,
-                    onSubmitWithPhoto = { t, b, photo, done -> communityVm.ask(t, b, photo, done) }
+                    onSubmitWithPhoto = { t, b, photo, done -> communityVm.ask(t, b, photo, done) },
+                    sending = communityVm.sending.collectAsStateWithLifecycle().value,
+                    failed = communityVm.postFailed.collectAsStateWithLifecycle().value
                 )
             }
             composable<AnnounceRoute> { ComposeAnnouncementScreen(communityVm, onBack = { nav.popBackStack() }) }
@@ -702,7 +763,23 @@ fun MainShell(container: AppContainer) {
                     inboxVm, onBack = { nav.popBackStack() },
                     onOpen = { member, channel -> nav.navigate(ChatRoute(member, channel.id)) },
                     onRequests = { nav.navigate(StaffRequestsRoute) },
-                    onHistory = { nav.navigate(CallHistoryRoute) }
+                    onHistory = { nav.navigate(CallHistoryRoute) },
+                    onFind = { nav.navigate(FindMemberRoute) }
+                )
+            }
+            composable<FindMemberRoute> {
+                val me = p ?: return@composable
+                // Only Swamiji and admins reach out first; senior members and members never see this
+                if (me.viewer.role != com.ojashealing.family.domain.Role.Admin && me.viewer.role != com.ojashealing.family.domain.Role.Swamiji) { LaunchedEffect(Unit) { nav.popBackStack() }; return@composable }
+                val findVm: com.ojashealing.family.ui.ask.FindMemberViewModel = viewModel(factory = viewModelFactory {
+                    initializer { com.ojashealing.family.ui.ask.FindMemberViewModel(container.publicProfiles::searchMembers, me.uid) }
+                })
+                // Admins write as the Admin team, Swamiji in the Swamiji conversation
+                val channel = if (me.viewer.role == com.ojashealing.family.domain.Role.Admin) com.ojashealing.family.data.chat.ChatChannel.Admin else com.ojashealing.family.data.chat.ChatChannel.Swamiji
+                com.ojashealing.family.ui.ask.FindMemberScreen(
+                    findVm, onBack = { nav.popBackStack() },
+                    onChat = { m -> nav.navigate(ChatRoute(m.uid, channel.id)) },
+                    onCall = { m, video -> callMember(m.uid, m.name, video, channel.id, "") },
                 )
             }
             composable<CallHistoryRoute> {
@@ -818,6 +895,7 @@ fun MainShell(container: AppContainer) {
                             signOut = {
                                 container.auth.currentUid.value?.let { PushTopics.forget(it) }
                                 Reminders.schedule(app, "06:00", "21:30", enabled = false)
+                                CallReminders.clear(app)
                                 container.auth.signOut(app)
                             },
                             setLanguage = ::setAppLanguage,

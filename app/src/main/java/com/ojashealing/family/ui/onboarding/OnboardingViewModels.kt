@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import com.ojashealing.family.data.retryBriefly
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
@@ -42,6 +43,8 @@ class OnboardingViewModel(auth: AuthRepository, users: UserRepository) : ViewMod
     private val profileComplete = auth.currentUid.flatMapLatest { uid ->
         if (uid == null) flowOf(SignedOut)
         else users.observe(uid)
+            // A passing listener error must not send an existing member to profile setup
+            .retryBriefly()
             .map<UserProfile?, Any?> { it?.profileComplete ?: false }
             .onStart { emit(null) }
             .catch { emit(false) }

@@ -54,6 +54,7 @@ class CallSession(context: Context, private val repo: CallRepository, private va
     private var factory: PeerConnectionFactory? = null
     private var pc: PeerConnection? = null
     private var micTrack: AudioTrack? = null
+    private var audioSource: org.webrtc.AudioSource? = null
     private var candidates: ListenerRegistration? = null
     private val pendingRemote = mutableListOf<IceCandidate>()
     private var remoteSet = false
@@ -83,6 +84,8 @@ class CallSession(context: Context, private val repo: CallRepository, private va
         }
         val f = builder.createPeerConnectionFactory()
         factory = f
+        // The factory keeps its own reference; ours would otherwise leak with every call
+        adm.release()
 
         val ice = mutableListOf(PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer())
         repo.turnServers().forEach { t -> ice += PeerConnection.IceServer.builder(t.urls).setUsername(t.username).setPassword(t.credential).createIceServer() }
@@ -119,6 +122,7 @@ class CallSession(context: Context, private val repo: CallRepository, private va
         }) ?: error("Could not start the call")
 
         val source = f.createAudioSource(MediaConstraints())
+        audioSource = source
         micTrack = f.createAudioTrack("mic", source).also { pc!!.addTrack(it, listOf("ojas")) }
         if (video) startCamera(f)
 
@@ -343,9 +347,12 @@ class CallSession(context: Context, private val repo: CallRepository, private va
         _remoteVideo.value = null
         runCatching { pc?.close() }
         runCatching { pc?.dispose() }
+        runCatching { audioSource?.dispose() }
         runCatching { factory?.dispose() }
         pc = null
         factory = null
+        audioSource = null
+        micTrack = null
         @Suppress("DEPRECATION")
         audio.isSpeakerphoneOn = false
         audio.mode = AudioManager.MODE_NORMAL

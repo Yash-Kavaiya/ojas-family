@@ -156,6 +156,7 @@
     <string name="moderation_empty">देखने के लिए कुछ नहीं</string>
     <string name="moderation_approve">मंज़ूर करें</string>
     <string name="moderation_remove_post">पोस्ट हटाएँ</string>
+    <string name="moderation_remove_confirm">यह पोस्ट सबके लिए हटाएँ? इसे वापस नहीं लाया जा सकता।</string>
     <string name="moderation_dismiss">खारिज करें</string>
     <string name="settings_title">सेटिंग्स</string>
     <string name="settings_appearance">रूप</string>
@@ -205,6 +206,7 @@
     <string name="error_photo_upload">फ़ोटो अपलोड नहीं हो सकी। कृपया फिर से प्रयास करें।</string>
     <string name="profile_change_photo">फ़ोटो जोड़ें या बदलें</string>
     <string name="error_google_setup">इस फ़ोन पर Google साइन-इन शुरू नहीं हो सका। कृपया ऐप का नया संस्करण इंस्टॉल करें, या फ़ोन या ईमेल से साइन इन करें।</string>
+    <string name="error_no_google_account">इस फ़ोन पर कोई Google खाता नहीं मिला। फ़ोन की सेटिंग्स में खाता जोड़ें, या फ़ोन या ईमेल से जारी रखें।</string>
     <string name="moderation_unknown_member">एक सदस्य</string>
     <string name="channel_community">समुदाय और घोषणाएँ</string>
     <string name="channel_practice">साधना रिमाइंडर</string>
@@ -250,6 +252,7 @@
     <string name="post_remove_photo">फ़ोटो हटाएँ</string>
     <string name="post_photo_review">फ़ोटो या लिंक वाली पोस्ट एडमिन की स्वीकृति के बाद दिखती हैं।</string>
     <string name="mention_title">किसी का उल्लेख करें</string>
+    <string name="composer_more">फ़ोटो या मेंशन जोड़ें</string>
     <string name="membership_title">सदस्यता</string>
     <string name="membership_benefits">दैनिक साधना, दैनिक गतिविधियाँ, पोस्ट में फ़ोटो और ऊँचे सदस्य लेवल।</string>
     <string name="membership_active_until">%1$s तक सदस्य</string>
@@ -286,6 +289,8 @@
     <string name="ask_see_plans">प्लान देखें</string>
     <string name="ask_staff_inbox">सदस्यों की चैट</string>
     <string name="ask_staff_inbox_desc">सदस्यों की चैट और कॉल।</string>
+    <string name="find_member_title">सदस्य खोजें</string>
+    <string name="find_member_action">सदस्य खोजें</string>
     <string name="chat_title">स्वामीजी से चैट</string>
     <string name="chat_hint">संदेश लिखें</string>
     <string name="chat_empty">हरि ओम कहें। स्वामीजी या कोई वरिष्ठ सदस्य यहाँ जवाब देंगे।</string>
@@ -427,6 +432,8 @@
     <string name="chat_tab_swamiji">स्वामीजी</string>
     <string name="chat_tab_admin">एडमिन टीम</string>
     <string name="chat_file_failed">फ़ाइल नहीं भेजी जा सकी। यह 20 MB से छोटी फ़ोटो, PDF या ऑडियो होनी चाहिए।</string>
+    <string name="chat_send_failed">संदेश नहीं भेजा जा सका। अपना कनेक्शन जाँचें और फिर कोशिश करें।</string>
+    <string name="members_role_confirm">%1$s की भूमिका बदलकर %2$s करें?</string>
     <string name="chat_attach">फ़ाइल जोड़ें</string>
     <string name="chat_attach_photo">फ़ोटो</string>
     <string name="chat_attach_pdf">PDF दस्तावेज़</string>
@@ -454,6 +461,8 @@
     <string name="calls_history_empty">अभी कोई कॉल नहीं</string>
     <string name="calls_history_empty_body">आपकी ऑडियो और वीडियो कॉल यहाँ दिखेंगी।</string>
     <string name="calls_call_back">वापस कॉल करें</string>
+    <string name="calls_prev_month">पिछला महीना</string>
+    <string name="calls_next_month">अगला महीना</string>
     <string name="calls_requests">कॉल अनुरोध</string>
     <string name="calls_my_calls">मेरी तय कॉल</string>
     <string name="calls_pick_time">समय चुनें</string>
@@ -478,6 +487,10 @@
     <string name="calls_start">कॉल शुरू करें</string>
     <string name="calls_join">कॉल में जुड़ें</string>
     <string name="calls_join_later">जुड़ने का बटन कॉल से 10 मिनट पहले खुलेगा।</string>
+    <string name="calls_reminder">रिमाइंडर</string>
+    <string name="calls_waiting_approval">मंज़ूरी का इंतज़ार</string>
+    <string name="calls_waiting_you">आपकी मंज़ूरी का इंतज़ार</string>
+    <string name="calls_reminder_stays">यह फ़ोन रिमाइंडर रखता है: 15 मिनट पहले, और कॉल शुरू होने पर।</string>
     <string name="calls_confirm">यह समय पक्का करें</string>
     <string name="calls_propose">दूसरा समय सुझाएँ</string>
     <string name="calls_decline">अस्वीकार करें</string>
@@ -492,7 +505,9 @@
     <string name="push_call_declined">आपका कॉल अनुरोध अस्वीकार हुआ</string>
     <string name="push_call_cancelled">%1$s ने कॉल रद्द की</string>
     <string name="push_call_soon">15 मिनट में %1$s के साथ कॉल</string>
+    <string name="push_call_soon_video">15 मिनट में %1$s के साथ वीडियो कॉल</string>
     <string name="push_call_now">आपकी कॉल अभी शुरू हो रही है</string>
+    <string name="push_call_now_video">आपकी वीडियो कॉल अभी शुरू हो रही है</string>
     <string name="push_call_now_body">%1$s · जुड़ने के लिए टैप करें</string>
     <string name="ai_answer_general">आपके प्रश्न के लिए धन्यवाद। 🙏 सबसे सरल मार्ग रोज़ की साधना है: सुबह कुछ मिनट ध्यान, रात को कृतज्ञता और दिन भर दयालुता। मार्गदर्शित वीडियो के लिए आध्यात्मिक टैब देखें और समुदाय से पूछें।</string>
     <string name="action_reply">जवाब दें</string>

@@ -36,7 +36,7 @@ class SettingsStore(private val context: Context) : ThemeSettings {
 
     private val introKey = booleanPreferencesKey("intro_seen")
 
-    /** Whether the blue-light intro has played on this phone; it plays once, on first launch. */
+    /** True after the 5-second intro has played on this phone. Later opens use the 3-second light. */
     val introSeen: Flow<Boolean> = context.settingsDataStore.data.map { it[introKey] == true }
 
     suspend fun markIntroSeen() {

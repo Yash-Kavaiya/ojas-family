@@ -78,7 +78,7 @@ import kotlinx.coroutines.launch
 
 /** The language goal titles are shown in; the app setting wins, then the phone's language. */
 @Composable
-fun goalLanguage(): String = currentAppLanguage().ifEmpty { Locale.getDefault().language }
+fun goalLanguage(): String = currentAppLanguage().ifEmpty { com.ojashealing.family.ui.components.appLocale().language }
 
 data class ProfileGoalsState(
     val loaded: Boolean = false,

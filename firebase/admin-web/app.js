@@ -62,6 +62,9 @@ const addDays = (day, n) => new Date(new Date(`${day}T12:00:00+05:30`).getTime()
 const istMidnight = (day) => Timestamp.fromDate(new Date(`${day}T00:00:00+05:30`));
 const fmt = (ts) => (ts?.toDate ? ts.toDate().toLocaleString() : "");
 const thumb = (id) => `https://i.ytimg.com/vi/${id}/mqdefault.jpg`;
+// A report carries the path its sender chose. "Remove the post" may only ever delete a member's post,
+// never settings, videos or announcements (same pattern as firestore.rules and the app)
+const REPORTABLE = /^(questions\/[^\/]+(\/answers\/[^\/]+)?|thoughts\/[^\/]+\/comments\/[^\/]+|announcements\/[^\/]+\/comments\/[^\/]+|dailyPosts\/[^\/]+(\/replies\/[^\/]+)?)$/;
 
 // ---------- sign in ----------
 $("#btn-signin").onclick = () => signInWithPopup(auth, new GoogleAuthProvider()).catch((e) => ($("#signin-msg").textContent = e.message));
@@ -181,7 +184,7 @@ async function members() {
     $("#m-table").innerHTML = `<table><thead><tr><th></th><th>Member</th><th>Points</th><th>Level</th><th>Member level</th><th>Role</th><th>Last open</th></tr></thead><tbody>${
       rows.map((m) => `<tr><td><input type="checkbox" value="${esc(m.uid)}"></td>
         <td><div class="row">${m.photoUrl ? `<img class="avatar" src="${esc(m.photoUrl)}" alt="">` : ""}<div>${esc(m.displayName || "(no name)")}<br><span class="muted" style="font-size:12px">${esc([m.city, m.country].filter(Boolean).join(", "))}</span></div></div></td>
-        <td>${m.mokshaPoints ?? 0}</td><td>${m.userLevel ?? 1}</td><td>${m.memberLevel ?? 0}</td><td>${esc(ROLES[m.role] || "Member")}</td><td>${esc(m.lastDailyOpen || "")}</td></tr>`).join("")
+        <td>${esc(m.mokshaPoints ?? 0)}</td><td>${esc(m.userLevel ?? 1)}</td><td>${esc(m.memberLevel ?? 0)}</td><td>${esc(ROLES[m.role] || "Member")}</td><td>${esc(m.lastDailyOpen || "")}</td></tr>`).join("")
     }</tbody></table><p class="muted">${rows.length} shown</p>`;
     $$("#m-table input[type=checkbox]").forEach((c) => (c.onchange = updateCount));
     updateCount();
@@ -215,6 +218,9 @@ async function members() {
   $("#g-set-role").onclick = (e) => {
     const uids = need(1); if (!uids) return;
     if (uids.length !== 1) return toast("Select exactly one member to change a role", true);
+    const role = $("#g-role").value;
+    const who = memberRows.find((m) => m.uid === uids[0])?.displayName || "this member";
+    if (!confirm(`Make ${who} ${ROLES[role]}?${role === "admin" ? " Admins can change everything, including other admins." : ""}`)) return;
     run(e.target, () => call("setRole", { uid: uids[0], role: $("#g-role").value }), "Role saved. They see it after reopening the app.").then(load);
   };
   await load();
@@ -382,6 +388,7 @@ async function moderation() {
   });
   $$("[data-target]").forEach((el) => {
     $(".r-remove", el).onclick = (e) => confirm("Delete the reported post?") && run(e.target, async () => {
+      if (!REPORTABLE.test(el.dataset.target)) throw new Error("This report does not point at a member's post. Dismiss it instead.");
       await deleteDoc(doc(db, el.dataset.target)).catch(() => {});
       await deleteDoc(doc(db, "reports", el.dataset.id));
     }, "Removed").then(() => el.remove());
@@ -414,7 +421,7 @@ async function announcements() {
       <label>Picture, audio or video (optional)<input id="a-file" type="file" accept="image/*,audio/*,video/*"></label>
       <p class="muted">Up to 5 MB for a picture, 30 MB for audio, 100 MB for video. Members with announcement notifications on get a push.</p>
       <button class="primary" id="a-post">Post</button></div>
-    <h2>Posted</h2><div class="stack">${snap.docs.map((d) => { const x = d.data(); return `<div class="card stack" data-id="${d.id}"><div><b>${esc(x.title)}</b>
+    <h2>Posted</h2><div class="stack">${snap.docs.map((d) => { const x = d.data(); return `<div class="card stack" data-id="${esc(d.id)}"><div><b>${esc(x.title)}</b>
       <span class="muted">${fmt(x.createdAt)}</span></div><p>${esc(x.body)}</p>${mediaHtml(x)}<button class="link danger a-del">Delete</button></div>`; }).join("") || '<p class="muted">None yet.</p>'}</div>`;
   $("#a-post").onclick = (e) => {
     const title = $("#a-title").value.trim(), body = $("#a-body").value.trim();
@@ -463,7 +470,7 @@ async function calls() {
   const reqs = reqSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
   const open = reqs.filter((r) => ["pending", "proposed", "confirmed"].includes(r.status));
   const upcoming = open.filter((r) => r.status === "confirmed" && r.at?.toMillis() > now - 3600e3).sort((a, b) => a.at.toMillis() - b.at.toMillis());
-  const row = (r) => `<tr data-id="${r.id}"><td>${esc(ist(r.status === "proposed" ? r.proposedAt : r.at))}</td><td>${esc(r.memberName || r.memberUid)}</td>
+  const row = (r) => `<tr data-id="${esc(r.id)}"><td>${esc(ist(r.status === "proposed" ? r.proposedAt : r.at))}</td><td>${esc(r.memberName || r.memberUid)}</td>
     <td>${r.channel === "admin" ? "Admin team" : "Swamiji"}</td><td>${r.video ? "Video" : "Audio"}</td><td>${esc(r.note || "")}</td><td><b>${esc(r.status)}</b></td>
     <td class="row">${r.status === "pending" ? `<button class="primary c-ok">Confirm</button><input type="datetime-local" class="c-when" title="India time">
       <button class="c-prop">Propose</button><button class="link danger c-no">Decline</button>` : r.status === "confirmed" ? '<button class="link danger c-cancel">Cancel</button>' : ""}</td></tr>`;
@@ -472,7 +479,7 @@ async function calls() {
     <div class="card stack"><h3>Admin team call receiver</h3>
       <p class="muted">Members' audio and video calls to the Admin team ring this admin. Admin-team chat goes to every admin.</p>
       <div class="row"><select id="c-support"><option value="">Nobody (Admin-team calls hidden in the app)</option>
-        ${adminsSnap.docs.map((d) => `<option value="${d.id}" ${staff.supportUid === d.id ? "selected" : ""}>${esc(d.get("displayName") || d.id)}</option>`).join("")}</select>
+        ${adminsSnap.docs.map((d) => `<option value="${esc(d.id)}" ${staff.supportUid === d.id ? "selected" : ""}>${esc(d.get("displayName") || d.id)}</option>`).join("")}</select>
       <button class="primary" id="c-save">Save</button></div></div>
     <div class="card stack" style="margin-top:12px"><h3>Upcoming confirmed calls</h3>
       ${upcoming.length ? `<ul>${upcoming.map((r) => `<li><b>${esc(ist(r.at))}</b> · ${esc(r.memberName || "")} · ${r.channel === "admin" ? "Admin team" : "Swamiji"} · ${r.video ? "Video" : "Audio"}</li>`).join("")}</ul>` : '<p class="muted">None.</p>'}
@@ -536,15 +543,15 @@ async function settings() {
   const about = (await getDoc(doc(db, "config", "about"))).data() || {};
   const ta = (id, label) => `<label>${label}<textarea id="ab-${id}" maxlength="3000">${esc(about[id] || "")}</textarea></label>`;
   const n = (path, dflt) => path.split(".").reduce((o, k) => o?.[k], lv) ?? dflt;
-  const lvl = (k, d, p) => `<tr><td>${k.toUpperCase()}</td><td><input type="number" id="${k}-days" value="${n(`${k}.days`, d)}" style="width:100px"></td><td><input type="number" id="${k}-points" value="${n(`${k}.points`, p)}" style="width:120px"></td></tr>`;
+  const lvl = (k, d, p) => `<tr><td>${k.toUpperCase()}</td><td><input type="number" id="${k}-days" value="${esc(n(`${k}.days`, d))}" style="width:100px"></td><td><input type="number" id="${k}-points" value="${esc(n(`${k}.points`, p))}" style="width:120px"></td></tr>`;
   view().innerHTML = `
     <h1>Settings</h1>
     <div class="card stack"><h3>Free user levels</h3><p class="muted">A level needs both: days of using the app and Moksha Points. Changes apply at each member's next point.</p>
       <table><thead><tr><th>Level</th><th>Days</th><th>Points</th></tr></thead><tbody>${lvl("l2", 7, 7)}${lvl("l3", 90, 200)}${lvl("l4", 365, 10000)}</tbody></table>
       <h3>Daily point limits</h3><div class="row">
-        <label>Likes<input type="number" id="cap-like" value="${n("dailyCaps.like", 50)}" style="width:90px"></label>
-        <label>Comments and answers<input type="number" id="cap-comment" value="${n("dailyCaps.comment", 20)}" style="width:90px"></label>
-        <label>Questions<input type="number" id="cap-question" value="${n("dailyCaps.question", 5)}" style="width:90px"></label></div>
+        <label>Likes<input type="number" id="cap-like" value="${esc(n("dailyCaps.like", 50))}" style="width:90px"></label>
+        <label>Comments and answers<input type="number" id="cap-comment" value="${esc(n("dailyCaps.comment", 20))}" style="width:90px"></label>
+        <label>Questions<input type="number" id="cap-question" value="${esc(n("dailyCaps.question", 5))}" style="width:90px"></label></div>
       <button class="primary" id="s-levels">Save levels</button></div>
     <div class="card stack" style="margin-top:12px"><h3>Calls</h3>
       <p>Members call: <b>${esc(staff.swamijiUid || "nobody yet: set someone's role to Swamiji on the Members page")}</b></p>

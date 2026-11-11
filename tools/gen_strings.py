@@ -156,6 +156,7 @@ S = {
 "moderation_empty": ('Nothing to review', 'देखने के लिए कुछ नहीं', 'જોવા માટે કંઈ નથી'),
 "moderation_approve": ('Approve', 'मंज़ूर करें', 'મંજૂર કરો'),
 "moderation_remove_post": ('Remove post', 'पोस्ट हटाएँ', 'પોસ્ટ દૂર કરો'),
+"moderation_remove_confirm": ('Remove this post for everyone? This cannot be undone.', 'यह पोस्ट सबके लिए हटाएँ? इसे वापस नहीं लाया जा सकता।', 'આ પોસ્ટ બધા માટે દૂર કરવી છે? તે પાછી લાવી શકાશે નહીં.'),
 "moderation_dismiss": ('Dismiss', 'खारिज करें', 'રદ કરો'),
 "settings_title": ('Settings', 'सेटिंग्स', 'સેટિંગ્સ'),
 "settings_appearance": ('Appearance', 'रूप', 'દેખાવ'),
@@ -205,6 +206,7 @@ S = {
 "error_photo_upload": ('Could not upload the photo. Please try again.', 'फ़ोटो अपलोड नहीं हो सकी। कृपया फिर से प्रयास करें।', 'ફોટો અપલોડ થઈ શક્યો નહીં. કૃપા કરીને ફરી પ્રયાસ કરો.'),
 "profile_change_photo": ('Add or change photo', 'फ़ोटो जोड़ें या बदलें', 'ફોટો ઉમેરો અથવા બદલો'),
 "error_google_setup": ("Google sign-in could not start on this phone. Please install the latest app, or sign in with phone or email.", "इस फ़ोन पर Google साइन-इन शुरू नहीं हो सका। कृपया ऐप का नया संस्करण इंस्टॉल करें, या फ़ोन या ईमेल से साइन इन करें।", "આ ફોન પર Google સાઇન-ઇન શરૂ થઈ શક્યું નહીં. કૃપા કરીને એપનું નવું વર્ઝન ઇન્સ્ટોલ કરો, અથવા ફોન કે ઈમેલથી સાઇન ઇન કરો."),
+"error_no_google_account": ('No Google account was found on this phone. Add one in the phone’s Settings, or continue with phone or email.', 'इस फ़ोन पर कोई Google खाता नहीं मिला। फ़ोन की सेटिंग्स में खाता जोड़ें, या फ़ोन या ईमेल से जारी रखें।', 'આ ફોન પર કોઈ Google એકાઉન્ટ મળ્યું નથી. ફોનના સેટિંગ્સમાં એકાઉન્ટ ઉમેરો, અથવા ફોન કે ઈમેલ સાથે આગળ વધો.'),
 "moderation_unknown_member": ("A member", "एक सदस्य", "એક સભ્ય"),
 }
 

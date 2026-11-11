@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AlternateEmail
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Image
@@ -74,7 +75,8 @@ fun PostComposer(
 ) {
     var text by rememberSaveable { mutableStateOf("") }
     var photo by rememberSaveable { mutableStateOf<Uri?>(null) }
-    var mentioning by remember { mutableStateOf(false) }
+    // The + menu inside the box: 1 = photo / mention, 2 = the people to mention
+    var menu by remember { mutableStateOf(0) }
     val pickImage = rememberImagePicker { photo = it }
     val focus = remember { androidx.compose.ui.focus.FocusRequester() }
     val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
@@ -116,43 +118,50 @@ fun PostComposer(
             modifier = Modifier.fillMaxWidth().focusRequester(focus),
             shape = RoundedCornerShape(24.dp),
             trailingIcon = {
-                SendButton(
-                    onClick = {
-                        val reply = replyingTo?.let { replyTargetFor(it) }
-                        onSend(Draft(text, photo, mentionedUids(text, mentionable), reply)) { text = ""; photo = null; onCancelReply() }
-                    },
-                    enabled = text.isNotBlank(),
-                    busy = busy,
-                    size = 40.dp,
-                    modifier = Modifier.padding(end = 6.dp)
-                )
-            }
-        )
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (canAttachImage) {
-                IconButton(onClick = pickImage) {
-                    Icon(Icons.Outlined.Image, contentDescription = stringResource(R.string.post_add_photo))
-                }
-            }
-            if (mentionable.isNotEmpty()) {
-                Box {
-                    IconButton(onClick = { mentioning = true }) {
-                        Icon(Icons.Outlined.AlternateEmail, contentDescription = stringResource(R.string.mention_title))
-                    }
-                    DropdownMenu(expanded = mentioning, onDismissRequest = { mentioning = false }) {
-                        mentionable.distinctBy { it.uid }.take(20).forEach { a ->
-                            DropdownMenuItem(text = { Text(a.name) }, onClick = {
-                                text = (text.trimEnd() + " @" + a.name + " ").trimStart()
-                                mentioning = false
-                            })
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = 6.dp)) {
+                    val people = mentionable.distinctBy { it.uid }.take(20)
+                    if (canAttachImage || people.isNotEmpty()) {
+                        Box {
+                            IconButton(onClick = { menu = 1 }, enabled = !busy) {
+                                Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.composer_more))
+                            }
+                            DropdownMenu(expanded = menu == 1, onDismissRequest = { menu = 0 }) {
+                                if (canAttachImage) DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.post_add_photo)) },
+                                    leadingIcon = { Icon(Icons.Outlined.Image, contentDescription = null) },
+                                    onClick = { menu = 0; pickImage() }
+                                )
+                                if (people.isNotEmpty()) DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.mention_title)) },
+                                    leadingIcon = { Icon(Icons.Outlined.AlternateEmail, contentDescription = null) },
+                                    onClick = { menu = 2 }
+                                )
+                            }
+                            DropdownMenu(expanded = menu == 2, onDismissRequest = { menu = 0 }) {
+                                people.forEach { a ->
+                                    DropdownMenuItem(text = { Text(a.name) }, onClick = {
+                                        text = (text.trimEnd() + " @" + a.name + " ").trimStart()
+                                        menu = 0
+                                    })
+                                }
+                            }
                         }
                     }
+                    SendButton(
+                        onClick = {
+                            val reply = replyingTo?.let { replyTargetFor(it) }
+                            onSend(Draft(text, photo, mentionedUids(text, mentionable), reply)) { text = ""; photo = null; onCancelReply() }
+                        },
+                        enabled = text.isNotBlank(),
+                        busy = busy,
+                        size = 40.dp,
+                    )
                 }
             }
-            if (photo != null) {
-                Text(stringResource(R.string.post_photo_review), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = Spacing.s))
-            }
+        )
+        if (photo != null) {
+            Text(stringResource(R.string.post_photo_review), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = Spacing.s))
         }
     }
 }

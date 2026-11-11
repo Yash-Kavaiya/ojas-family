@@ -71,4 +71,20 @@ class ModerationViewModelTest {
         advanceUntilIdle()
         assertEquals(listOf("approve:thoughts/t/comments/c1", "remove:questions/q1", "dismiss:r1"), repo.calls)
     }
+
+    @Test fun aReportPointingAtSettingsIsClosedWithoutDeletingAnything() = runTest(dispatcher) {
+        val repo = FakeModeration()
+        val vm = ModerationViewModel(repo)
+        vm.removeReported(Report("r1", "config/levels", "please remove", 2))
+        vm.removeReported(Report("r2", "announcements/a1", "please remove", 3))
+        advanceUntilIdle()
+        assertEquals(listOf("dismiss:r1", "dismiss:r2"), repo.calls)
+    }
+
+    @Test fun onlyMembersPostsAreReportable() {
+        for (ok in listOf("questions/q1", "questions/q1/answers/a1", "thoughts/2026-11-01/comments/c1", "announcements/a1/comments/c1", "dailyPosts/d1", "dailyPosts/d1/replies/r1"))
+            assertEquals(ok, true, com.ojashealing.family.data.social.isReportablePath(ok))
+        for (bad in listOf("config/levels", "content/yt_abc", "announcements/a1", "thoughts/2026-11-01", "users/u1", "questions/q1/likes/u1", "goals/g1", ""))
+            assertEquals(bad, false, com.ojashealing.family.data.social.isReportablePath(bad))
+    }
 }

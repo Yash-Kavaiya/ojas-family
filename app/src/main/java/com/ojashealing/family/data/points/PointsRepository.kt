@@ -104,7 +104,8 @@ class FirebasePointsRepository(
     }
 
     override suspend fun deleteAccount(): Result<Unit> = runCatching {
-        functions.getHttpsCallable("deleteAccount").call().await()
+        // The server also removes posts, conversations and files; allow it the time it is given there
+        functions.getHttpsCallable("deleteAccount").apply { setTimeout(300, java.util.concurrent.TimeUnit.SECONDS) }.call().await()
         Unit
     }
 }

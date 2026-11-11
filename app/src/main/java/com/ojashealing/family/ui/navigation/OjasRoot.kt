@@ -1,12 +1,19 @@
 package com.ojashealing.family.ui.navigation
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.ojashealing.family.ui.onboarding.IntroBackdrop
 import com.ojashealing.family.ui.onboarding.IntroScreen
 import kotlinx.coroutines.launch
@@ -55,36 +62,53 @@ fun OjasRoot() {
     })
     val start by onboarding.start.collectAsStateWithLifecycle()
 
-    // First launch only: the 3-second blue-light intro, before anything else
+    // First install is the 5-second intro. Every later open is the 3-second light, top to bottom.
     val introSeen by container.settings.introSeen.collectAsStateWithLifecycle(initialValue = null)
-    var introDone by rememberSaveable { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
-    when {
-        introSeen == null && !introDone -> { IntroBackdrop(); return }
-        introSeen == false && !introDone -> {
-            IntroScreen(onFinished = {
-                introDone = true
-                scope.launch { container.settings.markIntroSeen() }
-            })
-            return
-        }
-    }
-
-    when (start) {
-        null -> LoadingState()
-        StartDestination.Language -> LanguageScreen(onChoose = onboarding::chooseLanguage)
-        StartDestination.SignIn -> AuthFlow(container)
-        StartDestination.ProfileSetup -> {
-            // Keyed by user so a second account on the same phone never sees the first one's details
-            val uid = container.auth.currentUid.collectAsStateWithLifecycle().value
-            val vm: ProfileSetupViewModel = viewModel(key = "profile-setup-$uid", factory = viewModelFactory {
-                initializer {
-                    ProfileSetupViewModel(container.auth, container.users, container.locations, Firebase.auth.currentUser?.displayName.orEmpty())
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    var playIntro by rememberSaveable { mutableStateOf(true) }
+    var leftApp by rememberSaveable { mutableStateOf(false) }
+    DisposableEffect(lifecycle) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_STOP -> leftApp = true
+                Lifecycle.Event.ON_START -> if (leftApp) {
+                    leftApp = false
+                    playIntro = true
                 }
-            })
-            ProfileSetupScreen(vm)
+                else -> Unit
+            }
         }
-        StartDestination.Main -> MainShell(container)
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
+    val scope = rememberCoroutineScope()
+
+    Box(Modifier.fillMaxSize()) {
+        when (start) {
+            null -> LoadingState()
+            StartDestination.Language -> LanguageScreen(onChoose = onboarding::chooseLanguage)
+            StartDestination.SignIn -> AuthFlow(container)
+            StartDestination.ProfileSetup -> {
+                // Keyed by user so a second account on the same phone never sees the first one's details
+                val uid = container.auth.currentUid.collectAsStateWithLifecycle().value
+                val vm: ProfileSetupViewModel = viewModel(key = "profile-setup-$uid", factory = viewModelFactory {
+                    initializer {
+                        ProfileSetupViewModel(container.auth, container.users, container.locations, Firebase.auth.currentUser?.displayName.orEmpty())
+                    }
+                })
+                val context = LocalContext.current.applicationContext
+                ProfileSetupScreen(vm, onSignOut = { scope.launch { container.auth.signOut(context) } })
+            }
+            StartDestination.Main -> MainShell(container)
+        }
+        // Drawn over the app so a later open does not throw away the screen the member was on
+        if (playIntro) {
+            if (introSeen == null) IntroBackdrop()
+            else IntroScreen(firstLaunch = introSeen == false, onFinished = {
+                playIntro = false
+                if (introSeen == false) scope.launch { container.settings.markIntroSeen() }
+            })
+        }
     }
 }
 

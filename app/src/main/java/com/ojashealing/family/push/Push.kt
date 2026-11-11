@@ -168,10 +168,12 @@ object PushTopics {
 
     /** On sign-out the phone stops receiving this account's messages. */
     suspend fun forget(uid: String) {
+        // Each step on its own: after "Delete account" the profile is already gone, and that must not
+        // leave the phone subscribed to the broadcast topics
         runCatching {
             val token = FirebaseMessaging.getInstance().token.await()
             Firebase.firestore.document("users/$uid").update("fcmTokens", FieldValue.arrayRemove(token)).await()
-            topics.values.forEach { FirebaseMessaging.getInstance().unsubscribeFromTopic(it).await() }
         }
+        topics.values.forEach { topic -> runCatching { FirebaseMessaging.getInstance().unsubscribeFromTopic(topic).await() } }
     }
 }

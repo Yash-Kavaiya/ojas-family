@@ -42,6 +42,9 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ojashealing.family.R
+import com.ojashealing.family.data.call.CallRequest
+import com.ojashealing.family.data.call.RequestStatus
+import com.ojashealing.family.data.call.staysAsReminder
 import com.ojashealing.family.data.paid.Entitlements
 import com.ojashealing.family.data.paid.PaidAccess
 import com.ojashealing.family.data.user.UserProfile
@@ -71,7 +74,10 @@ fun AskTab(
     onSchedule: (com.ojashealing.family.data.chat.ChatChannel) -> Unit = {},
     onHistory: () -> Unit = {},
     onMyCalls: () -> Unit = {},
-    adminCallsReady: Boolean = false
+    adminCallsReady: Boolean = false,
+    scheduled: List<CallRequest> = emptyList(),
+    approving: Boolean = false,
+    onOpenRequest: (String) -> Unit = {},
 ) {
     var locked by remember { mutableStateOf<Access.Locked?>(null) }
     val p = profile ?: return LoadingState()
@@ -81,15 +87,22 @@ fun AskTab(
         item(key = "personal") {
             SectionHeader(stringResource(R.string.ask_personal))
             Column(Modifier.padding(horizontal = Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
+                scheduled.filter { staysAsReminder(it) }
+                    .sortedBy { if (it.status == RequestStatus.Proposed) it.proposedAt else it.at }
+                    .take(4)
+                    .forEach { r -> CallReminderCard(r, approving) { onOpenRequest(r.id) } }
                 if (staff) {
                     PersonalCard(Icons.Outlined.Inbox, stringResource(R.string.ask_staff_inbox), stringResource(R.string.ask_staff_inbox_desc), null) {
                         Button(onClick = onInbox) { Text(stringResource(R.string.ask_staff_inbox)) }
                     }
-                } else {
+                }
+                // Members (and senior members, who Swamiji or an admin may reach out to) contact only Swamiji and
+                // the Admin team; there is no way to reach another member
+                if (!staff || p.viewer.role == com.ojashealing.family.domain.Role.SeniorMember) {
                     val chatOk = Permissions.canChat(p.viewer, entitlements.active(PaidAccess.Chat))
                     val audioOk = Permissions.canAudioCall(p.viewer, entitlements[PaidAccess.Call]?.canCall() == true)
                     val videoOk = Permissions.canVideoCall(p.viewer)
-                    LevelStrip(p.viewer.memberLevel.rank)
+                    if (!staff) LevelStrip(p.viewer.memberLevel.rank)
                     ContactCard(
                         title = stringResource(R.string.role_swamiji),
                         subtitle = stringResource(R.string.ask_contact_swamiji_desc),
@@ -147,6 +160,36 @@ fun AskTab(
         }
     }
     locked?.let { LockedDialog(it) { locked = null } }
+}
+
+/** A booked call that stays on Ask until an hour after its time: waiting, or a confirmed reminder. */
+@Composable
+private fun CallReminderCard(r: CallRequest, approving: Boolean, onOpen: () -> Unit) {
+    val whenAt = if (r.status == RequestStatus.Proposed) r.proposedAt else r.at
+    val title = when (r.status) {
+        RequestStatus.Confirmed -> stringResource(R.string.calls_reminder)
+        RequestStatus.Proposed -> stringResource(R.string.calls_status_proposed)
+        else -> stringResource(if (approving) R.string.calls_waiting_you else R.string.calls_waiting_approval)
+    }
+    val who = if (approving) r.memberName else stringResource(if (r.channel == "admin") R.string.chat_tab_admin else R.string.role_swamiji)
+    OjasCard(onClick = onOpen) {
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.m), verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                if (r.video) Icons.Outlined.Videocam else Icons.Outlined.Call,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                Text(who, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    listOf(istTime(whenAt), stringResource(if (r.video) R.string.calls_video else R.string.calls_audio)).joinToString(" · "),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
 }
 
 @Composable

@@ -112,6 +112,16 @@ data class Announcement(
 data class PendingItem(val path: String, val text: String, val author: String, val createdAt: Long, val imageUrl: String = "")
 data class Report(val id: String, val targetPath: String, val reason: String, val createdAt: Long)
 
+private val reportablePath = Regex("""^(questions/[^/]+(/answers/[^/]+)?|thoughts/[^/]+/comments/[^/]+|announcements/[^/]+/comments/[^/]+|dailyPosts/[^/]+(/replies/[^/]+)?)$""")
+
+/**
+ * Whether [path] is something a member wrote: a question, a Daily post, or a comment, answer or reply.
+ * A report carries the path its sender chose, and "Remove the post" deletes that document with an
+ * admin's rights, so anything else (settings, videos, announcements) must never be removed through it.
+ * firestore.rules applies the same pattern when a report is created.
+ */
+fun isReportablePath(path: String): Boolean = reportablePath.matches(path)
+
 private val linkPattern = Regex("""https?://|www\.""", RegexOption.IGNORE_CASE)
 
 // Must match hasLink() in firestore.rules, which rejects a 'visible' post that contains a link

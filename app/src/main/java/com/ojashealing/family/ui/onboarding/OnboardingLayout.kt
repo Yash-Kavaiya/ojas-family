@@ -1,5 +1,7 @@
 package com.ojashealing.family.ui.onboarding
 
+import androidx.compose.ui.res.stringResource
+import com.ojashealing.family.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -60,7 +62,7 @@ fun OnboardingLayout(
             ) {
                 if (onBack != null) {
                     IconButton(onClick = onBack, modifier = Modifier.padding(top = Spacing.s)) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 } else {
                     Spacer(Modifier.height(Spacing.xxl + Spacing.l))

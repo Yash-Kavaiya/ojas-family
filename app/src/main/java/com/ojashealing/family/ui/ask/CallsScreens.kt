@@ -1,5 +1,6 @@
 package com.ojashealing.family.ui.ask
 
+import com.ojashealing.family.ui.components.appLocale
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -310,7 +311,7 @@ fun ScheduleCallScreen(
                                 selected = slot == i,
                                 onClick = { slot = i },
                                 enabled = t > System.currentTimeMillis() + 30 * 60_000,
-                                label = { Text(SimpleDateFormat("h:mm a", Locale.getDefault()).apply { timeZone = IST }.format(Date(t))) }
+                                label = { Text(SimpleDateFormat("h:mm a", appLocale()).apply { timeZone = IST }.format(Date(t))) }
                             )
                         }
                     }
@@ -354,18 +355,18 @@ private fun dayKey(millis: Long): Int {
 private fun MonthCalendar(marked: Set<Int>, selected: Int, onSelect: (Int) -> Unit) {
     var month by remember { mutableLongStateOf(System.currentTimeMillis()) }
     val cal = Calendar.getInstance(IST).apply { timeInMillis = month; set(Calendar.DAY_OF_MONTH, 1) }
-    val title = SimpleDateFormat("MMMM yyyy", Locale.getDefault()).apply { timeZone = IST }.format(cal.time)
+    val title = SimpleDateFormat("MMMM yyyy", appLocale()).apply { timeZone = IST }.format(cal.time)
     val firstDow = (cal.get(Calendar.DAY_OF_WEEK) + 5) % 7 // Monday first
     val days = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
     val today = dayKey(System.currentTimeMillis())
     OjasCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { month = Calendar.getInstance(IST).apply { timeInMillis = month; add(Calendar.MONTH, -1) }.timeInMillis }) {
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = null)
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = stringResource(R.string.calls_prev_month))
             }
             Text(title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
             IconButton(onClick = { month = Calendar.getInstance(IST).apply { timeInMillis = month; add(Calendar.MONTH, 1) }.timeInMillis }) {
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = stringResource(R.string.calls_next_month))
             }
         }
         val weekdays = remember {
@@ -507,6 +508,7 @@ fun CallRequestScreen(vm: CallsViewModel, id: String, onBack: () -> Unit, onJoin
                     }
                 } else if (req.status == RequestStatus.Confirmed) {
                     Text(stringResource(R.string.calls_join_later), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.calls_reminder_stays), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (iAmStaff && req.status == RequestStatus.Pending) {
                     Button(onClick = { vm.answer(req, RequestStatus.Confirmed) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.calls_confirm)) }
@@ -545,7 +547,7 @@ private fun ProposeDialog(onDismiss: () -> Unit, onPick: (Long) -> Unit) {
                 if (day != null) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     slots.forEachIndexed { i, (h, m) ->
                         FilterChip(selected = slot == i, onClick = { slot = i },
-                            label = { Text(SimpleDateFormat("h:mm a", Locale.getDefault()).apply { timeZone = IST }.format(Date(pickedDateAt(day, h, m)))) })
+                            label = { Text(SimpleDateFormat("h:mm a", appLocale()).apply { timeZone = IST }.format(Date(pickedDateAt(day, h, m)))) })
                     }
                 }
             }

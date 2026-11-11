@@ -48,7 +48,16 @@ export async function onChatMessage(db: Firestore, m: Messenger, memberUid: stri
   const sender = str(data?.senderUid);
   const fromMember = sender === memberUid;
   const isLog = data?.kind === "call"; // written by the server when a call ends
-  await db.doc(`${chatCollection(channel)}/${memberUid}`).set({
+  const chatRef = db.doc(`${chatCollection(channel)}/${memberUid}`);
+  // Staff may write first: the member's own app is what normally names the conversation, so without
+  // this it would sit in the inbox with no name or photo
+  let naming: Record<string, unknown> = {};
+  if (!fromMember && !str((await chatRef.get()).get("memberName"))) {
+    const member = (await db.doc(`users/${memberUid}`).get()).data() ?? {};
+    naming = { memberUid, memberName: str(member.displayName), memberPhoto: str(member.photoUrl) };
+  }
+  await chatRef.set({
+    ...naming,
     lastMessage: previewOf(data),
     lastAt: FieldValue.serverTimestamp(),
     lastSenderUid: sender,
