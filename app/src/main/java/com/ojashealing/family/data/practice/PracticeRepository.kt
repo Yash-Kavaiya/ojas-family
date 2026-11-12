@@ -13,7 +13,23 @@ import java.util.TimeZone
 
 enum class PracticeKind(val id: String) { Morning("morning"), Night("night") }
 
-data class DayLog(val morning: Boolean, val night: Boolean)
+/** One IST day's practice. [any] is set when any guided practice was finished that day. */
+data class DayLog(val morning: Boolean, val night: Boolean, val any: Boolean = morning || night)
+
+/** The Practice tab's streak: days in a row with at least one practice. */
+data class StreakSummary(
+    val current: Int,
+    val best: Int,
+    val doneToday: Boolean,
+    /** The last 7 IST days, oldest first: (yyyy-MM-dd, practised). The last one is today. */
+    val week: List<Pair<String, Boolean>>,
+)
+
+/** Days a streak must reach for the 21-day goals; also the target the streak card shows. */
+const val STREAK_GOAL_DAYS = 21
+
+/** How many days back the app reads to count streaks. */
+const val STREAK_WINDOW_DAYS = 60
 
 /** Today's practice and the current streaks toward the 21-day goals. */
 data class PracticeStatus(val morningToday: Boolean, val nightToday: Boolean, val morningStreak: Int, val bothStreak: Int)
@@ -49,16 +65,40 @@ fun practiceStatus(logs: Map<String, DayLog>, today: LocalDateLike): PracticeSta
     )
 }
 
+/**
+ * Counts like the server: a day missed today doesn't break the run yet, because today can still
+ * be practised. "Best" is the longest run inside the days read.
+ */
+fun streakSummary(logs: Map<String, DayLog>, today: LocalDateLike): StreakSummary {
+    val days = lastDays(today, STREAK_WINDOW_DAYS)
+    fun done(d: String) = logs[d]?.any == true
+    val start = if (done(days[0])) 0 else 1
+    val current = days.drop(start).takeWhile(::done).size
+    var best = 0
+    var run = 0
+    days.forEach { d -> if (done(d)) { run++; best = maxOf(best, run) } else run = 0 }
+    return StreakSummary(
+        current = current,
+        best = maxOf(best, current),
+        doneToday = done(days[0]),
+        week = days.take(7).reversed().map { it to done(it) },
+    )
+}
+
 class PracticeRepository(private val db: FirebaseFirestore, private val functions: FirebaseFunctions) {
 
     fun observeLogs(uid: String, today: LocalDateLike): Flow<Map<String, DayLog>> = callbackFlow {
-        val since = lastDays(today, 40).last()
+        val since = lastDays(today, STREAK_WINDOW_DAYS).last()
         val reg = db.collection("users/$uid/practiceLog")
             .whereGreaterThanOrEqualTo(FieldPath.documentId(), since)
-            .limit(40)
+            .limit(STREAK_WINDOW_DAYS.toLong())
             .addSnapshotListener { snap, _ ->
                 if (snap == null) return@addSnapshotListener
-                trySend(snap.documents.associate { d -> d.id to DayLog(d.getBoolean("morning") == true, d.getBoolean("night") == true) })
+                trySend(snap.documents.associate { d ->
+                    val morning = d.getBoolean("morning") == true
+                    val night = d.getBoolean("night") == true
+                    d.id to DayLog(morning, night, any = d.getBoolean("any") == true || morning || night)
+                })
             }
         awaitClose { reg.remove() }
     }

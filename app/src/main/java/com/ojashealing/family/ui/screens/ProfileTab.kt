@@ -82,7 +82,8 @@ fun ProfileTab(
     @StringRes photoError: Int? = null,
     entitlements: com.ojashealing.family.data.paid.Entitlements = com.ojashealing.family.data.paid.Entitlements(),
     onPlans: () -> Unit = {},
-    onOpenMembers: () -> Unit = {}
+    onOpenMembers: () -> Unit = {},
+    pointsConfig: com.ojashealing.family.data.points.PointsConfig = com.ojashealing.family.data.points.PointsConfig(),
 ) {
     if (profile == null) {
         LoadingState()
@@ -99,6 +100,11 @@ fun ProfileTab(
             verticalArrangement = Arrangement.spacedBy(Spacing.l)
         ) {
             IdentityCard(profile, locations, onPickPhoto, photoUploading, photoError)
+            // How complete the profile is, and the points each missing item earns
+            ProfileCompletionCard(
+                profile, itemPoints = pointsConfig.profileField, completeBonus = pointsConfig.profileComplete,
+                onFill = { onEditProfile() },
+            )
             StatsRow(profile)
             MembershipCard(profile, entitlements, onPlans)
             OutlinedButton(onClick = onEditProfile, modifier = Modifier.fillMaxWidth()) {

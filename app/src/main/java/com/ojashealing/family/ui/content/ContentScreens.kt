@@ -1,5 +1,6 @@
 package com.ojashealing.family.ui.content
 
+import com.ojashealing.family.ui.theme.staggeredEntrance
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -122,6 +124,20 @@ fun LockedDialog(locked: Access.Locked, onDismiss: () -> Unit) {
     )
 }
 
+/**
+ * The YouTube rows the Practice tab shows. Each of the four guided practices is one meditation:
+ * its own media when set; until then just the first video of its section. Other sections are
+ * shown in full. The rest of the guided sections' videos stay in the Spiritual library.
+ */
+fun practiceRows(sections: List<SectionUi>?, withMedia: Set<ContentSection>): List<SectionUi>? =
+    sections?.mapNotNull { row ->
+        when {
+            row.section in withMedia -> null
+            row.section in com.ojashealing.family.data.practice.GuidedSections -> row.copy(items = row.items.take(1)).takeIf { it.items.isNotEmpty() }
+            else -> row
+        }
+    }
+
 @Composable
 fun PracticeTab(
     sections: List<SectionUi>?,
@@ -130,13 +146,12 @@ fun PracticeTab(
     practiceBusy: Boolean = false,
     onMarkPractice: (com.ojashealing.family.data.practice.PracticeKind) -> Unit = {},
     guided: List<GuidedCard>? = null,
+    streak: com.ojashealing.family.data.practice.StreakSummary? = null,
     onOpenGuided: (ContentSection) -> Unit = {}
 ) {
     var locked by remember { mutableStateOf<Access.Locked?>(null) }
-    // A section with its own guided video or audio shows only that, not the YouTube row
     val guidedCards = guided.orEmpty()
-    val guidedSections = guidedCards.map { it.section }.toSet()
-    val rows = sections?.filter { it.section !in guidedSections }
+    val rows = practiceRows(sections, guidedCards.map { it.section }.toSet())
     when {
         sections == null && guided == null -> LoadingState()
         rows.isNullOrEmpty() && guidedCards.isEmpty() -> Column(Modifier.fillMaxSize()) {
@@ -150,16 +165,23 @@ fun PracticeTab(
         }
         else -> LazyColumn(contentPadding = PaddingValues(top = Spacing.s, bottom = Spacing.xl), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
             item(key = "title", contentType = "title") { SectionHeader(stringResource(R.string.tab_spiritual)) }
+            streak?.let { s ->
+                item(key = "streak", contentType = "streak") {
+                    StreakCard(s, Modifier.padding(horizontal = Spacing.l).staggeredEntrance(0, key = "streak"))
+                }
+            }
             if (guidedCards.isNotEmpty()) {
-                item(key = "guidedHeader", contentType = "guidedHeader") { GuidedHeader(guidedCards, Modifier.padding(horizontal = Spacing.l)) }
-                items(guidedCards, key = { "guided_" + it.section.id }, contentType = { "guided" }) { card ->
+                item(key = "guidedHeader", contentType = "guidedHeader") {
+                    GuidedHeader(guidedCards, Modifier.padding(horizontal = Spacing.l).staggeredEntrance(1, key = "guidedHeader"))
+                }
+                itemsIndexed(guidedCards, key = { _, c -> "guided_" + c.section.id }, contentType = { _, _ -> "guided" }) { index, card ->
                     GuidedPracticeCard(
                         card, practice,
                         onOpen = {
                             if (card.locked) locked = Access.Locked(needsUserLevel = com.ojashealing.family.domain.UserLevel.L4.rank, needsMemberLevel = 1)
                             else onOpenGuided(card.section)
                         },
-                        modifier = Modifier.padding(horizontal = Spacing.l).animateItem()
+                        modifier = Modifier.padding(horizontal = Spacing.l).staggeredEntrance(2 + index, key = "guided_" + card.section.id).animateItem()
                     )
                 }
             }

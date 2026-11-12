@@ -1,5 +1,22 @@
 package com.ojashealing.family.ui.screens
 
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
+import com.ojashealing.family.ui.theme.Durations
+import com.ojashealing.family.ui.theme.OjasEasing
+import com.ojashealing.family.ui.theme.staggeredEntrance
 import android.text.format.DateFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -82,7 +99,28 @@ private fun look(source: PointSource): SourceLook = when (source) {
     PointSource.Goal -> SourceLook(Icons.Filled.EmojiEvents, Color(0xFFD69E00), R.string.points_src_goal)
     PointSource.Practice -> SourceLook(Icons.Filled.SelfImprovement, Color(0xFF0284C7), R.string.points_src_practice)
     PointSource.Gift -> SourceLook(Icons.Filled.CardGiftcard, Color(0xFFE8590C), R.string.points_src_gift)
+    PointSource.PracticeBonus -> SourceLook(Icons.Filled.CheckCircle, Color(0xFF0F9D8A), R.string.points_src_practice_bonus)
+    PointSource.Streak -> SourceLook(Icons.Filled.LocalFireDepartment, Color(0xFFFF7A2F), R.string.points_src_streak)
+    PointSource.Profile -> SourceLook(Icons.Filled.Person, Color(0xFF7C3AED), R.string.points_src_profile)
+    PointSource.AskAi -> SourceLook(Icons.Filled.AutoAwesome, Color(0xFF2F7CF6), R.string.points_src_ai)
+    PointSource.GiftReceived -> SourceLook(Icons.Filled.CardGiftcard, Color(0xFFE8590C), R.string.points_src_gift_in)
+    PointSource.GiftSent -> SourceLook(Icons.Filled.CardGiftcard, Color(0xFF9A8FA8), R.string.points_src_gift_out)
+    PointSource.StaffAdd -> SourceLook(Icons.Filled.Stars, Color(0xFFD69E00), R.string.points_src_staff_add)
+    PointSource.StaffDeduct -> SourceLook(Icons.Filled.Stars, Color(0xFF9A8FA8), R.string.points_src_staff_deduct)
+    PointSource.Reversed -> SourceLook(Icons.Filled.CardGiftcard, Color(0xFF9A8FA8), R.string.points_src_reversed)
     PointSource.Other -> SourceLook(Icons.Filled.Stars, Color(0xFF9A8FA8), R.string.points_src_other)
+}
+
+/** Notes worth showing: messages people wrote. Practice and profile notes are internal ids. */
+private fun showsNote(source: PointSource): Boolean = source in setOf(
+    PointSource.Gift, PointSource.GiftReceived, PointSource.GiftSent, PointSource.StaffAdd, PointSource.StaffDeduct, PointSource.Reversed, PointSource.Other,
+)
+
+@Composable
+private fun sourceLabel(item: PointHistoryItem): String {
+    val src = sourceOf(item)
+    val res = look(src).label
+    return if (src == PointSource.GiftReceived || src == PointSource.GiftSent) stringResource(res, item.otherName.ifBlank { "…" }) else stringResource(res)
 }
 
 /** Tapping the Moksha Points pill opens this: the total, progress to the next level, and every award. */
@@ -94,6 +132,8 @@ fun PointsHistoryScreen(
     onBack: () -> Unit,
     hasMore: Boolean = false,
     onLoadOlder: () -> Unit = {},
+    onHowItWorks: () -> Unit = {},
+    onSend: (() -> Unit)? = null,
 ) {
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
@@ -112,7 +152,21 @@ fun PointsHistoryScreen(
                 contentPadding = PaddingValues(start = Spacing.l, end = Spacing.l, bottom = Spacing.xl),
                 verticalArrangement = Arrangement.spacedBy(Spacing.s)
             ) {
-                item(key = "hero", contentType = "hero") { PointsHero(profile, targets) }
+                item(key = "hero", contentType = "hero") { PointsHero(profile, targets, Modifier.staggeredEntrance(0, key = "hero")) }
+                item(key = "actions", contentType = "actions") {
+                    Row(Modifier.fillMaxWidth().staggeredEntrance(1, key = "actions"), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
+                        OutlinedButton(onClick = onHowItWorks, modifier = Modifier.weight(1f)) {
+                            Icon(Icons.AutoMirrored.Filled.HelpOutline, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(stringResource(R.string.points_how_it_works), maxLines = 1)
+                        }
+                        if (onSend != null) Button(onClick = onSend, modifier = Modifier.weight(1f)) {
+                            Icon(Icons.Filled.CardGiftcard, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(stringResource(R.string.points_send), maxLines = 1)
+                        }
+                    }
+                }
                 val totals = totalsBySource(history)
                 if (totals.isNotEmpty()) item(key = "totals", contentType = "totals") {
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s), modifier = Modifier.padding(vertical = Spacing.s)) {
@@ -150,11 +204,19 @@ private fun dayTitle(day: String, at: Long): String {
 }
 
 @Composable
-private fun PointsHero(profile: UserProfile, targets: LevelTargets) {
+private fun PointsHero(profile: UserProfile, targets: LevelTargets, modifier: Modifier = Modifier) {
     val level = profile.viewer.userLevel.rank
     val next = targets.next(level)
+    // The balance counts up to its value on arrival and whenever it changes
+    val shown = remember { androidx.compose.animation.core.Animatable(0f) }
+    LaunchedEffect(profile.mokshaPoints) {
+        shown.animateTo(profile.mokshaPoints.toFloat(), tween(Durations.Slow + 300, easing = OjasEasing.Emphasized))
+    }
+    val progress by animateFloatAsState(
+        levelProgress(profile.activeDays, profile.earnedPoints, next), tween(Durations.Slow, easing = OjasEasing.Emphasized), label = "levelProgress",
+    )
     Column(
-        Modifier
+        modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(24.dp))
             .background(Brush.linearGradient(OjasGradients.sunrise))
@@ -167,8 +229,14 @@ private fun PointsHero(profile: UserProfile, targets: LevelTargets) {
             }
             Column {
                 Text(stringResource(R.string.profile_points), style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = 0.9f))
-                Text("${profile.mokshaPoints}", style = MaterialTheme.typography.displaySmall, color = Color.White)
+                Text("${shown.value.toInt()}", style = MaterialTheme.typography.displaySmall, color = Color.White)
             }
+        }
+        if (profile.earnedPoints != profile.mokshaPoints) {
+            Text(
+                stringResource(R.string.points_earned) + ": ${profile.earnedPoints}",
+                style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.9f),
+            )
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
             Text(stringResource(R.string.profile_level, level), style = MaterialTheme.typography.titleMedium, color = Color.White)
@@ -176,7 +244,7 @@ private fun PointsHero(profile: UserProfile, targets: LevelTargets) {
         }
         if (next != null) {
             LinearProgressIndicator(
-                progress = { levelProgress(profile.activeDays, profile.mokshaPoints, next) },
+                progress = { progress },
                 modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
                 color = Color.White,
                 trackColor = Color.White.copy(alpha = 0.3f),
@@ -187,7 +255,7 @@ private fun PointsHero(profile: UserProfile, targets: LevelTargets) {
                 stringResource(
                     R.string.points_next_level,
                     level + 1,
-                    (next.points - profile.mokshaPoints).coerceAtLeast(0),
+                    (next.points - profile.earnedPoints).coerceAtLeast(0),
                     (next.days - profile.activeDays).coerceAtLeast(0)
                 ),
                 style = MaterialTheme.typography.bodyMedium,
@@ -211,7 +279,8 @@ private fun TotalChip(src: PointSource, sum: Int) {
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Icon(l.icon, contentDescription = null, tint = l.color, modifier = Modifier.size(16.dp))
-        Text("${stringResource(l.label)} · +$sum", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
+        val name = if (src == PointSource.GiftReceived || src == PointSource.GiftSent) stringResource(R.string.points_src_gift) else stringResource(l.label)
+        Text("$name · +$sum", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
     }
 }
 
@@ -232,8 +301,8 @@ private fun HistoryRow(item: PointHistoryItem) {
             Icon(l.icon, contentDescription = null, tint = l.color, modifier = Modifier.size(22.dp))
         }
         Column(Modifier.weight(1f)) {
-            Text(stringResource(l.label), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (item.note.isNotEmpty()) {
+            Text(sourceLabel(item), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (item.note.isNotEmpty() && showsNote(sourceOf(item))) {
                 Text("“${item.note}”", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 3, overflow = TextOverflow.Ellipsis)
             }
             if (item.at > 0) {

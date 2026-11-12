@@ -140,6 +140,7 @@ import com.ojashealing.family.domain.Role
 import com.ojashealing.family.ui.components.AudioPlayer
 import com.ojashealing.family.ui.components.EmptyState
 import com.ojashealing.family.ui.components.LoadingState
+import com.ojashealing.family.ui.components.LoadingSpinner
 import com.ojashealing.family.ui.components.OjasCard
 import com.ojashealing.family.ui.components.PostImage
 import com.ojashealing.family.ui.components.SendButton
@@ -486,7 +487,7 @@ fun ChatScreen(
                 }
             }
             if (u == null) {
-                LoadingState(Modifier.weight(1f))
+                LoadingSpinner(Modifier.weight(1f))
                 return@Column
             }
             Box(Modifier.weight(1f).fillMaxWidth()) {

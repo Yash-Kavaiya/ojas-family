@@ -29,11 +29,50 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.ojashealing.family.R
 import com.ojashealing.family.ui.theme.Spacing
+import com.ojashealing.family.ui.theme.ShimmerBlock
+import com.ojashealing.family.ui.theme.staggeredEntrance
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 
+/**
+ * Loading shows the shape of what's coming (cards with a soft sheen) instead of a bare spinner,
+ * so the screen doesn't jump when content arrives.
+ */
 @Composable
 fun LoadingState(modifier: Modifier = Modifier) {
+    val loadingLabel = stringResource(R.string.a11y_loading)
+    Column(
+        modifier = modifier.fillMaxSize().padding(Spacing.l).semantics { contentDescription = loadingLabel },
+        verticalArrangement = Arrangement.spacedBy(Spacing.m),
+    ) {
+        repeat(3) { i ->
+            Column(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                    .padding(Spacing.l),
+                verticalArrangement = Arrangement.spacedBy(Spacing.s + 2.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.m)) {
+                    ShimmerBlock(Modifier.size(40.dp), CircleShape)
+                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                        ShimmerBlock(Modifier.width(140.dp).height(14.dp), RoundedCornerShape(7.dp))
+                        ShimmerBlock(Modifier.width(90.dp).height(10.dp), RoundedCornerShape(5.dp))
+                    }
+                }
+                ShimmerBlock(Modifier.fillMaxWidth().height(if (i == 0) 120.dp else 56.dp), RoundedCornerShape(14.dp))
+            }
+        }
+    }
+}
+
+/** A small inline spinner for places where the area is too small for skeleton cards. */
+@Composable
+fun LoadingSpinner(modifier: Modifier = Modifier) {
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, strokeCap = androidx.compose.ui.graphics.StrokeCap.Round)
     }
 }
 
@@ -80,6 +119,7 @@ private fun CenteredMessage(
     ) {
         Box(
             modifier = Modifier
+                .staggeredEntrance(0, key = title)
                 .size(72.dp)
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)),
@@ -91,15 +131,17 @@ private fun CenteredMessage(
             text = title,
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onBackground,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            modifier = Modifier.staggeredEntrance(1, key = title)
         )
         Text(
             text = body,
+            modifier = Modifier.staggeredEntrance(2, key = title),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
-        action()
+        Box(Modifier.staggeredEntrance(3, key = title)) { action() }
     }
 }
 

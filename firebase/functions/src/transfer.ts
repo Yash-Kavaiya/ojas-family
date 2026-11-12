@@ -190,3 +190,28 @@ export async function updatePointsConfigFor(
   await db.doc("config/points").set({ ...next, updatedBy: staffUid, updatedAt: FieldValue.serverTimestamp() });
   return { ok: true };
 }
+
+export interface GiftRecipient { uid: string; name: string; photoUrl: string; userLevel: number; role: string }
+
+/**
+ * Finds members to send points to by the start of their name (2+ letters). Returns only what the
+ * community already shows next to posts (name, photo, Level), and never members who hid their profile.
+ */
+export async function findGiftRecipientsFor(db: Firestore, uid: string, input: { prefix?: unknown }): Promise<{ members: GiftRecipient[] }> {
+  const raw = typeof input.prefix === "string" ? input.prefix.trim().slice(0, 40) : "";
+  if (raw.length < 2) return { members: [] };
+  // Names are stored as typed: also try a capital first letter ("ra" finds "Ravi")
+  const variants = [...new Set([raw, raw.charAt(0).toUpperCase() + raw.slice(1)])];
+  const found = new Map<string, GiftRecipient>();
+  for (const p of variants) {
+    const snap = await db.collection("publicProfiles").orderBy("displayName").startAt(p).endAt(p + "").limit(15).get();
+    snap.forEach((d) => {
+      if (d.id === uid || d.get("hidden") === true || found.has(d.id)) return;
+      found.set(d.id, {
+        uid: d.id, name: String(d.get("displayName") ?? ""), photoUrl: String(d.get("photoUrl") ?? ""),
+        userLevel: Number(d.get("userLevel") ?? 1), role: String(d.get("role") ?? "member"),
+      });
+    });
+  }
+  return { members: [...found.values()].slice(0, 20) };
+}

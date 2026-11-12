@@ -141,7 +141,7 @@ fun AskTab(
         }
         item(key = "understandingHeader") { SectionHeader(stringResource(R.string.ask_understanding)) }
         when {
-            understanding == null -> item(key = "loading") { LoadingState(Modifier.fillMaxWidth().padding(Spacing.xl)) }
+            understanding == null -> item(key = "loading") { com.ojashealing.family.ui.components.LoadingSpinner(Modifier.fillMaxWidth().padding(Spacing.xl)) }
             understanding.isEmpty() -> item(key = "empty") {
                 Text(stringResource(R.string.empty_ask_body), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = Spacing.l))

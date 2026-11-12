@@ -42,6 +42,15 @@ class SettingsStore(private val context: Context) : ThemeSettings {
     suspend fun markIntroSeen() {
         context.settingsDataStore.edit { it[introKey] = true }
     }
+
+    private val pointsExplainedKey = booleanPreferencesKey("points_explained")
+
+    /** False until "How Moksha Points work" has been shown once on this phone. */
+    val pointsExplained: Flow<Boolean> = context.settingsDataStore.data.map { it[pointsExplainedKey] == true }
+
+    suspend fun markPointsExplained() {
+        context.settingsDataStore.edit { it[pointsExplainedKey] = true }
+    }
 }
 
 // AppCompat stores the choice itself (autoStoreLocales), so it survives restarts without DataStore

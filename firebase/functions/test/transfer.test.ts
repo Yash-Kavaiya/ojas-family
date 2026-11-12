@@ -102,3 +102,13 @@ test("config/points edits are cleaned", async () => {
   expect(cfg.junk).toBeUndefined();
   await expect(updatePointsConfigFor(db, member, "a", { practice: 1 })).rejects.toThrow(/Swamiji and admins/);
 });
+
+test("gift recipients: by name prefix, never yourself or hidden profiles", async () => {
+  await db.doc("publicProfiles/a").set({ displayName: "Asha", hidden: false, userLevel: 2 });
+  await db.doc("publicProfiles/b").set({ displayName: "Bhavin", hidden: false, userLevel: 1 });
+  await db.doc("publicProfiles/c").set({ displayName: "Bharat", hidden: true, userLevel: 3 });
+  const { findGiftRecipientsFor } = await import("../src/transfer");
+  expect((await findGiftRecipientsFor(db, "a", { prefix: "bh" })).members.map((m) => m.name)).toEqual(["Bhavin"]);
+  expect((await findGiftRecipientsFor(db, "a", { prefix: "As" })).members).toEqual([]);
+  expect((await findGiftRecipientsFor(db, "a", { prefix: "B" })).members).toEqual([]);
+});

@@ -30,7 +30,7 @@ import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
 import com.ojashealing.family.OjasApp
 import com.ojashealing.family.di.AppContainer
-import com.ojashealing.family.ui.components.LoadingState
+import com.ojashealing.family.ui.components.LoadingSpinner
 import com.ojashealing.family.ui.main.MainShell
 import com.ojashealing.family.ui.onboarding.EmailSignInScreen
 import com.ojashealing.family.ui.onboarding.LanguageScreen
@@ -85,7 +85,7 @@ fun OjasRoot() {
 
     Box(Modifier.fillMaxSize()) {
         when (start) {
-            null -> LoadingState()
+            null -> LoadingSpinner()
             StartDestination.Language -> LanguageScreen(onChoose = onboarding::chooseLanguage)
             StartDestination.SignIn -> AuthFlow(container)
             StartDestination.ProfileSetup -> {

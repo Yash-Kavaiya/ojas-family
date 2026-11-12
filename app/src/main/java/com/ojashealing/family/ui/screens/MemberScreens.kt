@@ -89,7 +89,14 @@ private fun BackBar(title: String, onBack: () -> Unit) {
 
 /** Another member's profile (admins, staff, Member Level 3). Only age, never the date of birth. */
 @Composable
-fun PublicProfileScreen(profile: Flow<PublicProfile?>, goals: List<Goal>, locations: LocationRepository, onBack: () -> Unit) {
+fun PublicProfileScreen(
+    profile: Flow<PublicProfile?>,
+    goals: List<Goal>,
+    locations: LocationRepository,
+    onBack: () -> Unit,
+    /** Extra controls under the card, e.g. Swamiji's and admins' "Manage points". */
+    staffActions: (@Composable (name: String) -> Unit)? = null,
+) {
     val p by profile.collectAsStateWithLifecycle(initialValue = null)
     var loaded by remember { mutableStateOf(false) }
     LaunchedEffect(p) { if (p != null) loaded = true }
@@ -99,7 +106,7 @@ fun PublicProfileScreen(profile: Flow<PublicProfile?>, goals: List<Goal>, locati
             BackBar(stringResource(R.string.profile_view_title), onBack)
             val u = p
             if (u == null) {
-                if (!loaded) LoadingState() else Row(Modifier.padding(Spacing.l), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
+                if (!loaded) com.ojashealing.family.ui.components.LoadingSpinner() else Row(Modifier.padding(Spacing.l), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                     Icon(Icons.Outlined.Lock, contentDescription = null)
                     Text(stringResource(R.string.profile_hidden), style = MaterialTheme.typography.bodyLarge)
                 }
@@ -127,6 +134,7 @@ fun PublicProfileScreen(profile: Flow<PublicProfile?>, goals: List<Goal>, locati
                         Text(stringResource(R.string.profile_points) + ": " + u.mokshaPoints, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                     }
                 }
+                staffActions?.invoke(u.displayName)
                 val achieved = goals.filter { it.id in u.achievedGoals }
                 if (achieved.isNotEmpty()) OjasCard {
                     Text(stringResource(R.string.profile_achieved), style = MaterialTheme.typography.titleLarge)

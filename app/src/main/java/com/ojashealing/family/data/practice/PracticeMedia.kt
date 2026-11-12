@@ -13,13 +13,31 @@ import kotlinx.coroutines.tasks.await
 /** The four guided practices that each play one video or audio in the Practice tab. */
 val GuidedSections = listOf(ContentSection.BlueLight, ContentSection.QuickProtection, ContentSection.Morning, ContentSection.Night)
 
-enum class MediaType { Video, Audio }
+/** Video and Audio are files we host; YouTube streams a video from the Ojas Healing channel. */
+enum class MediaType { Video, Audio, YouTube }
 
-/** One guided practice's media, from config/practiceMedia.<section id>. */
+/**
+ * One guided practice's media, from config/practiceMedia.<section id>. For [MediaType.YouTube]
+ * the [url] holds the YouTube video id.
+ */
 data class PracticeMedia(val section: ContentSection, val url: String, val type: MediaType, val durationSec: Int, val title: String)
 
+/** Reads one config/practiceMedia entry; null when it is missing or incomplete. */
+fun parsePracticeMedia(section: ContentSection, m: Map<*, *>?): PracticeMedia? {
+    m ?: return null
+    val type = when (m["kind"]) {
+        "audio" -> MediaType.Audio
+        "youtube" -> MediaType.YouTube
+        else -> MediaType.Video
+    }
+    val url = (if (type == MediaType.YouTube) m["videoId"] else m["url"]) as? String ?: return null
+    val secs = (m["durationSec"] as? Number)?.toInt() ?: 0
+    if (url.isBlank() || secs <= 0) return null
+    return PracticeMedia(section, url, type, secs, (m["title"] as? String).orEmpty())
+}
+
 /** Points for finishing a guided practice; the server gives it once per practice per IST day. */
-const val PRACTICE_POINTS = 1
+const val PRACTICE_POINTS = 2
 
 /** Mirrors the server's MIN_WATCHED_SHARE: the share of the media that must really be played. */
 const val MIN_WATCHED_SHARE = 0.9
@@ -38,7 +56,7 @@ fun clockLabel(ms: Long): String {
 }
 
 /** What the server said about a finished practice. */
-data class PracticeResult(val awarded: Boolean, val completedGoals: List<String>)
+data class PracticeResult(val awarded: Boolean, val completedGoals: List<String>, val points: Int = 0, val streak: Int = 0)
 
 class PracticeMediaRepository(private val db: FirebaseFirestore, private val functions: FirebaseFunctions) {
 
@@ -46,15 +64,7 @@ class PracticeMediaRepository(private val db: FirebaseFirestore, private val fun
     fun observeMedia(): Flow<Map<ContentSection, PracticeMedia>> = callbackFlow {
         val reg = db.document("config/practiceMedia").addSnapshotListener { snap, _ ->
             val out = GuidedSections.mapNotNull { section ->
-                val m = snap?.get(section.id) as? Map<*, *> ?: return@mapNotNull null
-                val url = m["url"] as? String ?: return@mapNotNull null
-                val secs = (m["durationSec"] as? Number)?.toInt() ?: 0
-                if (url.isBlank() || secs <= 0) return@mapNotNull null
-                section to PracticeMedia(
-                    section, url,
-                    if (m["kind"] == "audio") MediaType.Audio else MediaType.Video,
-                    secs, (m["title"] as? String).orEmpty()
-                )
+                parsePracticeMedia(section, snap?.get(section.id) as? Map<*, *>)?.let { section to it }
             }.toMap()
             trySend(out)
         }
@@ -83,7 +93,9 @@ class PracticeMediaRepository(private val db: FirebaseFirestore, private val fun
         val data = functions.getHttpsCallable("completePractice").call(mapOf("section" to section.id)).await().getData() as? Map<*, *>
         PracticeResult(
             awarded = data?.get("awarded") == true,
-            completedGoals = (data?.get("completedGoals") as? List<*>).orEmpty().map { it.toString() }
+            completedGoals = (data?.get("completedGoals") as? List<*>).orEmpty().map { it.toString() },
+            points = (data?.get("points") as? Number)?.toInt() ?: if (data?.get("awarded") == true) PRACTICE_POINTS else 0,
+            streak = (data?.get("streak") as? Number)?.toInt() ?: 0
         )
     }
 }

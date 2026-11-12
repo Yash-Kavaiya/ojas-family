@@ -28,7 +28,7 @@ import {
 import type { Messenger } from "./notify";
 import { istDay } from "./time";
 import { applyAdminList, applyAdminListNow, givePointsFor, statsFor } from "./admin";
-import { reverseTransferFor, setTransfersFrozenFor, staffAdjustPointsFor, transferPointsFor, updatePointsConfigFor } from "./transfer";
+import { findGiftRecipientsFor, reverseTransferFor, setTransfersFrozenFor, staffAdjustPointsFor, transferPointsFor, updatePointsConfigFor } from "./transfer";
 import { onProfileWritten } from "./profilePoints";
 import { askSwamijiFor, deleteAiChatFor, rateAiAnswerFor, remainingToday } from "./ai";
 import { geminiDeps } from "./aiGemini";
@@ -206,6 +206,11 @@ export const userWritten = onDocumentWritten("users/{uid}", async (e) => {
 export const transferPoints = onCall({ enforceAppCheck: enforceAppCheck }, async (req) => {
   const uid = requireUid(req);
   return transferPointsFor(db, uid, (req.data ?? {}) as Record<string, unknown>, new Date());
+});
+
+export const findGiftRecipients = onCall({ enforceAppCheck: enforceAppCheck }, async (req) => {
+  const uid = requireUid(req);
+  return findGiftRecipientsFor(db, uid, (req.data ?? {}) as Record<string, unknown>);
 });
 
 export const staffAdjustPoints = onCall(async (req) => {
