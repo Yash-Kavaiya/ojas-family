@@ -523,7 +523,7 @@
     <string name="guided_seconds">%1$d sec</string>
     <string name="media_video">Video</string>
     <string name="media_audio">Audio</string>
-    <string name="guided_earn">+%1$d point</string>
+    <string name="guided_earn">Earn +%1$d</string>
     <string name="guided_done">Done today</string>
     <string name="guided_resume">Resume · %1$s</string>
     <string name="guided_locked">Level 4 or membership</string>
@@ -532,10 +532,10 @@
     <string name="session_breathe_out">Breathe out</string>
     <string name="session_rewind">Back 10 seconds</string>
     <string name="session_forward">Forward 10 seconds</string>
-    <string name="session_watch_hint">Stay till the end to earn %1$d Moksha Point</string>
+    <string name="session_watch_hint">Stay till the end to earn Moksha Points (+%1$d)</string>
     <string name="session_done_hint">Today’s point is already yours. Practise as often as you like.</string>
     <string name="session_complete_title">Practice complete</string>
-    <string name="session_complete_points">+%1$d Moksha Point</string>
+    <string name="session_complete_points">Moksha Points +%1$d</string>
     <string name="session_complete_again">You already earned today’s point for this practice. Come back tomorrow for another.</string>
     <string name="session_complete_failed">Could not record your practice. Check your internet and try again.</string>
     <string name="session_retry">Try again</string>

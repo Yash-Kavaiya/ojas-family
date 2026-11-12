@@ -81,7 +81,7 @@ fun Wavefront(level: () -> Float, playing: Boolean, modifier: Modifier = Modifie
             for (i in 0..steps) {
                 val x = i / steps.toFloat()
                 // Taper both ends so it reads as one travelling front of light, not a cut-off line
-                val envelope = sin(PI.toFloat() * x).pow(1.6f)
+                val envelope = sin(PI.toFloat() * x).coerceAtLeast(0f).pow(1.6f)
                 val y = mid + maxAmp * loud * layer.amp * envelope *
                     sin(2f * PI.toFloat() * (layer.freq * x) + t * layer.speed * 2.2f + k * 1.3f)
                 val px = x * size.width
@@ -138,9 +138,9 @@ fun BoxScope.BlueLightSweep(playing: Boolean, level: () -> Float = { 0f }) {
         drawRect(
             Brush.verticalGradient(
                 0f to Color.Transparent,
-                0.35f to HealingLight.Blue.copy(alpha = 0.22f * strength * boost),
-                0.5f to HealingLight.Glow.copy(alpha = 0.30f * strength * boost),
-                0.65f to HealingLight.Blue.copy(alpha = 0.22f * strength * boost),
+                0.35f to HealingLight.Blue.copy(alpha = 0.34f * strength * boost),
+                0.5f to HealingLight.Glow.copy(alpha = 0.46f * strength * boost),
+                0.65f to HealingLight.Blue.copy(alpha = 0.34f * strength * boost),
                 1f to Color.Transparent,
                 startY = y - band, endY = y + band,
             ),
@@ -149,7 +149,7 @@ fun BoxScope.BlueLightSweep(playing: Boolean, level: () -> Float = { 0f }) {
         // A thin bright leading edge
         drawRect(
             Brush.verticalGradient(
-                listOf(Color.Transparent, Color.White.copy(alpha = 0.10f * strength), Color.Transparent),
+                listOf(Color.Transparent, Color.White.copy(alpha = 0.22f * strength), Color.Transparent),
                 startY = y - 6 * density, endY = y + 6 * density,
             ),
         )

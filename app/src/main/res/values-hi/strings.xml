@@ -531,10 +531,10 @@
     <string name="session_breathe_out">साँस छोड़ें</string>
     <string name="session_rewind">10 सेकंड पीछे</string>
     <string name="session_forward">10 सेकंड आगे</string>
-    <string name="session_watch_hint">%1$d मोक्ष अंक पाने के लिए अंत तक रहें</string>
+    <string name="session_watch_hint">मोक्ष अंक (+%1$d) पाने के लिए अंत तक रहें</string>
     <string name="session_done_hint">आज का अंक आपको मिल चुका है। जितनी बार चाहें अभ्यास करें।</string>
     <string name="session_complete_title">अभ्यास पूरा हुआ</string>
-    <string name="session_complete_points">+%1$d मोक्ष अंक</string>
+    <string name="session_complete_points">मोक्ष अंक +%1$d</string>
     <string name="session_complete_again">इस अभ्यास का आज का अंक आपको मिल चुका है। कल फिर आइए।</string>
     <string name="session_complete_failed">आपका अभ्यास दर्ज नहीं हो सका। इंटरनेट जाँचें और फिर कोशिश करें।</string>
     <string name="session_retry">फिर कोशिश करें</string>

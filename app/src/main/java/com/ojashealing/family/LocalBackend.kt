@@ -35,11 +35,15 @@ object LocalBackend {
         }.getOrNull()?.trim()?.takeIf { it.isNotEmpty() }
     }
 
-    /** Call first thing in Application.onCreate, before anything else touches Firebase. */
-    fun useIfAsked(context: Context) {
-        val host = hostOrNull() ?: return
-        val base = FirebaseOptions.fromResource(context) ?: return
-        runCatching { FirebaseApp.getInstance().delete() }
+    /**
+     * Call first thing in Application.onCreate, before anything else touches Firebase. Starts the
+     * default app on the emulators and returns true, or returns false to start it normally. Debug
+     * builds don't auto-start Firebase (src/debug/AndroidManifest.xml), so nothing is deleted here.
+     */
+    fun initializeIfAsked(context: Context): Boolean {
+        val host = hostOrNull() ?: return false
+        val base = FirebaseOptions.fromResource(context) ?: return false
+        if (FirebaseApp.getApps(context).isNotEmpty()) return false
         FirebaseApp.initializeApp(
             context,
             FirebaseOptions.Builder(base).setProjectId(PROJECT).setStorageBucket("$PROJECT.appspot.com").build()
@@ -49,5 +53,6 @@ object LocalBackend {
         Firebase.storage.useEmulator(host, 9199)
         Firebase.functions("asia-south1").useEmulator(host, 5001)
         Log.w("OjasLocalBackend", "Using Firebase emulators at $host (project $PROJECT)")
+        return true
     }
 }

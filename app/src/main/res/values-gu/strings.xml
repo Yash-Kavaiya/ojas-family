@@ -531,10 +531,10 @@
     <string name="session_breathe_out">શ્વાસ છોડો</string>
     <string name="session_rewind">10 સેકન્ડ પાછળ</string>
     <string name="session_forward">10 સેકન્ડ આગળ</string>
-    <string name="session_watch_hint">%1$d મોક્ષ પોઇન્ટ મેળવવા અંત સુધી રહો</string>
+    <string name="session_watch_hint">મોક્ષ પોઇન્ટ (+%1$d) મેળવવા અંત સુધી રહો</string>
     <string name="session_done_hint">આજનો પોઇન્ટ તમને મળી ગયો છે. જેટલી વાર ઈચ્છો અભ્યાસ કરો.</string>
     <string name="session_complete_title">અભ્યાસ પૂરો થયો</string>
-    <string name="session_complete_points">+%1$d મોક્ષ પોઇન્ટ</string>
+    <string name="session_complete_points">મોક્ષ પોઇન્ટ +%1$d</string>
     <string name="session_complete_again">આ અભ્યાસનો આજનો પોઇન્ટ તમને મળી ગયો છે. કાલે ફરી આવજો.</string>
     <string name="session_complete_failed">તમારો અભ્યાસ નોંધાઈ શક્યો નહીં. ઇન્ટરનેટ તપાસીને ફરી પ્રયાસ કરો.</string>
     <string name="session_retry">ફરી પ્રયાસ કરો</string>
