@@ -1,6 +1,7 @@
 import { Timestamp, type Firestore } from "firebase-admin/firestore";
 import { bumpCount } from "./counters";
 import { awardPoints } from "./points";
+import { loadPointsConfig } from "./pointsConfig";
 import { istDay } from "./time";
 
 interface PostData {
@@ -32,7 +33,7 @@ export async function onLikeChanged(db: Firestore, parentPath: string, uid: stri
   const [kind, id] = parentPath.split("/");
   await awardPoints(db, uid, {
     eventKey: `like:${kind === "thoughts" ? "thought" : "question"}:${id}`,
-    amount: 1,
+    amount: (await loadPointsConfig(db)).like,
     reason: "like",
     milestone: false,
     cap: { action: "like", day: today },
@@ -47,7 +48,7 @@ export async function onCommentWritten(
   if (after?.authorUid && becameVisible(before, after)) {
     await awardPoints(db, after.authorUid, {
       eventKey: `comment:${thoughtPath.split("/")[1]}:${commentId}`,
-      amount: 1,
+      amount: (await loadPointsConfig(db)).comment,
       reason: "comment",
       milestone: false,
       cap: { action: "comment", day: istDay(now) },
@@ -61,7 +62,7 @@ export async function onQuestionWritten(
   if (after?.authorUid && becameVisible(before, after)) {
     await awardPoints(db, after.authorUid, {
       eventKey: `question:${questionId}`,
-      amount: 1,
+      amount: (await loadPointsConfig(db)).question,
       reason: "question",
       milestone: false,
       cap: { action: "question", day: istDay(now) },
@@ -77,7 +78,7 @@ export async function onAnswerWritten(
   if (after?.authorUid && becameVisible(before, after)) {
     await awardPoints(db, after.authorUid, {
       eventKey: `answer:${questionId}:${answerId}`,
-      amount: 1,
+      amount: (await loadPointsConfig(db)).answer,
       reason: "answer",
       milestone: false,
       cap: { action: "comment", day: istDay(now) },

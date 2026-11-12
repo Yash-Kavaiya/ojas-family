@@ -12,6 +12,7 @@
     "grant-admin": "ts-node scripts/grantAdmin.ts"
   },
   "dependencies": {
+    "@google/genai": "^1.52.0",
     "fast-xml-parser": "^4.5.7",
     "firebase-admin": "^13.4.0",
     "firebase-functions": "^6.4.0",
