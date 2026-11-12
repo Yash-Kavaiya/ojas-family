@@ -34,8 +34,10 @@ real payments, no mock data anywhere.
 
 - iOS app and web admin portal.
 - Hosting our own video library: video stays on YouTube.
-- AI-generated answers. Swamiji's chat replies come from Swamiji or an assigned senior
-  member, never from the app (the current canned `generateSwamijiResponse` is removed).
+- AI answers in Swamiji's own chat. Swamiji's chat replies come from Swamiji or an assigned senior
+  member, never from the app. (Changed 2026-11-12 by the owner: the separate "Ask Swamiji AI"
+  screen does answer with Gemini, grounded only in Ojas Healing's videos and texts and labelled as
+  an AI guide, not Swamiji. See docs/go-live-remaining-features.md §7.)
 
 ## 4. Anti-goals (would be failure even if it "works")
 
