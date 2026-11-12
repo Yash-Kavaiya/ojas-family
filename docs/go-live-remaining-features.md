@@ -103,7 +103,12 @@ Built and tested locally. Each step below changes the live project, so it needs 
    ```
    Admin site → **Ask Swamiji AI** shows how many videos were read, which failed, members' 👍/👎 on
    answers, the daily question allowance and an on/off switch.
-4. **Quick Protection = Protection Vidhi 1 from YouTube** (no upload). Put the video's length in seconds
+4. **Turn on embedding on the Ojas Healing YouTube videos first.** Checked 2026-11-13: YouTube answers
+   "embedding disabled" for every library video tested, including Vidhi 1 (KPRvRrJgmVk), so they
+   can't play inside the app (the Spiritual library and Quick Protection show "Open in YouTube"
+   instead, and no practice points can be earned for them). In YouTube Studio → Content → select all
+   → Edit → **Allow embedding** → Update.
+   **Quick Protection = Protection Vidhi 1 from YouTube** (no upload). Put the video's length in seconds
    (the server checks the member really listened to 90% of it):
    ```sh
    npx ts-node scripts/uploadPracticeMedia.ts ../../videos/streaming --youtube quick_protection=KPRvRrJgmVk:<seconds>

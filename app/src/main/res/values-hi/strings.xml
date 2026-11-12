@@ -729,4 +729,5 @@
         <item quantity="other">अपना %d दिन का सिलसिला बनाए रखें</item>
     </plurals>
     <string name="home_practice_sub">ब्लू हीलिंग लाइट, प्रोटेक्शन, सुबह और रात</string>
+    <string name="session_youtube_blocked">यह वीडियो अभी ऐप के अंदर नहीं चल सकता। इसे YouTube पर देखें; अंक तब मिलते हैं जब यह यहाँ चलता है।</string>
 </resources>

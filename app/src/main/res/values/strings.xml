@@ -730,4 +730,5 @@
         <item quantity="other">Keep your %d-day streak alive</item>
     </plurals>
     <string name="home_practice_sub">Blue Healing Light, Protection, Morning and Night</string>
+    <string name="session_youtube_blocked">This video can\'t play inside the app yet. Watch it on YouTube; points are earned when it plays here.</string>
 </resources>

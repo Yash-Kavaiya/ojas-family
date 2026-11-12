@@ -729,4 +729,5 @@
         <item quantity="other">તમારો %d દિવસનો સિલસિલો ચાલુ રાખો</item>
     </plurals>
     <string name="home_practice_sub">બ્લૂ હીલિંગ લાઇટ, પ્રોટેક્શન, સવાર અને રાત</string>
+    <string name="session_youtube_blocked">આ વિડિયો હજી એપની અંદર ચાલી શકતો નથી. તેને YouTube પર જુઓ; ગુણ ત્યારે મળે છે જ્યારે તે અહીં ચાલે.</string>
 </resources>

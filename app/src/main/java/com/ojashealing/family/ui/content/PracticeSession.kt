@@ -545,6 +545,9 @@ private fun YouTubeSurface(vm: PracticeSessionViewModel, accent: Color) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val videoId = vm.ui.collectAsStateWithLifecycle().value.media?.url ?: return
     var ytPlayer by remember { mutableStateOf<YouTubePlayer?>(null) }
+    // The channel can switch off playback outside YouTube for a video; then say so and offer the YouTube app
+    var blocked by remember { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
     LaunchedEffect(ytPlayer) {
         val p = ytPlayer ?: return@LaunchedEffect
         vm.youTubeCommands.collect { c ->
@@ -584,6 +587,10 @@ private fun YouTubeSurface(vm: PracticeSessionViewModel, accent: Color) {
                             lastSecond = second
                             vm.onYouTubeProgress((second * 1000).toLong(), playing)
                         }
+                        override fun onError(youTubePlayer: YouTubePlayer, error: PlayerConstants.PlayerError) {
+                            blocked = true
+                            vm.onYouTubeBuffering(false)
+                        }
                     })
                 }
             },
@@ -592,6 +599,19 @@ private fun YouTubeSurface(vm: PracticeSessionViewModel, accent: Color) {
                 v.release()
             }
         )
+        if (blocked) {
+            Column(
+                Modifier.fillMaxSize().background(Color(0xF00B1530)).padding(Spacing.l),
+                verticalArrangement = Arrangement.spacedBy(Spacing.s, Alignment.CenterVertically),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(stringResource(R.string.session_youtube_blocked), color = Color.White, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium)
+                Button(
+                    onClick = { runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://www.youtube.com/watch?v=$videoId"))) } },
+                    colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = BackgroundDark),
+                ) { Text(stringResource(R.string.video_open_youtube)) }
+            }
+        }
     }
 }
 
