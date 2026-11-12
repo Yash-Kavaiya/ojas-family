@@ -27,7 +27,8 @@ import { Type } from "@google/genai";
 import { embedText, genai } from "../src/aiGemini";
 import { DEFAULT_AI } from "../src/ai";
 
-initializeApp({ projectId: "ojas-family-app" });
+// GCLOUD_PROJECT=demo-ojas with FIRESTORE_EMULATOR_HOST set builds into the local emulator instead
+initializeApp({ projectId: process.env.GCLOUD_PROJECT || "ojas-family-app" });
 const db = getFirestore();
 
 const args = process.argv.slice(2);

@@ -605,7 +605,7 @@
     <string name="earn_streak">Every %1$d days in a row of practice</string>
     <string name="earn_community">Like, comment, ask or answer</string>
     <string name="earn_profile_item">Each profile item you fill in</string>
-    <string name="earn_profile_complete">Profile 100% complete</string>
+    <string name="earn_profile_complete" formatted="false">Profile 100% complete</string>
     <string name="earn_ai">First Ask Swamiji AI question of the day</string>
     <string name="earn_goals">Complete goals (points shown on each goal)</string>
     <string name="earn_cap_daily">Once a day</string>
@@ -696,7 +696,7 @@
     <string name="profile_completion_waiting">Fill in the rest to earn %1$d Moksha Points.</string>
     <string name="profile_completion_done">Profile complete</string>
     <string name="profile_completion_done_body">Thank you. Your full profile helps the family know you.</string>
-    <string name="profile_complete_title">Profile 100% complete</string>
+    <string name="profile_complete_title" formatted="false">Profile 100% complete</string>
     <string name="profile_complete_body">You earned a bonus of %1$d Moksha Points. Jai ho!</string>
     <string name="ai_subtitle">Answers from Swamiji\'s teachings</string>
     <string name="ai_writing">Writing…</string>

@@ -77,7 +77,16 @@ Built and tested locally. Each step below changes the live project, so it needs 
 
 1. **Deploy** rules, indexes and functions (step 1 above). The new `knowledge` vector index takes a
    few minutes to build.
-2. **Vertex AI**: enable the API once, then let the Functions service account use it. 2nd-gen functions run as the Compute default service account (check the account shown on a function in the Cloud console if it was changed):
+2. **Gemini key** (owner's AI Studio key, 2026-11-13): store it as a secret; the app never sees it.
+   The key's AI Studio project needs prepaid credits (on 2026-11-13 it answered "prepayment credits
+   are depleted"): https://ai.studio/projects
+   ```sh
+   cd firebase && firebase functions:secrets:set GEMINI_API_KEY --project ojas-family-app
+   ```
+   `askSwamiji` needs this secret to deploy. With the key in place the Vertex AI step below is not
+   needed; to build the knowledge base with it, run the script with `GEMINI_API_KEY=<key>` set.
+
+   **Or Vertex AI** (no key): enable the API once, then let the Functions service account use it. 2nd-gen functions run as the Compute default service account (check the account shown on a function in the Cloud console if it was changed):
    ```sh
    gcloud services enable aiplatform.googleapis.com --project ojas-family-app
    gcloud projects add-iam-policy-binding ojas-family-app \

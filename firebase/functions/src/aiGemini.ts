@@ -3,17 +3,27 @@ import type { Firestore } from "firebase-admin/firestore";
 import type { AiDeps, Passage, Turn } from "./ai";
 
 /**
- * Gemini on Vertex AI, signed in as the Functions service account: no API key anywhere in the app
- * or the code. Needs the Vertex AI API switched on for the project.
+ * Gemini for Ask Swamiji AI. A key, if used, stays on the server as a secret, never in the app or
+ * the code.
  */
 export const EMBED_DIMENSIONS = 768; // Firestore vector fields allow up to 2048
 export const VERTEX_LOCATION = process.env.VERTEX_LOCATION || "us-central1";
 
 let client: GoogleGenAI | null = null;
+/**
+ * With GEMINI_API_KEY set (a Gemini API key from AI Studio, kept as the Firebase secret of that name)
+ * the Gemini Developer API is used; without it, the Functions service account signs in to Vertex AI.
+ * The same model names work on both.
+ */
 export function genai(): GoogleGenAI {
   if (!client) {
-    const project = process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || "ojas-family-app";
-    client = new GoogleGenAI({ vertexai: true, project, location: VERTEX_LOCATION });
+    const apiKey = process.env.GEMINI_API_KEY?.trim();
+    if (apiKey) {
+      client = new GoogleGenAI({ apiKey });
+    } else {
+      const project = process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || "ojas-family-app";
+      client = new GoogleGenAI({ vertexai: true, project, location: VERTEX_LOCATION });
+    }
   }
   return client;
 }

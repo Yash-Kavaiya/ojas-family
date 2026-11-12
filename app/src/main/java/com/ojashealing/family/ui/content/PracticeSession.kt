@@ -204,6 +204,7 @@ class PracticeProgressStore(context: Context) {
  * another screen does not restart the video. Only real playing time counts toward finishing.
  */
 @kotlin.OptIn(ExperimentalCoroutinesApi::class)
+@androidx.annotation.OptIn(UnstableApi::class)
 class PracticeSessionViewModel(
     context: Context,
     val section: ContentSection,

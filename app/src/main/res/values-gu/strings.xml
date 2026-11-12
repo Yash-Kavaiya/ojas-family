@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="tab_community">સમુદાય</string>
     <string name="tab_spiritual">સાધના</string>
     <string name="tab_home">હોમ</string>
@@ -587,7 +587,7 @@
         <item quantity="one">સતત %d દિવસ</item>
         <item quantity="other">સતત %d દિવસ</item>
     </plurals>
-    <plurals name="streak_days_label">
+    <plurals name="streak_days_label" tools:ignore="ImpliedQuantity">
         <item quantity="one">દિવસ સતત</item>
         <item quantity="other">દિવસ સતત</item>
     </plurals>
@@ -604,7 +604,7 @@
     <string name="earn_streak">સતત દર %1$d દિવસના અભ્યાસ પર</string>
     <string name="earn_community">લાઇક, ટિપ્પણી, પ્રશ્ન કે જવાબ</string>
     <string name="earn_profile_item">પ્રોફાઇલનો દરેક ભાગ ભરવા પર</string>
-    <string name="earn_profile_complete">પ્રોફાઇલ 100% પૂર્ણ</string>
+    <string name="earn_profile_complete" formatted="false">પ્રોફાઇલ 100% પૂર્ણ</string>
     <string name="earn_ai">દિવસનો પહેલો \'સ્વામીજીને પૂછો AI\' પ્રશ્ન</string>
     <string name="earn_goals">લક્ષ્યો પૂરા કરો (દરેક લક્ષ્ય પર ગુણ લખેલા છે)</string>
     <string name="earn_cap_daily">દિવસમાં એક વાર</string>
@@ -695,7 +695,7 @@
     <string name="profile_completion_waiting">બાકી ભરો અને %1$d મોક્ષ ગુણ મેળવો.</string>
     <string name="profile_completion_done">પ્રોફાઇલ પૂર્ણ</string>
     <string name="profile_completion_done_body">આભાર. પૂરી પ્રોફાઇલથી પરિવાર તમને વધુ સારી રીતે ઓળખે છે.</string>
-    <string name="profile_complete_title">પ્રોફાઇલ 100% પૂર્ણ</string>
+    <string name="profile_complete_title" formatted="false">પ્રોફાઇલ 100% પૂર્ણ</string>
     <string name="profile_complete_body">તમને %1$d મોક્ષ ગુણનું બોનસ મળ્યું. જય હો!</string>
     <string name="ai_subtitle">સ્વામીજીના ઉપદેશમાંથી જવાબ</string>
     <string name="ai_writing">લખી રહ્યું છે…</string>
