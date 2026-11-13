@@ -53,8 +53,20 @@ async function main() {
     if (!m || !(PRACTICE_SECTIONS as readonly string[]).includes(m[1])) throw new Error("Use --youtube <section>=<videoId>:<seconds>");
     youtube.set(m[1], { videoId: m[2], seconds: Number(m[3]) });
   });
+  // --youtube-fallback section=videoId:seconds: played when the main video can't play in the app
+  const fallback = new Map<string, { videoId: string; seconds: number }>();
+  process.argv.forEach((a, i) => {
+    if (a !== "--youtube-fallback") return;
+    const m = /^([a-z_]+)=([A-Za-z0-9_-]{11}):(\d+)$/.exec(process.argv[i + 1] ?? "");
+    if (!m || !(PRACTICE_SECTIONS as readonly string[]).includes(m[1])) throw new Error("Use --youtube-fallback <section>=<videoId>:<seconds>");
+    fallback.set(m[1], { videoId: m[2], seconds: Number(m[3]) });
+  });
   for (const [section, y] of youtube) {
-    config[section] = { kind: "youtube", videoId: y.videoId, durationSec: y.seconds, title: TITLES[section], url: FieldValue.delete() };
+    const f = fallback.get(section);
+    config[section] = {
+      kind: "youtube", videoId: y.videoId, durationSec: y.seconds, title: TITLES[section], url: FieldValue.delete(),
+      fallbackVideoId: f ? f.videoId : FieldValue.delete(), fallbackDurationSec: f ? f.seconds : FieldValue.delete(),
+    };
     console.log(`- ${section}: YouTube ${y.videoId} (${y.seconds}s)`);
   }
 

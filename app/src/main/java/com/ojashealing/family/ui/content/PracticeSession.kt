@@ -338,6 +338,17 @@ class PracticeSessionViewModel(
 
     fun onYouTubeBuffering(buffering: Boolean) = _ui.update { it.copy(buffering = buffering) }
 
+    /**
+     * The main YouTube video can't play in the app: switch to the fallback video, if one is set.
+     * Returns its id to play, or null when there is none (the screen then offers the YouTube app).
+     */
+    fun switchToYouTubeFallback(): String? {
+        val next = _ui.value.media?.withFallback() ?: return null
+        ytPositionMs = 0
+        _ui.update { it.copy(media = next, durationMs = next.durationSec * 1000L, positionMs = 0, watchedMs = 0, reachedMs = 0, buffering = false) }
+        return next.url
+    }
+
     /** The YouTube video reached its end. */
     fun onYouTubeEnded() {
         ytPlaying = false
@@ -588,8 +599,15 @@ private fun YouTubeSurface(vm: PracticeSessionViewModel, accent: Color) {
                             vm.onYouTubeProgress((second * 1000).toLong(), playing)
                         }
                         override fun onError(youTubePlayer: YouTubePlayer, error: PlayerConstants.PlayerError) {
-                            blocked = true
-                            vm.onYouTubeBuffering(false)
+                            // Try the fallback video first; only if there is none, offer the YouTube app
+                            val fallback = vm.switchToYouTubeFallback()
+                            if (fallback != null) {
+                                lastSecond = 0f
+                                youTubePlayer.cueVideo(fallback, 0f)
+                            } else {
+                                blocked = true
+                                vm.onYouTubeBuffering(false)
+                            }
                         }
                     })
                 }
