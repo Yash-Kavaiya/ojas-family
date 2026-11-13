@@ -46,6 +46,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
@@ -110,9 +111,9 @@ fun CommunityScreen(
                 containerColor = MaterialTheme.colorScheme.surface,
                 contentColor = MaterialTheme.colorScheme.primary
             ) {
-                Tab(selected = tab == CommunityTab.NOTICES, onClick = { onTab(CommunityTab.NOTICES) }, text = { Text(stringResource(R.string.community_notices), maxLines = 1, style = MaterialTheme.typography.labelLarge) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
-                Tab(selected = tab == CommunityTab.DAILY, onClick = { onTab(CommunityTab.DAILY) }, text = { Text(stringResource(R.string.community_daily), maxLines = 1, style = MaterialTheme.typography.labelLarge) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
-                Tab(selected = tab == CommunityTab.QA, onClick = { onTab(CommunityTab.QA) }, text = { Text(stringResource(R.string.community_qa), maxLines = 1, style = MaterialTheme.typography.labelLarge) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
+                Tab(selected = tab == CommunityTab.NOTICES, onClick = { onTab(CommunityTab.NOTICES) }, text = { com.ojashealing.family.ui.components.FitText(stringResource(R.string.community_notices), MaterialTheme.typography.labelLarge) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
+                Tab(selected = tab == CommunityTab.DAILY, onClick = { onTab(CommunityTab.DAILY) }, text = { com.ojashealing.family.ui.components.FitText(stringResource(R.string.community_daily), MaterialTheme.typography.labelLarge) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
+                Tab(selected = tab == CommunityTab.QA, onClick = { onTab(CommunityTab.QA) }, text = { com.ojashealing.family.ui.components.FitText(stringResource(R.string.community_qa), MaterialTheme.typography.labelLarge) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (tab == CommunityTab.DAILY) {
                 Box(Modifier.weight(1f)) { daily(p.canPostDaily) }
@@ -170,7 +171,7 @@ private fun QuestionCard(q: Question, onClick: () -> Unit) {
         }
         Text(q.title, style = MaterialTheme.typography.titleLarge, maxLines = 3, overflow = TextOverflow.Ellipsis)
         Text(
-            listOf(stringResource(R.string.likes_count, q.likeCount), stringResource(R.string.community_answers_count, q.answerCount)).joinToString(" · "),
+            listOf(pluralStringResource(R.plurals.likes_plural, q.likeCount, q.likeCount), stringResource(R.string.community_answers_count, q.answerCount)).joinToString(" · "),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -226,7 +227,7 @@ fun QuestionDetailScreen(
                     if (q.imageUrl.isNotEmpty()) PostImage(q.imageUrl)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         LikeButton(liked = liked, enabled = p.canLike, onToggle = { vm.setLiked(q.id, !liked) })
-                        Text(stringResource(R.string.likes_count, q.likeCount), style = MaterialTheme.typography.labelLarge)
+                        Text(pluralStringResource(R.plurals.likes_plural, q.likeCount, q.likeCount), style = MaterialTheme.typography.labelLarge)
                     }
                 }
             }

@@ -20,7 +20,21 @@ enum class MediaType { Video, Audio, YouTube }
  * One guided practice's media, from config/practiceMedia.<section id>. For [MediaType.YouTube]
  * the [url] holds the YouTube video id.
  */
-data class PracticeMedia(val section: ContentSection, val url: String, val type: MediaType, val durationSec: Int, val title: String)
+data class PracticeMedia(
+    val section: ContentSection,
+    val url: String,
+    val type: MediaType,
+    val durationSec: Int,
+    val title: String,
+    /** YouTube only: played instead when [url] can't be played inside the app (embedding off). */
+    val fallbackVideoId: String? = null,
+    val fallbackDurationSec: Int = 0,
+) {
+    /** The same practice, playing the fallback video. */
+    fun withFallback(): PracticeMedia? =
+        fallbackVideoId?.takeIf { it.isNotBlank() && fallbackDurationSec > 0 && it != url }
+            ?.let { copy(url = it, durationSec = fallbackDurationSec, fallbackVideoId = null, fallbackDurationSec = 0) }
+}
 
 /** Reads one config/practiceMedia entry; null when it is missing or incomplete. */
 fun parsePracticeMedia(section: ContentSection, m: Map<*, *>?): PracticeMedia? {
@@ -33,7 +47,11 @@ fun parsePracticeMedia(section: ContentSection, m: Map<*, *>?): PracticeMedia? {
     val url = (if (type == MediaType.YouTube) m["videoId"] else m["url"]) as? String ?: return null
     val secs = (m["durationSec"] as? Number)?.toInt() ?: 0
     if (url.isBlank() || secs <= 0) return null
-    return PracticeMedia(section, url, type, secs, (m["title"] as? String).orEmpty())
+    return PracticeMedia(
+        section, url, type, secs, (m["title"] as? String).orEmpty(),
+        fallbackVideoId = (m["fallbackVideoId"] as? String)?.takeIf { type == MediaType.YouTube && it.isNotBlank() },
+        fallbackDurationSec = (m["fallbackDurationSec"] as? Number)?.toInt() ?: 0,
+    )
 }
 
 /** Points for finishing a guided practice; the server gives it once per practice per IST day. */

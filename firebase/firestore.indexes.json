@@ -155,19 +155,6 @@
       ]
     },
     {
-      "collectionGroup": "knowledge",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "embedding",
-          "vectorConfig": {
-            "dimension": 768,
-            "flat": {}
-          }
-        }
-      ]
-    },
-    {
       "collectionGroup": "pointTransfers",
       "queryScope": "COLLECTION",
       "fields": [

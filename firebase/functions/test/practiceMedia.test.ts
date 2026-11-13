@@ -43,6 +43,14 @@ test("a YouTube practice works like a file", async () => {
   expect((await completePracticeFor(db, "u1", undefined, "quick_protection", at("2026-11-08T04:05:00Z"))).awarded).toBe(true);
 });
 
+test("a YouTube fallback video counts with its own, shorter length", async () => {
+  await db.doc("config/practiceMedia").set({
+    quick_protection: { kind: "youtube", videoId: "abc123", durationSec: 1200, title: "Vidhi 1", fallbackVideoId: "QFNoym-jpbY", fallbackDurationSec: 282 },
+  }, { merge: true });
+  await startPracticeFor(db, "u1", undefined, "quick_protection", at("2026-11-08T04:00:00Z"));
+  expect((await completePracticeFor(db, "u1", undefined, "quick_protection", at("2026-11-08T04:04:50Z"))).awarded).toBe(true);
+});
+
 test("the 7th day in a row gives the streak bonus once", async () => {
   for (let d = 1; d <= 6; d++) {
     await db.doc(`users/u1/practiceLog/2026-11-0${d}`).set({ any: true });

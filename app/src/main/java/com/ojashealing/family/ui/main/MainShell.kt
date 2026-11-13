@@ -537,12 +537,8 @@ fun MainShell(container: AppContainer) {
                                 modifier = Modifier.testTag("nav_${item.name}"),
                                 icon = { SuiteIcon(item, tab == item, profile?.photoUrl.orEmpty(), askUnread) },
                                 label = {
-                                    Text(
-                                        stringResource(item.label),
-                                        style = MaterialTheme.typography.labelMedium,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
+                                    // Shrinks a little rather than cutting "Community" to "Communi…"
+                                    com.ojashealing.family.ui.components.FitText(stringResource(item.label), MaterialTheme.typography.labelMedium)
                                 },
                             )
                         }

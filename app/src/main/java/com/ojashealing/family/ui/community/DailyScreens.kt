@@ -49,6 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -211,7 +212,7 @@ private fun DailyCard(post: DailyPost, onClick: () -> Unit) {
         com.ojashealing.family.ui.components.ResponsiveImage(post.imageUrl, maxHeight = 400.dp)
         if (post.text.isNotBlank()) Text(post.text, style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
         Text(
-            listOf(stringResource(R.string.likes_count, post.likeCount), stringResource(R.string.replies_count, post.replyCount)).joinToString(" · "),
+            listOf(pluralStringResource(R.plurals.likes_plural, post.likeCount, post.likeCount), stringResource(R.string.replies_count, post.replyCount)).joinToString(" · "),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         if (post.status == PostStatus.Pending) Text(stringResource(R.string.post_pending), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
@@ -250,7 +251,7 @@ fun DailyPostScreen(vm: DailyViewModel, postId: String, onBack: () -> Unit, show
                     if (post.text.isNotBlank()) Text(post.text, style = MaterialTheme.typography.bodyMedium)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         LikeButton(liked = liked, enabled = true, onToggle = { vm.setLiked(post.id, !liked) })
-                        Text(stringResource(R.string.likes_count, post.likeCount), style = MaterialTheme.typography.labelMedium)
+                        Text(pluralStringResource(R.plurals.likes_plural, post.likeCount, post.likeCount), style = MaterialTheme.typography.labelMedium)
                     }
                 }
             }

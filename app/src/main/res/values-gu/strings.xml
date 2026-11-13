@@ -126,7 +126,6 @@
     <string name="field_message">સંદેશ</string>
     <string name="field_date">તારીખ</string>
     <string name="home_scheduled">વિચાર શેડ્યૂલ થઈ ગયો</string>
-    <string name="likes_count">%1$d લાઇક</string>
     <string name="action_like">લાઇક</string>
     <string name="community_qa">પ્રશ્નોત્તર</string>
     <string name="community_notices">જાહેરાતો</string>
@@ -379,10 +378,10 @@
     <string name="points_src_other">મોક્ષ પોઇન્ટ</string>
     <string name="ai_title">સ્વામીજી AI ને પૂછો</string>
     <string name="ai_beta_tag">નવું</string>
-    <string name="ai_card_desc">ધ્યાન, હીલિંગ, ચક્ર અને રક્ષણ વિશે પૂછો. જવાબ સ્વામીજીના વિડિયોમાંથી આવે છે.</string>
+    <string name="ai_card_desc">ધ્યાન, હીલિંગ, ચક્ર અને રક્ષણ વિશે પૂછો, લખીને, બોલીને કે ફોટો મોકલીને. જવાબ સ્વામીજીના ઉપદેશમાંથી, તમારા ફોન પર જ.</string>
     <string name="ai_hint">ધ્યાન, હીલિંગ, રક્ષણ વિશે પૂછો…</string>
     <string name="ai_intro_title">🙏 નમસ્તે! હું સ્વામીજી AI છું</string>
-    <string name="ai_intro_body">હું ઓજસ હીલિંગ ચેનલ પર સ્વામીજીના પોતાના ઉપદેશમાંથી જવાબ આપું છું અને જે વિડિયોમાંથી જવાબ લીધો તે પણ બતાવું છું. હું માર્ગદર્શક છું, સ્વામીજી નહીં; અંગત વાત માટે સીધા તેમને પૂછો.</string>
+    <string name="ai_intro_body">હું ઓજસ હીલિંગ ચેનલ પર સ્વામીજીના પોતાના ઉપદેશમાંથી, તમારા ફોન પર જ જવાબ આપું છું, અને જે વીડિયોમાંથી જવાબ લીધો તે બતાવું છું. લખો, બોલો કે ફોટો મોકલો. હું એક નાનો માર્ગદર્શક છું, સ્વયં સ્વામીજી નહીં; અંગત વાત માટે સીધું તેમને પૂછો.</string>
     <string name="ai_ask_real">સ્વામીજી સાથે ચેટ કે કૉલ કરો →</string>
     <string name="ai_suggest_meditation">ધ્યાન કેવી રીતે શરૂ કરું?</string>
     <string name="ai_suggest_stress">મને તણાવ લાગે છે</string>
@@ -392,7 +391,6 @@
     <string name="crop_hint">ઝૂમ માટે પિંચ કરો, ખસેડવા માટે ખેંચો</string>
     <string name="crop_use">ફોટો વાપરો</string>
     <string name="settings_hide_profile_locked">પ્રોફાઇલ છુપાવવાનું લેવલ 3 પર ખૂલે છે.</string>
-    <string name="home_view_comments">%1$d કમેન્ટ</string>
     <string name="about_title">વધુ જાણો</string>
     <string name="about_ojas_family">ઓજસ પરિવાર વિશે</string>
     <string name="about_swamiji">સ્વામીજી વિશે</string>
@@ -697,13 +695,13 @@
     <string name="profile_completion_done_body">આભાર. પૂરી પ્રોફાઇલથી પરિવાર તમને વધુ સારી રીતે ઓળખે છે.</string>
     <string name="profile_complete_title" formatted="false">પ્રોફાઇલ 100% પૂર્ણ</string>
     <string name="profile_complete_body">તમને %1$d મોક્ષ ગુણનું બોનસ મળ્યું. જય હો!</string>
-    <string name="ai_subtitle">સ્વામીજીના ઉપદેશમાંથી જવાબ</string>
+    <string name="ai_subtitle">તમારા ફોન પર · સ્વામીજીના ઉપદેશમાંથી</string>
     <string name="ai_writing">લખી રહ્યું છે…</string>
     <string name="ai_ask_real_short">સ્વામીજીને પૂછો</string>
     <string name="ai_try_asking">આવું પૂછો</string>
     <string name="ai_suggest_blue_light">બ્લૂ હીલિંગ લાઇટ ધ્યાન કેવી રીતે કરવું?</string>
     <string name="ai_suggest_protection">પ્રોટેક્શન વિધિ મારું રક્ષણ કેવી રીતે કરે છે?</string>
-    <string name="ai_sources">સ્વામીજીના વિડિયોમાંથી</string>
+    <string name="ai_sources">આ ઉપદેશમાંથી</string>
     <string name="ai_helpful">ઉપયોગી</string>
     <string name="ai_not_helpful">ઉપયોગી નથી</string>
     <string name="ai_copy">કૉપિ કરો</string>
@@ -712,7 +710,6 @@
     <string name="ai_history_empty">તમારા પ્રશ્નો અને જવાબ અહીં રહેશે.</string>
     <string name="ai_new_chat">નવી વાતચીત</string>
     <string name="ai_delete_chat">વાતચીત કાઢી નાખો</string>
-    <string name="ai_quota_left">આજે %1$d પ્રશ્ન બાકી</string>
     <string name="ai_quota_none">આજના પ્રશ્નો પૂરા થયા. કાલે ફરી આવો, અથવા સ્વામીજીને સીધા પૂછો.</string>
     <string name="ai_error">સ્વામીજી AI હમણાં જવાબ આપી શક્યું નહીં. કૃપા કરી ફરી પ્રયત્ન કરો.</string>
     <string name="ai_speak">તમારો પ્રશ્ન બોલો</string>
@@ -730,4 +727,42 @@
     </plurals>
     <string name="home_practice_sub">બ્લૂ હીલિંગ લાઇટ, પ્રોટેક્શન, સવાર અને રાત</string>
     <string name="session_youtube_blocked">આ વિડિયો હજી એપની અંદર ચાલી શકતો નથી. તેને YouTube પર જુઓ; ગુણ ત્યારે મળે છે જ્યારે તે અહીં ચાલે.</string>
+    <string name="ai_model_title">આસ્ક સ્વામીજી AI તૈયાર કરો</string>
+    <string name="ai_model_body">સ્વામીજી AI તમારા ફોન પર ચાલે છે, એટલે તમારા પ્રશ્નો તમારી પાસે રહે છે અને તે ઇન્ટરનેટ વગર પણ ચાલે છે. તે માટે એક વાર %1$s ડાઉનલોડ કરવું પડશે.</string>
+    <string name="ai_model_download">ડાઉનલોડ કરો (%1$s)</string>
+    <string name="ai_model_wifi">આ માટે Wi-Fi સારું છે.</string>
+    <string name="ai_model_downloading">ડાઉનલોડ થઈ રહ્યું છે… %1$d%%</string>
+    <string name="ai_model_keep_open">ત્યાં સુધી તમે એપ વાપરતા રહી શકો છો.</string>
+    <string name="ai_model_failed">ડાઉનલોડ અટકી ગયું. ઇન્ટરનેટ તપાસો અને ફરી પ્રયાસ કરો.</string>
+    <string name="ai_model_no_memory">આ ફોનમાં સ્વામીજી AI માટે પૂરતી મેમરી નથી. તમે તો પણ સ્વામીજીને સીધું પૂછી શકો છો.</string>
+    <string name="ai_model_no_space">તમારા ફોનમાં %1$s જગ્યા ખાલી કરો, પછી ફરી પ્રયાસ કરો.</string>
+    <string name="ai_stage_searching">સ્વામીજીના ઉપદેશમાં જોઈ રહ્યો છું…</string>
+    <string name="ai_stage_loading">તૈયાર થઈ રહ્યો છું…</string>
+    <string name="ai_photo_add">ફોટો ઉમેરો</string>
+    <string name="ai_photo_gallery">ફોટો પસંદ કરો</string>
+    <string name="ai_photo_camera">ફોટો લો</string>
+    <string name="ai_photo_reading">ફોટો વાંચી રહ્યો છું…</string>
+    <string name="ai_photo_ready">ફોટો ઉમેરાયો</string>
+    <string name="ai_photo_nothing">હું આ ફોટામાં શબ્દો વાંચી ન શક્યો, તો કહો કે તમે તેના વિશે શું જાણવા માંગો છો.</string>
+    <string name="ai_photo_remove">ફોટો દૂર કરો</string>
+    <string name="ai_photo_question">સ્વામીજી આ વિશે શું શીખવે છે?</string>
+    <string name="ai_photo_failed">તે ફોટો વાંચી ન શકાયો. બીજો અજમાવો.</string>
+    <string name="ai_read_aloud">સંભળાવો</string>
+    <string name="ai_stop_reading">સંભળાવવાનું બંધ કરો</string>
+    <string name="ai_no_match">મને આ હજી સ્વામીજીના ઉપદેશમાં ન મળ્યું. કૃપા કરીને પૂછો ટેબમાં સ્વામીજીને સીધું પૂછો, અથવા બીજા શબ્દોમાં પૂછી જુઓ.</string>
+    <string name="ai_crisis">તમે મહત્વના છો, અને તમારે આ એકલા સહન કરવાનું નથી. કૃપા કરીને હમણાં જ કોઈ વિશ્વાસુ વ્યક્તિ સાથે વાત કરો, અથવા ટેલી-માનસ 14416 પર કૉલ કરો (મફત, ગમે ત્યારે, તમારી ભાષામાં). જો તમે જોખમમાં હો, તો 112 પર કૉલ કરો. તમે પૂછો ટેબમાં સ્વામીજીને સંદેશ પણ મોકલી શકો છો.</string>
+    <string name="ai_followup_about">%1$s વિશે વધુ કહો</string>
+    <string name="ai_need_download">પૂછવા માટે ઉપર સ્વામીજી AI ડાઉનલોડ કરો.</string>
+    <plurals name="likes_plural">
+        <item quantity="one">%1$d લાઇક</item>
+        <item quantity="other">%1$d લાઇક</item>
+    </plurals>
+    <plurals name="comments_plural">
+        <item quantity="one">%1$d કમેન્ટ</item>
+        <item quantity="other">%1$d કમેન્ટ</item>
+    </plurals>
+    <plurals name="ai_quota_left_plural">
+        <item quantity="one">આજે %1$d પ્રશ્ન બાકી</item>
+        <item quantity="other">આજે %1$d પ્રશ્ન બાકી</item>
+    </plurals>
 </resources>

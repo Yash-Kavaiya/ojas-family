@@ -31,6 +31,10 @@ async function mediaSeconds(db: Firestore, section: PracticeSection): Promise<nu
   const secs = Number(media?.durationSec ?? 0);
   const source = media?.kind === "youtube" ? media?.videoId : media?.url;
   if (!source || !(secs > 0)) throw new HttpsError("failed-precondition", "This practice has no media yet");
+  // A YouTube practice may name a fallback video, played when the main one can't play in the app;
+  // the shorter of the two is what a member must watch
+  const fallbackSecs = Number(media?.fallbackDurationSec ?? 0);
+  if (media?.kind === "youtube" && media?.fallbackVideoId && fallbackSecs > 0) return Math.min(secs, fallbackSecs);
   return secs;
 }
 
