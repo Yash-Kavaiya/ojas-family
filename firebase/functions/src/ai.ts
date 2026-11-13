@@ -26,7 +26,7 @@ export const DEFAULT_AI: AiConfig = {
   model: "gemini-3-flash-preview",
   embedModel: "gemini-embedding-001",
   dailyFree: 5,
-  dailyMember: 30,
+  dailyMember: 5,
   topK: 6,
   maxDistance: 0.55,
 };

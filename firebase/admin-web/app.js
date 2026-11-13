@@ -669,7 +669,7 @@ async function ai() {
       <div class="row">
         <label><input type="checkbox" id="ai-enabled" ${cfg.enabled === false ? "" : "checked"}> AI is on</label>
         <label>Questions a day (free)<input type="number" id="ai-free" min="0" value="${esc(cfg.dailyFree ?? 5)}" style="width:90px"></label>
-        <label>Questions a day (members, staff)<input type="number" id="ai-member" min="0" value="${esc(cfg.dailyMember ?? 30)}" style="width:90px"></label>
+        <label>Questions a day (members, staff)<input type="number" id="ai-member" min="0" value="${esc(cfg.dailyMember ?? 5)}" style="width:90px"></label>
         <label>Model<input id="ai-model" value="${esc(cfg.model || "gemini-3-flash-preview")}" style="width:180px"></label>
       </div>
       <button class="primary" id="ai-save">Save</button></div>
