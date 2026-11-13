@@ -103,6 +103,9 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit) {
                     SwitchRow(stringResource(R.string.settings_hide_goals), state.hideGoals, onChange = vm::setHideGoals)
                 }
 
+                // Which notifications to get: here with the other settings, not on the Home tab
+                NotificationControls(prefs = state.notificationPrefs, onChange = vm::setNotificationPrefs)
+
                 Section(stringResource(R.string.settings_reminders)) {
                     ValueRow(stringResource(R.string.settings_morning_reminder), state.morningReminder) { editingReminder = true }
                     ValueRow(stringResource(R.string.settings_night_reminder), state.nightReminder) { editingReminder = false }

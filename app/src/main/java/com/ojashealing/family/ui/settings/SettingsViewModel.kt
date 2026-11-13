@@ -106,6 +106,10 @@ class SettingsViewModel(
         write(mapOf("notificationPrefs" to prefs)) { it.copy(notificationPrefs = prefs) }
     }
 
+    /** All the notification switches at once, as the Settings screen holds them. */
+    fun setNotificationPrefs(prefs: Map<String, Boolean>) =
+        write(mapOf("notificationPrefs" to prefs)) { it.copy(notificationPrefs = prefs) }
+
     fun setReminder(morning: Boolean, hhmm: String) {
         val field = if (morning) "morningReminder" else "nightReminder"
         write(mapOf(field to hhmm)) { if (morning) it.copy(morningReminder = hhmm) else it.copy(nightReminder = hhmm) }
