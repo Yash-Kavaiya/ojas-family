@@ -7,7 +7,6 @@ import android.content.ClipData
 import android.content.pm.PackageManager
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
-import android.text.format.Formatter
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.height
@@ -29,7 +28,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.layout.ContentScale
 import androidx.core.content.ContextCompat
 import coil.compose.AsyncImage
-import com.ojashealing.family.data.ai.GemmaEngine
 import java.io.File
 import java.util.Locale
 import android.content.ClipboardManager
@@ -134,11 +132,9 @@ import com.ojashealing.family.data.ai.AiChat
 import com.ojashealing.family.data.ai.AiQuota
 import com.ojashealing.family.data.ai.AiRepository
 import com.ojashealing.family.data.ai.AiSource
-import com.ojashealing.family.data.ai.AiStage
 import com.ojashealing.family.data.ai.AiStreamEvent
 import com.ojashealing.family.data.ai.AiTexts
 import com.ojashealing.family.data.ai.AttachedPhoto
-import com.ojashealing.family.data.ai.ModelState
 import com.ojashealing.family.data.points.serverMessage
 import com.ojashealing.family.ui.components.SendButton
 import com.ojashealing.family.ui.theme.Durations
@@ -204,8 +200,6 @@ class SwamijiAiViewModel(private val repo: AiRepository, uid: kotlinx.coroutines
     val quota: StateFlow<AiQuota?> = _quota
     private val _busy = MutableStateFlow(false)
     val busy: StateFlow<Boolean> = _busy
-    private val _stage = MutableStateFlow<AiStage?>(null)
-    val stage: StateFlow<AiStage?> = _stage
     /** The photo waiting to go with the next question, and whether it is still being read. */
     private val _photo = MutableStateFlow<AttachedPhoto?>(null)
     val photo: StateFlow<AttachedPhoto?> = _photo
@@ -213,7 +207,6 @@ class SwamijiAiViewModel(private val repo: AiRepository, uid: kotlinx.coroutines
     val readingPhoto: StateFlow<Boolean> = _readingPhoto
     private val _photoError = MutableStateFlow(false)
     val photoError: StateFlow<Boolean> = _photoError
-    val model: StateFlow<ModelState> = repo.model
     private val myUid = MutableStateFlow<String?>(null)
     private var job: Job? = null
     private var counter = 0
@@ -228,10 +221,6 @@ class SwamijiAiViewModel(private val repo: AiRepository, uid: kotlinx.coroutines
 
     private fun refreshQuota() {
         viewModelScope.launch { repo.quota().onSuccess { _quota.value = it } }
-    }
-
-    fun downloadModel() {
-        viewModelScope.launch { repo.downloadModel() }
     }
 
     fun attachPhoto(uri: android.net.Uri) = read { repo.readPhoto(uri) }
@@ -268,9 +257,7 @@ class SwamijiAiViewModel(private val repo: AiRepository, uid: kotlinx.coroutines
             try {
                 repo.ask(q, _chatId.value, lang, photo, texts).collect { e ->
                     when (e) {
-                        is AiStreamEvent.Stage -> _stage.value = e.stage
                         is AiStreamEvent.Text -> _messages.update { l -> l.map { if (it.id == answerId) it.copy(text = it.text + e.piece) else it } }
-                        is AiStreamEvent.Replace -> _messages.update { l -> l.map { if (it.id == answerId) it.copy(text = e.text) else it } }
                         is AiStreamEvent.Done -> {
                             _chatId.value = e.answer.chatId
                             // -1: the phone answered without using a question (no match, or help first)
@@ -296,7 +283,6 @@ class SwamijiAiViewModel(private val repo: AiRepository, uid: kotlinx.coroutines
                 if (serverMessage(t) != null) refreshQuota()
             } finally {
                 _busy.value = false
-                _stage.value = null
             }
         }
     }
@@ -316,7 +302,6 @@ class SwamijiAiViewModel(private val repo: AiRepository, uid: kotlinx.coroutines
     fun newChat() {
         job?.cancel()
         _busy.value = false
-        _stage.value = null
         _chatId.value = null
         _messages.value = emptyList()
     }
@@ -339,8 +324,8 @@ class SwamijiAiViewModel(private val repo: AiRepository, uid: kotlinx.coroutines
 }
 
 /**
- * Ask Swamiji AI: answers from Swamiji's own teachings (the Ojas Healing videos), written live on
- * the phone by Gemma, with the videos it drew on underneath. Members can type, speak, or add a
+ * Ask Swamiji AI: answers from Swamiji's own teachings (the Ojas Healing videos), written live by
+ * the server's model, with the videos it drew on underneath. Members can type, speak, or add a
  * photo, and have answers read aloud. For anything personal, it points to Swamiji himself.
  */
 @OptIn(ExperimentalLayoutApi::class)
@@ -353,10 +338,8 @@ fun SwamijiAiScreen(
 ) {
     val messages by vm.messages.collectAsStateWithLifecycle()
     val busy by vm.busy.collectAsStateWithLifecycle()
-    val stage by vm.stage.collectAsStateWithLifecycle()
     val quota by vm.quota.collectAsStateWithLifecycle()
     val chats by vm.chats.collectAsStateWithLifecycle()
-    val model by vm.model.collectAsStateWithLifecycle()
     val photo by vm.photo.collectAsStateWithLifecycle()
     val readingPhoto by vm.readingPhoto.collectAsStateWithLifecycle()
     val photoError by vm.photoError.collectAsStateWithLifecycle()
@@ -370,11 +353,11 @@ fun SwamijiAiScreen(
     val texts = AiTexts(
         noMatch = stringResource(R.string.ai_no_match),
         crisis = stringResource(R.string.ai_crisis),
-        followUpTemplate = stringResource(R.string.ai_followup_about),
         photoQuestion = stringResource(R.string.ai_photo_question),
     )
     val noneLeft = quota?.let { it.remaining <= 0 && it.limit > 0 } == true
-    val ready = model is ModelState.Ready
+    // Off when an admin has paused Ask Swamiji AI
+    val ready = quota?.enabled != false
     val speaker = rememberSpeaker(lang)
 
     fun send(text: String) {
@@ -413,8 +396,7 @@ fun SwamijiAiScreen(
                     Text(
                         when {
                             !busy -> stringResource(R.string.ai_subtitle)
-                            stage == AiStage.Searching -> stringResource(R.string.ai_stage_searching)
-                            stage == AiStage.Loading -> stringResource(R.string.ai_stage_loading)
+                            messages.lastOrNull()?.text.isNullOrEmpty() -> stringResource(R.string.ai_stage_searching)
                             else -> stringResource(R.string.ai_writing)
                         },
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary,
@@ -430,7 +412,6 @@ fun SwamijiAiScreen(
                 contentPadding = PaddingValues(Spacing.l),
                 verticalArrangement = Arrangement.spacedBy(Spacing.m)
             ) {
-                if (!ready) item(key = "model") { ModelSetupCard(model, onDownload = vm::downloadModel, onAskSwamiji = onAskSwamiji) }
                 item(key = "intro") {
                     if (messages.isEmpty()) IntroCard(onAskSwamiji, onSuggest = ::send, suggestEnabled = ready)
                     else Spacer(Modifier.size(1.dp))
@@ -467,7 +448,7 @@ fun SwamijiAiScreen(
             OutlinedTextField(
                 value = draft,
                 onValueChange = { draft = it.take(1000) },
-                placeholder = { Text(if (ready) stringResource(R.string.ai_hint) else stringResource(R.string.ai_need_download)) },
+                placeholder = { Text(if (ready) stringResource(R.string.ai_hint) else stringResource(R.string.ai_paused)) },
                 shape = RoundedCornerShape(24.dp),
                 enabled = !noneLeft && ready,
                 maxLines = 5,
@@ -574,67 +555,6 @@ private fun rememberSpeaker(lang: String): Speaker {
         }
     }
     return speaker
-}
-
-/** The one-time model download: what it is, how big, progress, and phones that can't run it. */
-@Composable
-private fun ModelSetupCard(state: ModelState, onDownload: () -> Unit, onAskSwamiji: () -> Unit) {
-    val context = LocalContext.current
-    val buttonColors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFF0B3D91))
-    Column(
-        Modifier.fillMaxWidth().staggeredEntrance(0, key = "aiModel").clip(RoundedCornerShape(24.dp))
-            .background(Brush.linearGradient(listOf(Color(0xFF0B3D91), Color(0xFF1565C0))))
-            .padding(Spacing.l)
-            .animateContentSize(tween(Durations.Base)),
-        verticalArrangement = Arrangement.spacedBy(Spacing.s),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-            Icon(Icons.Outlined.PhoneAndroid, null, tint = Color.White)
-            Text(stringResource(R.string.ai_model_title), style = MaterialTheme.typography.titleMedium, color = Color.White)
-        }
-        when (state) {
-            is ModelState.Unsupported -> {
-                Text(
-                    if (state.reason == ModelState.Reason.Memory) stringResource(R.string.ai_model_no_memory)
-                    else stringResource(R.string.ai_model_no_space, Formatter.formatShortFileSize(context, GemmaEngine.DEFAULT_BYTES)),
-                    style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.9f),
-                )
-                if (state.reason == ModelState.Reason.Memory) {
-                    Button(onClick = onAskSwamiji, colors = buttonColors) { Text(stringResource(R.string.ai_ask_real_short)) }
-                } else {
-                    Button(onClick = onDownload, colors = buttonColors) { Text(stringResource(R.string.action_retry)) }
-                }
-            }
-            is ModelState.Downloading -> {
-                val shown by animateFloatAsState(state.fraction, tween(Durations.Base), label = "download")
-                Text(
-                    stringResource(R.string.ai_model_downloading, (state.fraction * 100).toInt()),
-                    style = MaterialTheme.typography.bodyMedium, color = Color.White,
-                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-                )
-                LinearProgressIndicator(
-                    progress = { shown },
-                    modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
-                    color = Color(0xFF7CC4FF), trackColor = Color.White.copy(alpha = 0.2f),
-                )
-                Text(stringResource(R.string.ai_model_keep_open), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.75f))
-            }
-            else -> {
-                val bytes = (state as? ModelState.NotDownloaded)?.bytes ?: GemmaEngine.DEFAULT_BYTES
-                val size = Formatter.formatShortFileSize(context, bytes)
-                Text(stringResource(R.string.ai_model_body, size), style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.9f))
-                if (state is ModelState.Failed) {
-                    Text(stringResource(R.string.ai_model_failed), style = MaterialTheme.typography.bodySmall, color = Color(0xFFFFCDD2))
-                }
-                Button(onClick = onDownload, colors = buttonColors) {
-                    Icon(Icons.Outlined.Download, null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.size(Spacing.s))
-                    Text(stringResource(R.string.ai_model_download, size))
-                }
-                Text(stringResource(R.string.ai_model_wifi), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.75f))
-            }
-        }
-    }
 }
 
 /** The photo waiting to be sent with the question, or that it is being read. */

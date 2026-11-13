@@ -39,7 +39,7 @@ android {
     }
   }
 
-  // Gemma (MediaPipe) and ML Kit add large native libraries for each CPU type. A sideloaded APK
+  // WebRTC and ML Kit add large native libraries for each CPU type. A sideloaded APK
   // carries one CPU type only (arm64 is nearly every phone; x86_64 is the emulator). Play bundles
   // split by CPU type on their own, so this setting doesn't touch them.
   splits {
@@ -120,8 +120,7 @@ dependencies {
   implementation(libs.stream.webrtc)
   implementation(libs.media3.exoplayer)
   implementation(libs.media3.ui)
-  // Ask Swamiji AI on the phone: Gemma (MediaPipe LLM Inference) and ML Kit to read photos
-  implementation(libs.mediapipe.tasks.genai)
+  // Ask Swamiji AI: ML Kit reads the words in a member's photo on the phone
   implementation(libs.mlkit.text.recognition)
   implementation(libs.mlkit.text.recognition.devanagari)
   implementation(libs.mlkit.image.labeling)

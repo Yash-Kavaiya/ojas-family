@@ -755,15 +755,15 @@ async function ai() {
   const failed = sources.docs.filter((d) => d.get("status") === "failed");
   view().innerHTML = `
     <h1>Ask Swamiji AI</h1>
-    <p class="muted">Gemma answers on each member's phone, from Swamiji's teachings only: notes made from ${done} Ojas Healing videos plus the About texts.
-      Questions and answers stay on the phone; only answers members rate come here. Rebuild after adding videos:
-      <code>cd firebase/functions &amp;&amp; npx ts-node scripts/buildKnowledge.ts</code></p>
+    <p class="muted">Answers come from Swamiji's teachings only: notes on ${done} Ojas Healing videos plus the About texts, in English, Hindi and Gujarati.
+      A hosted AI model (NVIDIA API) writes each answer on the server; the key is kept as a server secret. Conversations stay on members' phones; only answers they rate come here.</p>
     <div class="card stack"><h3>Settings</h3>
       <div class="row">
         <label><input type="checkbox" id="ai-enabled" ${cfg.enabled === false ? "" : "checked"}> AI is on</label>
         <label>Questions a day (free)<input type="number" id="ai-free" min="0" value="${esc(cfg.dailyFree ?? 5)}" style="width:90px"></label>
         <label>Questions a day (members, staff)<input type="number" id="ai-member" min="0" value="${esc(cfg.dailyMember ?? 5)}" style="width:90px"></label>
-        <label>Passages per answer<input type="number" id="ai-topk" min="1" max="6" value="${esc(cfg.topK ?? 3)}" style="width:70px"></label>
+        <label>Passages per answer<input type="number" id="ai-topk" min="1" max="8" value="${esc(cfg.topK ?? 5)}" style="width:70px"></label>
+        <label>Model<input id="ai-model" value="${esc(cfg.model || "nvidia/nemotron-3-ultra-550b-a55b")}" style="width:300px"></label>
       </div>
       <button class="primary" id="ai-save">Save</button></div>
     ${failed.length ? `<div class="card" style="margin-top:12px"><h3>Videos that could not be read (${failed.length})</h3><ul>${failed.slice(0, 30).map((d) => `<li>${esc(d.get("title"))} <span class="muted">${esc(d.get("error") || "")}</span></li>`).join("")}</ul></div>` : ""}
@@ -775,6 +775,7 @@ async function ai() {
     enabled: $("#ai-enabled").checked,
     dailyFree: Math.max(0, Math.floor(Number($("#ai-free").value) || 0)),
     dailyMember: Math.max(0, Math.floor(Number($("#ai-member").value) || 0)),
-    topK: Math.min(6, Math.max(1, Math.floor(Number($("#ai-topk").value) || 3))),
+    topK: Math.min(8, Math.max(1, Math.floor(Number($("#ai-topk").value) || 5))),
+    model: $("#ai-model").value.trim() || "nvidia/nemotron-3-ultra-550b-a55b",
   }, { merge: true }), "AI settings saved");
 }

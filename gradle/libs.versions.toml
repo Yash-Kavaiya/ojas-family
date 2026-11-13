@@ -50,13 +50,11 @@ googleid = "1.1.1"
 billing = "8.0.0"
 streamWebrtc = "1.3.8"
 media3 = "1.8.0"
-mediapipeGenai = "0.10.35"
 mlkitTextRecognition = "16.0.1"
 mlkitImageLabeling = "17.0.9"
 
 
 [libraries]
-mediapipe-tasks-genai = { group = "com.google.mediapipe", name = "tasks-genai", version.ref = "mediapipeGenai" }
 mlkit-text-recognition = { group = "com.google.mlkit", name = "text-recognition", version.ref = "mlkitTextRecognition" }
 mlkit-text-recognition-devanagari = { group = "com.google.mlkit", name = "text-recognition-devanagari", version.ref = "mlkitTextRecognition" }
 mlkit-image-labeling = { group = "com.google.mlkit", name = "image-labeling", version.ref = "mlkitImageLabeling" }

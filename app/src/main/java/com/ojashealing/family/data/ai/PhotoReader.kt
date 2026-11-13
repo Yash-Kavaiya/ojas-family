@@ -14,8 +14,8 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.tasks.await
 
 /**
- * Reads a photo on the phone with ML Kit, since Gemma 270M reads only text: the words in it
- * (English and Hindi script) and a few labels for what it shows. Nothing is uploaded.
+ * Reads a photo on the phone with ML Kit, so the picture itself never leaves the phone:
+ * only the words in it (English and Hindi script) and a few labels for what it shows are sent.
  */
 class PhotoReader(context: Context) {
     private val app = context.applicationContext

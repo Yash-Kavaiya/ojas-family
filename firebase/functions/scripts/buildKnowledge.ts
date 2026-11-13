@@ -1,32 +1,29 @@
-// Builds the Ask Swamiji (AI) knowledge base in Firestore `knowledge/{chunkId}`.
+// Builds the Ask Swamiji (AI) knowledge base and publishes it as ai/knowledge.json in Storage,
+// the file the askSwamiji function searches.
 //
-// Sources:
+// Passages live in Firestore `knowledge/{chunkId}`:
 //   1. knowledge/*.md (hand-written facts about Ojas Healing and the app), split at "## " headings
 //   2. config/about (the About Ojas Family / About Swamiji texts admins edit in the app)
-//   3. Ojas Healing YouTube videos: every video in scripts/content.json, plus the newest videos of
-//      each playlist in tools/channel_playlists.txt (YouTube's public RSS feed). Gemini watches each
-//      video and writes teaching notes with timestamps; the notes become passages.
+//   3. Notes on the Ojas Healing YouTube videos, in English, Hindi and Gujarati. These were written
+//      once (November 2026) and are kept as they are.
+// Every passage is embedded with NVIDIA's embedding model (nvidia/nemotron-3.5-embed-8b) and the
+// vectors are published beside the passages as ai/knowledge.vectors.bin. No Google AI service is used.
+//      To add a new video, add passages for it to a knowledge/*.md file.
 //
-// Passages are kept in Firestore `knowledge/` (so a run only redoes what changed) and all of them
-// are published as one small file, ai/knowledge.json in Storage. The app downloads that file and
-// searches it on the phone, where Gemma answers. Videos already done are skipped, so running it
-// again only adds new videos (--force redoes all).
-//
-// Run (an owner of the project; Gemini notes use Vertex AI in the genaiguruyoutube project):
+// Run (an owner of the project):
 //   gcloud auth application-default login
-//   GOOGLE_CLOUD_QUOTA_PROJECT=ojas-family-app npx ts-node scripts/buildKnowledge.ts [--force] [--limit 20] [--only-docs] [--publish-only]
+//   NVIDIA_API_KEY=<key> GOOGLE_CLOUD_QUOTA_PROJECT=ojas-family-app npx ts-node scripts/buildKnowledge.ts [--publish-only]
 // (the quota project matters when gcloud's default one has no billing: Storage then refuses the upload)
-// Each video is written in English, Hindi and Gujarati, so the phone can answer in the member's language.
 import { createHash } from "node:crypto";
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { initializeApp } from "firebase-admin/app";
 import { getStorage } from "firebase-admin/storage";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
-import { XMLParser } from "fast-xml-parser";
-import { Type } from "@google/genai";
-import { genai } from "./gemini";
 import { DEFAULT_AI } from "../src/ai";
+import { EMBED_DIM, EMBED_MODEL, embed, vectorsPath } from "../src/aiNvidia";
+
+const EMBED_BATCH = 32;
 
 // GCLOUD_PROJECT=demo-ojas with FIRESTORE_EMULATOR_HOST set builds into the local emulator instead
 const PROJECT = process.env.GCLOUD_PROJECT || "ojas-family-app";
@@ -34,12 +31,8 @@ initializeApp({ projectId: PROJECT, storageBucket: process.env.STORAGE_BUCKET ||
 const db = getFirestore();
 
 const args = process.argv.slice(2);
-const FORCE = args.includes("--force");
-const ONLY_DOCS = args.includes("--only-docs");
 const PUBLISH_ONLY = args.includes("--publish-only");
-const LIMIT = Number(args[args.indexOf("--limit") + 1]) || Infinity;
-const CONCURRENCY = Number(process.env.CONCURRENCY) || 4;
-const NOTES_MODEL = process.env.NOTES_MODEL || "gemini-3-flash-preview";
+const OUT_DIR = args.includes("--out") ? args[args.indexOf("--out") + 1] : "";
 // The phone model reads only a few hundred words per passage well
 const MAX_PASSAGE_CHARS = 900;
 
@@ -119,164 +112,6 @@ async function docs() {
   if (chunks.length) await writeChunks("about", chunks);
 }
 
-interface Video { videoId: string; title: string }
-
-async function playlistVideos(): Promise<Video[]> {
-  const path = join(__dirname, "..", "..", "..", "tools", "channel_playlists.txt");
-  const ids = readFileSync(path, "utf8").split("\n").map((l) => l.split("|")[0].trim()).filter(Boolean);
-  const parser = new XMLParser({ ignoreAttributes: false });
-  const out: Video[] = [];
-  for (const id of ids) {
-    try {
-      const xml = await (await fetch(`https://www.youtube.com/feeds/videos.xml?playlist_id=${id}`)).text();
-      const entries = parser.parse(xml)?.feed?.entry;
-      for (const e of Array.isArray(entries) ? entries : entries ? [entries] : []) {
-        if (e["yt:videoId"]) out.push({ videoId: String(e["yt:videoId"]), title: String(e.title ?? "") });
-      }
-    } catch (err) {
-      console.warn(`  playlist ${id}: ${(err as Error).message}`);
-    }
-  }
-  return out;
-}
-
-/** Bump when the notes change shape, so every video is written again once. */
-const NOTES_VERSION = 2;
-const LANGS = ["en", "hi", "gu"] as const;
-
-const NOTES_SCHEMA = {
-  type: Type.OBJECT,
-  properties: {
-    language: { type: Type.STRING, description: "Main spoken language of the video: en, hi or gu" },
-    summary_en: { type: Type.STRING, description: "3-6 simple sentences in English: what Swamiji teaches in this video" },
-    summary_hi: { type: Type.STRING, description: "The same summary in simple Hindi (Devanagari)" },
-    summary_gu: { type: Type.STRING, description: "The same summary in simple Gujarati (Gujarati script)" },
-    sections: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          startSec: { type: Type.INTEGER, description: "Where this part starts, in seconds" },
-          heading_en: { type: Type.STRING },
-          heading_hi: { type: Type.STRING },
-          heading_gu: { type: Type.STRING },
-          text_en: { type: Type.STRING, description: "What is taught here, in simple English, including practice steps in order" },
-          text_hi: { type: Type.STRING, description: "The same in simple Hindi (Devanagari)" },
-          text_gu: { type: Type.STRING, description: "The same in simple Gujarati (Gujarati script)" },
-        },
-        required: ["startSec", "heading_en", "heading_hi", "heading_gu", "text_en", "text_hi", "text_gu"],
-      },
-    },
-  },
-  required: ["language", "summary_en", "summary_hi", "summary_gu", "sections"],
-};
-
-const NOTES_PROMPT = [
-  "This is a video by Swamiji (Swami Anand Swaroop) of Ojas Healing.",
-  "Write faithful teaching notes so members can later ask questions about it, in English, Hindi and Gujarati.",
-  "A small on-phone assistant will answer members by restating these notes, so write each part as a direct, self-contained answer:",
-  "short, plain sentences in second person (\"Sit straight. Close your eyes.\"), no references to \"this video\" or \"Swamiji says in the video\".",
-  "Keep Swamiji's meaning exactly; don't add anything he didn't say. Keep Sanskrit terms, with a short meaning in brackets.",
-  "Split the video into 3 to 10 parts at natural topic changes. For a guided meditation, list its steps in order.",
-].join("\n");
-
-interface Notes {
-  language?: string;
-  [key: string]: unknown;
-  sections?: Array<{ startSec: number } & Record<string, unknown>>;
-}
-
-/** One passage per part and language, so the phone can answer in the member's own language. */
-/** The video's length in seconds from its public watch page, or 0 when it can't be read. */
-async function videoSeconds(videoId: string): Promise<number> {
-  try {
-    const html = await (await fetch(`https://www.youtube.com/watch?v=${videoId}`, { headers: { "User-Agent": "Mozilla/5.0" } })).text();
-    return Number(/"lengthSeconds":"(\d+)"/.exec(html)?.[1] ?? 0);
-  } catch {
-    return 0;
-  }
-}
-
-// Long talks are read in parts: one request for a two-hour video drops before Gemini finishes
-const PART_SECONDS = 30 * 60;
-const LONG_VIDEO_SECONDS = 40 * 60;
-
-async function notesFor(url: string, startSec?: number, endSec?: number): Promise<Notes> {
-  const clip = startSec !== undefined && endSec !== undefined ? { videoMetadata: { startOffset: `${startSec}s`, endOffset: `${endSec}s` } } : {};
-  const res = await genai().models.generateContent({
-    model: NOTES_MODEL,
-    contents: [{ role: "user", parts: [{ fileData: { fileUri: url, mimeType: "video/*" }, ...clip }, { text: NOTES_PROMPT }] }],
-    config: { responseMimeType: "application/json", responseSchema: NOTES_SCHEMA, temperature: 0.2, mediaResolution: "MEDIA_RESOLUTION_LOW" as never },
-  });
-  return JSON.parse(res.text ?? "{}") as Notes;
-}
-
-async function videoNotes(v: Video): Promise<Chunk[]> {
-  const url = `https://www.youtube.com/watch?v=${v.videoId}`;
-  const length = await videoSeconds(v.videoId);
-  let notes: Notes;
-  if (length > LONG_VIDEO_SECONDS) {
-    // Parts in order; the first part's summary stands for the video, every part's sections are kept
-    const parts: Notes[] = [];
-    for (let start = 0; start < length; start += PART_SECONDS) {
-      const part = await notesFor(url, start, Math.min(length, start + PART_SECONDS));
-      // Times inside a part may count from the part's start; make them count from the video's start
-      part.sections = (part.sections ?? []).map((s) => (Number(s.startSec) < start ? { ...s, startSec: Number(s.startSec) + start } : s));
-      parts.push(part);
-    }
-    notes = { ...parts[0], sections: parts.flatMap((p) => p.sections ?? []) };
-    console.log(`  read in ${parts.length} parts (${Math.round(length / 60)} min)`);
-  } else {
-    notes = await notesFor(url);
-  }
-  const chunks: Chunk[] = [];
-  const str = (x: unknown) => (typeof x === "string" ? x.trim() : "");
-  for (const lang of LANGS) {
-    const summary = str(notes[`summary_${lang}`]);
-    if (summary) chunks.push({ text: `${v.title}\n${summary}`, title: v.title, url, videoId: v.videoId, sourceType: "video", lang });
-    for (const s of notes.sections ?? []) {
-      const text = str(s[`text_${lang}`]);
-      if (!text) continue;
-      const start = Math.max(0, Math.floor(Number(s.startSec) || 0));
-      const heading = str(s[`heading_${lang}`]) || str(s.heading_en);
-      chunks.push({
-        text: `${v.title} · ${heading}\n${text}`, title: v.title, url: start ? `${url}&t=${start}s` : url,
-        videoId: v.videoId, startSec: start || undefined, sourceType: "video", lang,
-      });
-    }
-  }
-  return chunks;
-}
-
-async function videos() {
-  const content = JSON.parse(readFileSync(join(__dirname, "content.json"), "utf8")) as Video[];
-  const all = new Map<string, Video>();
-  for (const v of [...content, ...(await playlistVideos())]) if (v.videoId && !all.has(v.videoId)) all.set(v.videoId, v);
-  console.log(`${all.size} videos found`);
-  const todo: Video[] = [];
-  for (const v of all.values()) {
-    const prev = (await db.doc(`knowledgeSources/${v.videoId}`).get()).data();
-    if (FORCE || prev?.status !== "done" || prev?.v !== NOTES_VERSION) todo.push(v);
-  }
-  const queue = todo.slice(0, LIMIT === Infinity ? todo.length : LIMIT);
-  console.log(`${queue.length} videos to write`);
-  // A few at a time: each video takes Gemini a minute or two to watch
-  const worker = async () => {
-    for (let v = queue.shift(); v; v = queue.shift()) {
-      const mark = db.doc(`knowledgeSources/${v.videoId}`);
-      try {
-        console.log(`- ${v.title}`);
-        await writeChunks(`video:${v.videoId}`, await videoNotes(v));
-        await mark.set({ status: "done", v: NOTES_VERSION, title: v.title, at: FieldValue.serverTimestamp() });
-      } catch (e) {
-        console.warn(`  skipped ${v.videoId}: ${(e as Error).message}`);
-        await mark.set({ status: "failed", title: v.title, error: (e as Error).message.slice(0, 300), at: FieldValue.serverTimestamp() });
-      }
-    }
-  };
-  await Promise.all(Array.from({ length: CONCURRENCY }, worker));
-}
-
 /** Publishes every passage as ai/knowledge.json, the file the app searches on the phone. */
 async function publish() {
   const snap = await db.collection("knowledge").get();
@@ -288,18 +123,46 @@ async function publish() {
       sourceType: String(x.sourceType ?? ""), lang: String(x.lang ?? "en"),
     };
   });
-  const body = JSON.stringify({ version: Date.now(), passages });
-  await getStorage().bucket().file(DEFAULT_AI.knowledgePath).save(body, {
+  // Stable order, so the vectors file lines up with the passages
+  passages.sort((x, y) => x.id.localeCompare(y.id));
+  // One embedding per passage from NVIDIA's embedding model, for meaning search next to keyword search
+  const vectors = new Float32Array(passages.length * EMBED_DIM);
+  for (let i = 0; i < passages.length; i += EMBED_BATCH) {
+    const batch = passages.slice(i, i + EMBED_BATCH);
+    let rows: Float32Array[] | null = null;
+    for (let attempt = 1; !rows; attempt++) {
+      try {
+        rows = await embed(batch.map((p) => p.text.slice(0, 2000)), "passage", 60_000);
+      } catch (e) {
+        if (attempt >= 5) throw e;
+        console.warn(`  embedding batch at ${i} failed (${(e as Error).message.slice(0, 80)}); trying again`);
+        await new Promise((r) => setTimeout(r, 3000 * attempt));
+      }
+    }
+    rows.forEach((row, j) => vectors.set(row, (i + j) * EMBED_DIM));
+    if ((i / EMBED_BATCH) % 10 === 0) console.log(`  embedded ${Math.min(i + EMBED_BATCH, passages.length)}/${passages.length}`);
+  }
+  const body = JSON.stringify({ version: Date.now(), embedModel: EMBED_MODEL, embedDim: EMBED_DIM, passages });
+  if (OUT_DIR) {
+    // --out <folder>: write the two files locally instead of publishing (for trying the search first)
+    writeFileSync(join(OUT_DIR, "knowledge.json"), body);
+    writeFileSync(join(OUT_DIR, "knowledge.vectors.bin"), Buffer.from(vectors.buffer));
+    console.log(`Wrote ${passages.length} passages and vectors to ${OUT_DIR}`);
+    return;
+  }
+  const bucket = getStorage().bucket();
+  // Vectors first: for the moment between the two uploads the server sees a mismatch and uses keyword search only
+  await bucket.file(vectorsPath(DEFAULT_AI.knowledgePath)).save(Buffer.from(vectors.buffer), {
+    contentType: "application/octet-stream", resumable: false, metadata: { cacheControl: "no-cache" },
+  });
+  await bucket.file(DEFAULT_AI.knowledgePath).save(body, {
     contentType: "application/json", resumable: false, metadata: { cacheControl: "no-cache" },
   });
-  console.log(`Published ${passages.length} passages (${Math.round(body.length / 1024)} KB) to ${DEFAULT_AI.knowledgePath}`);
+  console.log(`Published ${passages.length} passages (${Math.round(body.length / 1024)} KB) and their vectors (${Math.round(vectors.byteLength / 1024)} KB) to ${DEFAULT_AI.knowledgePath}`);
 }
 
 async function main() {
-  if (!PUBLISH_ONLY) {
-    await docs();
-    if (!ONLY_DOCS) await videos();
-  }
+  if (!PUBLISH_ONLY) await docs();
   await publish();
   console.log("Knowledge base ready.");
 }

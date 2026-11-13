@@ -75,34 +75,31 @@ No app update is needed.
 
 Built and tested locally. Each step below changes the live project, so it needs the owner's go-ahead.
 
-1. **Deploy** rules, indexes and functions (step 1 above). The new `knowledge` vector index takes a
-   few minutes to build.
-2. **Gemini key** (owner's AI Studio key, 2026-11-13): store it as a secret; the app never sees it.
-   The key's AI Studio project needs prepaid credits (on 2026-11-13 it answered "prepayment credits
-   are depleted"): https://ai.studio/projects
+1. **Deploy** rules, indexes and functions (step 1 above).
+2. **Ask Swamiji AI model: NVIDIA API** (owner decision 2026-11-13; no Gemini, no Vertex AI and no
+   model on the phone). The `askSwamiji` function finds the matching passages with keyword search
+   and calls NVIDIA's OpenAI-compatible API (`nvidia/nemotron-3-ultra-550b-a55b`, changeable on the
+   admin site). The key is a server secret; the app never sees it, and it must never be committed:
    ```sh
-   cd firebase && firebase functions:secrets:set GEMINI_API_KEY --project ojas-family-app
+   cd firebase && firebase functions:secrets:set NVIDIA_API_KEY --project ojas-family-app
+   firebase deploy --only functions,storage,hosting --project ojas-family-app
    ```
-   `askSwamiji` needs this secret to deploy. With the key in place the Vertex AI step below is not
-   needed; to build the knowledge base with it, run the script with `GEMINI_API_KEY=<key>` set.
-
-   **Or Vertex AI** (no key): enable the API once, then let the Functions service account use it. 2nd-gen functions run as the Compute default service account (check the account shown on a function in the Cloud console if it was changed):
-   ```sh
-   gcloud services enable aiplatform.googleapis.com --project ojas-family-app
-   gcloud projects add-iam-policy-binding ojas-family-app \
-     --member=serviceAccount:207605785922-compute@developer.gserviceaccount.com --role=roles/aiplatform.user
-   ```
-3. **Knowledge base for Ask Swamiji AI** (Gemini watches each Ojas Healing video and writes notes;
-   about 110+ videos, so it takes a while and costs some Vertex AI usage). Edit
-   `firebase/functions/knowledge/ojas-basics.md` first if anything there should be different.
+   `askSwamiji` needs this secret to deploy. Every member gets 5 questions a day (admin site → Ask
+   Swamiji AI). Questions with no matching teaching, or with crisis words, get a fixed reply and
+   don't reach the model.
+3. **Knowledge base for Ask Swamiji AI**: about 2,400 passages in Firestore `knowledge/`, published
+   as `ai/knowledge.json` in Storage (only the server reads it). The notes on the Ojas Healing
+   videos, in English, Hindi and Gujarati, were written once in November 2026 and are kept; the
+   script no longer calls any AI service. To change facts, edit
+   `firebase/functions/knowledge/ojas-basics.md` (or add another `.md` there, one `## ` heading per
+   passage) and publish:
    ```sh
    cd firebase/functions
    gcloud auth application-default login
-   npx ts-node scripts/buildKnowledge.ts --limit 5     # try a few first
-   npx ts-node scripts/buildKnowledge.ts               # then the rest; re-runs only add new videos
+   GOOGLE_CLOUD_QUOTA_PROJECT=ojas-family-app npx ts-node scripts/buildKnowledge.ts
    ```
-   Admin site → **Ask Swamiji AI** shows how many videos were read, which failed, members' 👍/👎 on
-   answers, the daily question allowance and an on/off switch.
+   Admin site → **Ask Swamiji AI** shows members' 👍/👎 on answers, the daily question allowance, the
+   model name and an on/off switch.
 4. **Turn on embedding on the Ojas Healing YouTube videos first.** Checked 2026-11-13: YouTube answers
    "embedding disabled" for every library video tested, including Vidhi 1 (KPRvRrJgmVk), so they
    can't play inside the app (the Spiritual library and Quick Protection show "Open in YouTube"

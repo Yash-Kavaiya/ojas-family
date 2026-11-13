@@ -1,4 +1,5 @@
 import { initializeApp } from "firebase-admin/app";
+import { defineSecret } from "firebase-functions/params";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
@@ -30,7 +31,8 @@ import { istDay } from "./time";
 import { applyAdminList, applyAdminListNow, givePointsFor, statsFor } from "./admin";
 import { findGiftRecipientsFor, reverseTransferFor, setTransfersFrozenFor, staffAdjustPointsFor, transferPointsFor, updatePointsConfigFor } from "./transfer";
 import { onProfileWritten } from "./profilePoints";
-import { rateAiAnswerFor, remainingToday, startAiQuestionFor } from "./ai";
+import { askSwamijiFor, rateAiAnswerFor, remainingToday } from "./ai";
+import { nvidiaDeps } from "./aiNvidia";
 
 initializeApp();
 const db = getFirestore();
@@ -232,16 +234,21 @@ export const updatePointsConfig = onCall(async (req) => {
   return updatePointsConfigFor(db, req.auth?.token, uid, (req.data ?? {}) as Record<string, unknown>);
 });
 
-// ---- Ask Swamiji (AI): Gemma answers on the member's phone; the server keeps the daily allowance ----
+// ---- Ask Swamiji (AI): a hosted model answers from Ojas Healing's teachings ----
+
+// The NVIDIA API key lives in Secret Manager: firebase functions:secrets:set NVIDIA_API_KEY
+const nvidiaKey = defineSecret("NVIDIA_API_KEY");
+
+// Streams the answer as it is written when the app asks for a stream; the final result has it all
+export const askSwamiji = onCall({ enforceAppCheck: enforceAppCheck, timeoutSeconds: 120, memory: "512MiB", secrets: [nvidiaKey] }, async (req, res) => {
+  const uid = requireUid(req);
+  return askSwamijiFor(db, nvidiaDeps(), uid, req.auth?.token.role, (req.data ?? {}) as Record<string, unknown>, new Date(),
+    (piece) => { void res?.sendChunk({ text: piece }); });
+});
 
 export const aiQuota = onCall(async (req) => {
   const uid = requireUid(req);
   return remainingToday(db, uid, req.auth?.token.role, new Date());
-});
-
-export const startAiQuestion = onCall({ enforceAppCheck: enforceAppCheck }, async (req) => {
-  const uid = requireUid(req);
-  return startAiQuestionFor(db, uid, req.auth?.token.role, new Date());
 });
 
 export const rateAiAnswer = onCall(async (req) => {
