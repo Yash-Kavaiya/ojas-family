@@ -80,7 +80,6 @@ import com.ojashealing.family.ui.components.EmptyState
 import com.ojashealing.family.ui.components.LoadingState
 import com.ojashealing.family.ui.components.OjasCard
 import com.ojashealing.family.ui.components.SectionHeader
-import com.ojashealing.family.ui.settings.NotificationControls
 import com.ojashealing.family.ui.theme.SacredGold
 import com.ojashealing.family.ui.theme.Spacing
 import androidx.compose.foundation.clickable
@@ -108,8 +107,6 @@ fun HomeScreen(
     about: AboutInfo = AboutInfo(),
     onOpenAbout: (String) -> Unit = {},
     onOpenScheduled: () -> Unit = {},
-    notificationPrefs: Map<String, Boolean> = emptyMap(),
-    onNotificationPrefs: (Map<String, Boolean>) -> Unit = {},
     /** The member's first name for the greeting; empty hides the name. */
     firstName: String = "",
     /** Today's practice streak and whether today is done, for the practice nudge; null hides it. */
@@ -178,13 +175,6 @@ fun HomeScreen(
                         )
                     }
                 }
-            }
-            item(key = "notifications", contentType = "notifications") {
-                NotificationControls(
-                    prefs = notificationPrefs,
-                    onChange = onNotificationPrefs,
-                    modifier = Modifier.padding(horizontal = Spacing.l),
-                )
             }
             item(key = "about", contentType = "about") { AboutBox(about, onOpenAbout, Modifier.padding(horizontal = Spacing.l)) }
         }

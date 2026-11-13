@@ -596,11 +596,6 @@ fun MainShell(container: AppContainer) {
                                         about = about,
                                         onOpenAbout = { nav.navigate(AboutRoute(it)) },
                                         onOpenScheduled = { nav.navigate(ScheduledThoughtsRoute) },
-                                        notificationPrefs = profile?.notificationPrefs.orEmpty(),
-                                        onNotificationPrefs = { next ->
-                                            val uid = profile?.uid ?: return@HomeScreen
-                                            scope.launch { container.users.updateSettings(uid, mapOf("notificationPrefs" to next)) }
-                                        },
                                     )
                                     MainTab.Ask -> AskPanes(
                                         beside = beside,

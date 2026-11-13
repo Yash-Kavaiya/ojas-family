@@ -71,6 +71,18 @@ class SettingsViewModelTest {
         assertEquals(true, written["announcements"])
     }
 
+    @Test fun settingsScreenSwitchesWriteTheWholeMap() = runTest(dispatcher) {
+        val r = Recorder()
+        val vm = vm(r, prefs = mapOf("announcements" to true))
+        advanceUntilIdle()
+        vm.setNotificationPrefs(mapOf("announcements" to true, "all" to false))
+        advanceUntilIdle()
+        @Suppress("UNCHECKED_CAST")
+        val written = r.writes.last()["notificationPrefs"] as Map<String, Boolean>
+        assertEquals(mapOf("announcements" to true, "all" to false), written)
+        assertEquals(false, vm.state.value.isOn("all"))
+    }
+
     @Test fun themeChangePersists() = runTest(dispatcher) {
         val theme = FakeTheme()
         val vm = vm(Recorder(), theme)
