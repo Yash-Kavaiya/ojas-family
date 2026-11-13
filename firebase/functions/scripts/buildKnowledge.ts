@@ -35,7 +35,7 @@ const args = process.argv.slice(2);
 const FORCE = args.includes("--force");
 const ONLY_DOCS = args.includes("--only-docs");
 const LIMIT = Number(args[args.indexOf("--limit") + 1]) || Infinity;
-const NOTES_MODEL = process.env.NOTES_MODEL || "gemini-2.5-flash";
+const NOTES_MODEL = process.env.NOTES_MODEL || "gemini-3-flash-preview";
 
 interface Chunk {
   text: string;

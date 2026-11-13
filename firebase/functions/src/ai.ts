@@ -23,7 +23,7 @@ export interface AiConfig {
 
 export const DEFAULT_AI: AiConfig = {
   enabled: true,
-  model: "gemini-2.5-flash",
+  model: "gemini-3-flash-preview",
   embedModel: "gemini-embedding-001",
   dailyFree: 5,
   dailyMember: 30,

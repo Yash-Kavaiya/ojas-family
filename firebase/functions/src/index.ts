@@ -3,7 +3,6 @@ import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 import { setGlobalOptions } from "firebase-functions/v2";
-import { defineSecret } from "firebase-functions/params";
 import { HttpsError, onCall, type CallableRequest } from "firebase-functions/v2/https";
 import { deleteAccountData, ensureUserDoc, setRoleFor } from "./auth";
 import { claimDailyOpenFor } from "./daily";
@@ -237,10 +236,8 @@ export const updatePointsConfig = onCall(async (req) => {
 // ---- Ask Swamiji (AI): Gemini answers grounded in Ojas Healing's teachings ----
 
 // Streams the answer as it is written when the app asks for a stream; the final result has it all
-// The Gemini key lives in Secret Manager: firebase functions:secrets:set GEMINI_API_KEY
-const geminiKey = defineSecret("GEMINI_API_KEY");
 
-export const askSwamiji = onCall({ enforceAppCheck: enforceAppCheck, timeoutSeconds: 120, memory: "512MiB", secrets: [geminiKey] }, async (req, res) => {
+export const askSwamiji = onCall({ enforceAppCheck: enforceAppCheck, timeoutSeconds: 120, memory: "512MiB" }, async (req, res) => {
   const uid = requireUid(req);
   return askSwamijiFor(db, geminiDeps(db), uid, req.auth?.token.role, (req.data ?? {}) as Record<string, unknown>, new Date(),
     (piece) => { void res?.sendChunk({ text: piece }); });

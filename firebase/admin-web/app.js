@@ -670,7 +670,7 @@ async function ai() {
         <label><input type="checkbox" id="ai-enabled" ${cfg.enabled === false ? "" : "checked"}> AI is on</label>
         <label>Questions a day (free)<input type="number" id="ai-free" min="0" value="${esc(cfg.dailyFree ?? 5)}" style="width:90px"></label>
         <label>Questions a day (members, staff)<input type="number" id="ai-member" min="0" value="${esc(cfg.dailyMember ?? 30)}" style="width:90px"></label>
-        <label>Model<input id="ai-model" value="${esc(cfg.model || "gemini-2.5-flash")}" style="width:180px"></label>
+        <label>Model<input id="ai-model" value="${esc(cfg.model || "gemini-3-flash-preview")}" style="width:180px"></label>
       </div>
       <button class="primary" id="ai-save">Save</button></div>
     ${failed.length ? `<div class="card" style="margin-top:12px"><h3>Videos that could not be read (${failed.length})</h3><ul>${failed.slice(0, 30).map((d) => `<li>${esc(d.get("title"))} <span class="muted">${esc(d.get("error") || "")}</span></li>`).join("")}</ul></div>` : ""}
@@ -682,6 +682,6 @@ async function ai() {
     enabled: $("#ai-enabled").checked,
     dailyFree: Math.max(0, Math.floor(Number($("#ai-free").value) || 0)),
     dailyMember: Math.max(0, Math.floor(Number($("#ai-member").value) || 0)),
-    model: $("#ai-model").value.trim() || "gemini-2.5-flash",
+    model: $("#ai-model").value.trim() || "gemini-3-flash-preview",
   }, { merge: true }), "AI settings saved");
 }

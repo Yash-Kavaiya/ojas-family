@@ -7,12 +7,16 @@ import type { AiDeps, Passage, Turn } from "./ai";
  * the code.
  */
 export const EMBED_DIMENSIONS = 768; // Firestore vector fields allow up to 2048
-export const VERTEX_LOCATION = process.env.VERTEX_LOCATION || "us-central1";
+// Gemini runs on Vertex AI in the genaiguruyoutube project (it has billing); the Ojas Functions
+// service account has roles/aiplatform.user there. "global" is where the Gemini 3 models are served.
+export const VERTEX_PROJECT = process.env.VERTEX_PROJECT || "genaiguruyoutube";
+export const VERTEX_LOCATION = process.env.VERTEX_LOCATION || "global";
 
 let client: GoogleGenAI | null = null;
 /**
  * With GEMINI_API_KEY set (a Gemini API key from AI Studio, kept as the Firebase secret of that name)
- * the Gemini Developer API is used; without it, the Functions service account signs in to Vertex AI.
+ * the Gemini Developer API is used; without it (the default), the Functions service account signs in to
+ * Vertex AI in [VERTEX_PROJECT].
  * The same model names work on both.
  */
 export function genai(): GoogleGenAI {
@@ -21,8 +25,7 @@ export function genai(): GoogleGenAI {
     if (apiKey) {
       client = new GoogleGenAI({ apiKey });
     } else {
-      const project = process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || "ojas-family-app";
-      client = new GoogleGenAI({ vertexai: true, project, location: VERTEX_LOCATION });
+      client = new GoogleGenAI({ vertexai: true, project: VERTEX_PROJECT, location: VERTEX_LOCATION });
     }
   }
   return client;
