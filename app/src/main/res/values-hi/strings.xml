@@ -126,7 +126,6 @@
     <string name="field_message">संदेश</string>
     <string name="field_date">तारीख</string>
     <string name="home_scheduled">विचार शेड्यूल हो गया</string>
-    <string name="likes_count">%1$d लाइक</string>
     <string name="action_like">लाइक</string>
     <string name="community_qa">प्रश्नोत्तर</string>
     <string name="community_notices">घोषणाएँ</string>
@@ -392,7 +391,6 @@
     <string name="crop_hint">ज़ूम के लिए पिंच करें, खिसकाने के लिए खींचें</string>
     <string name="crop_use">फ़ोटो लगाएँ</string>
     <string name="settings_hide_profile_locked">प्रोफ़ाइल छिपाना लेवल 3 पर खुलता है।</string>
-    <string name="home_view_comments">%1$d कमेंट</string>
     <string name="about_title">और जानें</string>
     <string name="about_ojas_family">ओजस परिवार के बारे में</string>
     <string name="about_swamiji">स्वामीजी के बारे में</string>
@@ -712,7 +710,6 @@
     <string name="ai_history_empty">आपके प्रश्न और उत्तर यहाँ रहेंगे।</string>
     <string name="ai_new_chat">नई बातचीत</string>
     <string name="ai_delete_chat">बातचीत हटाएँ</string>
-    <string name="ai_quota_left">आज %1$d प्रश्न बाकी</string>
     <string name="ai_quota_none">आज के प्रश्न पूरे हुए। कल फिर आएँ, या स्वामीजी से सीधे पूछें।</string>
     <string name="ai_error">स्वामीजी AI अभी उत्तर नहीं दे सका। कृपया फिर कोशिश करें।</string>
     <string name="ai_speak">अपना प्रश्न बोलें</string>
@@ -756,4 +753,16 @@
     <string name="ai_crisis">आप महत्वपूर्ण हैं, और आपको यह अकेले नहीं सहना है। कृपया अभी किसी भरोसेमंद व्यक्ति से बात करें, या टेली-मानस 14416 पर कॉल करें (मुफ़्त, कभी भी, आपकी भाषा में)। अगर आप खतरे में हैं, तो 112 पर कॉल करें। आप पूछें टैब में स्वामीजी को संदेश भी भेज सकते हैं।</string>
     <string name="ai_followup_about">%1$s के बारे में और बताइए</string>
     <string name="ai_need_download">पूछने के लिए ऊपर स्वामीजी AI डाउनलोड करें।</string>
+    <plurals name="likes_plural">
+        <item quantity="one">%1$d लाइक</item>
+        <item quantity="other">%1$d लाइक</item>
+    </plurals>
+    <plurals name="comments_plural">
+        <item quantity="one">%1$d कमेंट</item>
+        <item quantity="other">%1$d कमेंट</item>
+    </plurals>
+    <plurals name="ai_quota_left_plural">
+        <item quantity="one">आज %1$d प्रश्न बाकी</item>
+        <item quantity="other">आज %1$d प्रश्न बाकी</item>
+    </plurals>
 </resources>

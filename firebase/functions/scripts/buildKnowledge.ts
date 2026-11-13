@@ -14,7 +14,9 @@
 //
 // Run (an owner of the project; Gemini notes use Vertex AI in the genaiguruyoutube project):
 //   gcloud auth application-default login
-//   npx ts-node scripts/buildKnowledge.ts [--force] [--limit 20] [--only-docs] [--publish-only]
+//   GOOGLE_CLOUD_QUOTA_PROJECT=ojas-family-app npx ts-node scripts/buildKnowledge.ts [--force] [--limit 20] [--only-docs] [--publish-only]
+// (the quota project matters when gcloud's default one has no billing: Storage then refuses the upload)
+// Each video is written in English, Hindi and Gujarati, so the phone can answer in the member's language.
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -36,6 +38,7 @@ const FORCE = args.includes("--force");
 const ONLY_DOCS = args.includes("--only-docs");
 const PUBLISH_ONLY = args.includes("--publish-only");
 const LIMIT = Number(args[args.indexOf("--limit") + 1]) || Infinity;
+const CONCURRENCY = Number(process.env.CONCURRENCY) || 4;
 const NOTES_MODEL = process.env.NOTES_MODEL || "gemini-3-flash-preview";
 // The phone model reads only a few hundred words per passage well
 const MAX_PASSAGE_CHARS = 900;
@@ -62,7 +65,7 @@ async function writeChunks(sourceId: string, chunks: Chunk[]) {
   for (const c of chunks.flatMap(splitLong)) {
     // Firestore refuses undefined values: leave missing fields out
     const clean = Object.fromEntries(Object.entries(c).filter(([, v]) => v !== undefined));
-    write.set(db.collection("knowledge").doc(idFor(`${sourceId}|${c.startSec ?? 0}|${c.text.slice(0, 60)}`)), {
+    write.set(db.collection("knowledge").doc(idFor(`${sourceId}|${c.lang ?? ""}|${c.startSec ?? 0}|${c.text.slice(0, 60)}`)), {
       ...clean, sourceId, updatedAt: FieldValue.serverTimestamp(),
     });
   }
@@ -137,35 +140,53 @@ async function playlistVideos(): Promise<Video[]> {
   return out;
 }
 
+/** Bump when the notes change shape, so every video is written again once. */
+const NOTES_VERSION = 2;
+const LANGS = ["en", "hi", "gu"] as const;
+
 const NOTES_SCHEMA = {
   type: Type.OBJECT,
   properties: {
-    language: { type: Type.STRING, description: "Main spoken language: en, hi or gu" },
-    summary: { type: Type.STRING, description: "4-8 sentences: what Swamiji teaches in this video" },
+    language: { type: Type.STRING, description: "Main spoken language of the video: en, hi or gu" },
+    summary_en: { type: Type.STRING, description: "3-6 simple sentences in English: what Swamiji teaches in this video" },
+    summary_hi: { type: Type.STRING, description: "The same summary in simple Hindi (Devanagari)" },
+    summary_gu: { type: Type.STRING, description: "The same summary in simple Gujarati (Gujarati script)" },
     sections: {
       type: Type.ARRAY,
       items: {
         type: Type.OBJECT,
         properties: {
           startSec: { type: Type.INTEGER, description: "Where this part starts, in seconds" },
-          heading: { type: Type.STRING },
-          text: { type: Type.STRING, description: "What is taught here, faithfully, including any practice steps in order" },
+          heading_en: { type: Type.STRING },
+          heading_hi: { type: Type.STRING },
+          heading_gu: { type: Type.STRING },
+          text_en: { type: Type.STRING, description: "What is taught here, in simple English, including practice steps in order" },
+          text_hi: { type: Type.STRING, description: "The same in simple Hindi (Devanagari)" },
+          text_gu: { type: Type.STRING, description: "The same in simple Gujarati (Gujarati script)" },
         },
-        required: ["startSec", "heading", "text"],
+        required: ["startSec", "heading_en", "heading_hi", "heading_gu", "text_en", "text_hi", "text_gu"],
       },
     },
   },
-  required: ["language", "summary", "sections"],
+  required: ["language", "summary_en", "summary_hi", "summary_gu", "sections"],
 };
 
 const NOTES_PROMPT = [
   "This is a video by Swamiji (Swami Anand Swaroop) of Ojas Healing.",
-  "Write faithful teaching notes so members can later ask questions about it.",
-  "Keep Swamiji's meaning exactly; don't add anything he didn't say. Keep Sanskrit and Hindi terms, with a short meaning in brackets.",
-  "Write the notes in the video's own language (Hindi in Devanagari, Gujarati in Gujarati script, else English), and the summary in that language too.",
-  "Split the video into 3 to 12 parts at natural topic changes. For a guided meditation, list its steps in order.",
+  "Write faithful teaching notes so members can later ask questions about it, in English, Hindi and Gujarati.",
+  "A small on-phone assistant will answer members by restating these notes, so write each part as a direct, self-contained answer:",
+  "short, plain sentences in second person (\"Sit straight. Close your eyes.\"), no references to \"this video\" or \"Swamiji says in the video\".",
+  "Keep Swamiji's meaning exactly; don't add anything he didn't say. Keep Sanskrit terms, with a short meaning in brackets.",
+  "Split the video into 3 to 10 parts at natural topic changes. For a guided meditation, list its steps in order.",
 ].join("\n");
 
+interface Notes {
+  language?: string;
+  [key: string]: unknown;
+  sections?: Array<{ startSec: number } & Record<string, unknown>>;
+}
+
+/** One passage per part and language, so the phone can answer in the member's own language. */
 async function videoNotes(v: Video): Promise<Chunk[]> {
   const url = `https://www.youtube.com/watch?v=${v.videoId}`;
   const res = await genai().models.generateContent({
@@ -173,16 +194,22 @@ async function videoNotes(v: Video): Promise<Chunk[]> {
     contents: [{ role: "user", parts: [{ fileData: { fileUri: url, mimeType: "video/*" } }, { text: NOTES_PROMPT }] }],
     config: { responseMimeType: "application/json", responseSchema: NOTES_SCHEMA, temperature: 0.2, mediaResolution: "MEDIA_RESOLUTION_LOW" as never },
   });
-  const notes = JSON.parse(res.text ?? "{}") as { language?: string; summary?: string; sections?: { startSec: number; heading: string; text: string }[] };
-  const lang = notes.language ?? "hi";
+  const notes = JSON.parse(res.text ?? "{}") as Notes;
   const chunks: Chunk[] = [];
-  if (notes.summary) chunks.push({ text: `${v.title}\n${notes.summary}`, title: v.title, url, videoId: v.videoId, sourceType: "video", lang });
-  for (const s of notes.sections ?? []) {
-    const start = Math.max(0, Math.floor(s.startSec || 0));
-    chunks.push({
-      text: `${v.title} · ${s.heading}\n${s.text}`, title: v.title, url: start ? `${url}&t=${start}s` : url,
-      videoId: v.videoId, startSec: start || undefined, sourceType: "video", lang,
-    });
+  const str = (x: unknown) => (typeof x === "string" ? x.trim() : "");
+  for (const lang of LANGS) {
+    const summary = str(notes[`summary_${lang}`]);
+    if (summary) chunks.push({ text: `${v.title}\n${summary}`, title: v.title, url, videoId: v.videoId, sourceType: "video", lang });
+    for (const s of notes.sections ?? []) {
+      const text = str(s[`text_${lang}`]);
+      if (!text) continue;
+      const start = Math.max(0, Math.floor(Number(s.startSec) || 0));
+      const heading = str(s[`heading_${lang}`]) || str(s.heading_en);
+      chunks.push({
+        text: `${v.title} · ${heading}\n${text}`, title: v.title, url: start ? `${url}&t=${start}s` : url,
+        videoId: v.videoId, startSec: start || undefined, sourceType: "video", lang,
+      });
+    }
   }
   return chunks;
 }
@@ -192,21 +219,28 @@ async function videos() {
   const all = new Map<string, Video>();
   for (const v of [...content, ...(await playlistVideos())]) if (v.videoId && !all.has(v.videoId)) all.set(v.videoId, v);
   console.log(`${all.size} videos found`);
-  let done = 0;
+  const todo: Video[] = [];
   for (const v of all.values()) {
-    if (done >= LIMIT) break;
-    const mark = db.doc(`knowledgeSources/${v.videoId}`);
-    if (!FORCE && (await mark.get()).get("status") === "done") continue;
-    try {
-      console.log(`- ${v.title}`);
-      await writeChunks(`video:${v.videoId}`, await videoNotes(v));
-      await mark.set({ status: "done", title: v.title, at: FieldValue.serverTimestamp() });
-    } catch (e) {
-      console.warn(`  skipped: ${(e as Error).message}`);
-      await mark.set({ status: "failed", title: v.title, error: (e as Error).message.slice(0, 300), at: FieldValue.serverTimestamp() });
-    }
-    done++;
+    const prev = (await db.doc(`knowledgeSources/${v.videoId}`).get()).data();
+    if (FORCE || prev?.status !== "done" || prev?.v !== NOTES_VERSION) todo.push(v);
   }
+  const queue = todo.slice(0, LIMIT === Infinity ? todo.length : LIMIT);
+  console.log(`${queue.length} videos to write`);
+  // A few at a time: each video takes Gemini a minute or two to watch
+  const worker = async () => {
+    for (let v = queue.shift(); v; v = queue.shift()) {
+      const mark = db.doc(`knowledgeSources/${v.videoId}`);
+      try {
+        console.log(`- ${v.title}`);
+        await writeChunks(`video:${v.videoId}`, await videoNotes(v));
+        await mark.set({ status: "done", v: NOTES_VERSION, title: v.title, at: FieldValue.serverTimestamp() });
+      } catch (e) {
+        console.warn(`  skipped ${v.videoId}: ${(e as Error).message}`);
+        await mark.set({ status: "failed", title: v.title, error: (e as Error).message.slice(0, 300), at: FieldValue.serverTimestamp() });
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: CONCURRENCY }, worker));
 }
 
 /** Publishes every passage as ai/knowledge.json, the file the app searches on the phone. */

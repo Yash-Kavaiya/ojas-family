@@ -29,6 +29,13 @@ private val STOP_WORDS = setOf(
     "છે", "છો", "નો", "ની", "નું", "ને", "માં", "થી", "અને", "કે", "આ", "તે", "શું", "કેવી", "રીતે", "કેમ", "ક્યારે", "હું", "મને", "મારું", "તમે", "પણ", "સ્વામીજી",
 )
 
+/** The language a question is written in, from its script; [fallback] (the app language) for Latin letters. */
+fun questionLanguage(text: String, fallback: String): String = when {
+    text.any { it in '઀'..'૿' } -> "gu" // Gujarati script
+    text.any { it in 'ऀ'..'ॿ' } -> "hi" // Devanagari
+    else -> fallback
+}
+
 /** Splits text into search words: letters and digits of any script, lower case, common words dropped. */
 fun searchWords(text: String): List<String> =
     Regex("""[\p{L}\p{M}\p{N}]+""").findAll(text.lowercase()).map { it.value }
@@ -81,9 +88,14 @@ class KnowledgeSearch(private val passages: List<KnowledgePassage>) {
         return scored.filter { it.second >= best * MIN_SHARE_OF_BEST }
             .sortedByDescending { it.second }
             .map { passages[it.first] }
-            .distinctBy { it.text.take(80) }
+            // The same part of a video is written in English, Hindi and Gujarati: give the member's own
+            .map { p -> if (lang == null || p.lang == lang) p else counterpart[Triple(p.videoId ?: p.title, p.startSec, lang)] ?: p }
+            .distinctBy { "${it.videoId ?: it.title}|${it.startSec}" }
             .take(k)
     }
+
+    private val counterpart: Map<Triple<String, Int, String>, KnowledgePassage> =
+        passages.filter { it.videoId != null }.associateBy { Triple(it.videoId!!, it.startSec, it.lang) }
 
     private companion object {
         const val K1 = 1.4

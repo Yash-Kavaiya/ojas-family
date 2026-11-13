@@ -49,6 +49,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -124,11 +125,11 @@ fun AnnouncementCard(
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             LikeButton(liked = liked, enabled = canLike, onToggle = onLike)
-            RollingCount(n.likeCount, { stringResource(R.string.likes_count, it) })
+            RollingCount(n.likeCount, { pluralStringResource(R.plurals.likes_plural, it, it) })
             Box(Modifier.weight(1f))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
-                Text(stringResource(R.string.home_view_comments, n.commentCount), style = MaterialTheme.typography.labelLarge, color = accent)
+                Text(pluralStringResource(R.plurals.comments_plural, n.commentCount, n.commentCount), style = MaterialTheme.typography.labelLarge, color = accent)
             }
         }
     }

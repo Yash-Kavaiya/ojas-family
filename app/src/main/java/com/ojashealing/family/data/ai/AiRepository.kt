@@ -36,6 +36,8 @@ data class AiAnswer(
 sealed interface AiStreamEvent {
     data class Stage(val stage: AiStage) : AiStreamEvent
     data class Text(val piece: String) : AiStreamEvent
+    /** The text written so far is replaced (a cleaned-up or fallback answer). */
+    data class Replace(val text: String) : AiStreamEvent
     data class Done(val answer: AiAnswer) : AiStreamEvent
 }
 
@@ -169,7 +171,9 @@ class OnDeviceAiRepository(
 
         emit(AiStreamEvent.Stage(AiStage.Searching))
         val query = listOfNotNull(q, photo?.note?.searchText(), history.lastOrNull { it.fromMe }?.text).joinToString(" ")
-        var passages = knowledge().search(query, topK, lang)
+        // Answer in the language the question is written in (Hindi typed in an English app gets Hindi)
+        val answerLang = questionLanguage(q, lang)
+        var passages = knowledge().search(query, topK, answerLang)
         if (passages.isEmpty()) {
             // Nothing in the teachings: say so honestly instead of letting a small model guess
             finish(texts.noMatch, emptyList(), emptyList(), -1, 0)
@@ -183,15 +187,15 @@ class OnDeviceAiRepository(
         val points = (started?.get("pointsAwarded") as? Number)?.toInt() ?: 0
 
         emit(AiStreamEvent.Stage(AiStage.Loading))
-        var prompt = GemmaPrompt.build(q, passages, lang, history, photo?.note)
+        var prompt = GemmaPrompt.build(q, passages, answerLang, history, photo?.note)
         // Keep room for the answer: drop the weakest passages, then shorten what is left
         while (engine.tokens(prompt) > GemmaEngine.MAX_PROMPT_TOKENS && passages.size > 1) {
             passages = passages.dropLast(1)
-            prompt = GemmaPrompt.build(q, passages, lang, history, photo?.note)
+            prompt = GemmaPrompt.build(q, passages, answerLang, history, photo?.note)
         }
         if (engine.tokens(prompt) > GemmaEngine.MAX_PROMPT_TOKENS) {
             passages = passages.map { it.copy(text = it.text.take(500)) }
-            prompt = GemmaPrompt.build(q, passages, lang, emptyList(), photo?.note)
+            prompt = GemmaPrompt.build(q, passages, answerLang, emptyList(), photo?.note)
         }
 
         emit(AiStreamEvent.Stage(AiStage.Writing))
@@ -201,10 +205,13 @@ class OnDeviceAiRepository(
             if (visible.length > shown.length && visible.startsWith(shown)) emit(AiStreamEvent.Text(visible.substring(shown.length)))
             shown = visible
         }
-        val answer = GemmaPrompt.clean(shown)
+        // When the small model only talks about the task, Swamiji's own words from the best passage answer instead
+        val answer = GemmaPrompt.clean(shown).let { if (GemmaPrompt.isUseless(it, q, passages)) GemmaPrompt.extract(passages) else it }
         if (answer.isBlank()) throw IllegalStateException("Swamiji AI could not answer just now. Please try again.")
+        if (answer != shown) emit(AiStreamEvent.Replace(answer))
         val sources = passages.mapIndexed { i, p -> AiSource(i + 1, p.title, p.url, p.videoId, p.startSec) }
-            .distinctBy { "${it.videoId ?: it.url}|${it.startSec}" }
+            .distinctBy { it.videoId ?: it.url.ifBlank { it.title } }
+            .mapIndexed { i, s -> s.copy(n = i + 1) }
         finish(answer, sources, GemmaPrompt.followUps(q, passages) { texts.followUpTemplate.format(it) }, remaining, points)
     }
 

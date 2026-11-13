@@ -12,8 +12,8 @@ data class PhotoNote(val text: String, val labels: List<String>) {
 data class ChatTurn(val fromMe: Boolean, val text: String)
 
 /**
- * Builds the prompt for Gemma 3 270M in its own chat format. A model this small follows short,
- * plain instructions best, so they stay brief, and it sees only a few passages.
+ * Builds the prompt for Gemma 3 270M in its own chat format. A model this small follows one short,
+ * plain request best, so the teachings come first and the request is a single line after them.
  */
 object GemmaPrompt {
     private const val USER = "<start_of_turn>user\n"
@@ -22,14 +22,15 @@ object GemmaPrompt {
 
     private val LANGUAGE = mapOf("en" to "English", "hi" to "Hindi", "gu" to "Gujarati")
 
-    fun instructions(lang: String): String = listOf(
-        "You are Ask Swamiji, a kind and calm guide of Ojas Healing.",
-        "Answer the question using only the teachings below.",
-        "Keep it short: 2 to 5 simple sentences, or a few numbered steps for a practice.",
-        "If the teachings do not answer it, say you are not sure and suggest asking Swamiji in the app.",
-        "Never diagnose illness or tell anyone to stop medicine.",
-        "Answer in ${LANGUAGE[lang] ?: "English"}.",
-    ).joinToString("\n")
+    /**
+     * Just the question after the teachings. Any rule about how to answer ("in 2 to 5 sentences")
+     * makes a 270M model repeat the rule back instead of answering, so only the language is said,
+     * and only when it isn't English.
+     */
+    fun request(question: String, lang: String): String = buildString {
+        append("Question: ").append(question.trim())
+        if (lang != "en") append("\nAnswer in ").append(LANGUAGE[lang]).append('.')
+    }
 
     fun build(
         question: String,
@@ -45,27 +46,64 @@ object GemmaPrompt {
             append('\n').append(END)
         }
         append(USER)
-        append(instructions(lang)).append("\n\n")
-        append("Teachings:\n")
+        append("Read these teachings of Swamiji, then answer the question simply.\n\n")
         passages.forEachIndexed { i, p -> append("[${i + 1}] ").append(p.text.trim()).append("\n\n") }
         if (photo != null && !photo.isEmpty) {
             append("The member shared a photo.")
             if (photo.labels.isNotEmpty()) append(" It shows: ").append(photo.labels.joinToString(", ")).append('.')
-            if (photo.text.isNotBlank()) append(" Words in it: \"").append(photo.text.take(500).trim()).append("\"")
+            if (photo.text.isNotBlank()) append(" Words in it: \"").append(photo.text.take(500).trim()).append('"')
             append("\n\n")
         }
-        append("Question: ").append(question.trim()).append('\n')
+        append(request(question, lang)).append('\n')
         append(END)
         append(MODEL)
     }
 
-    /** Removes the turn markers a small model sometimes writes into its answer. */
+    /** Removes the turn markers a small model sometimes writes, and an opening that only talks about the task. */
     fun clean(raw: String): String = raw
         .replace("<end_of_turn>", "")
         .replace("<start_of_turn>model", "")
         .replace("<start_of_turn>user", "")
         .replace("<eos>", "")
         .trim()
+        .let(::stripPreamble)
+
+    private val PREAMBLE = Regex(
+        """^(okay|ok|sure|certainly|of course|alright|i understand|understood)\b[^.!?\n]*[.!?:]\s*""",
+        RegexOption.IGNORE_CASE,
+    )
+    private val TASK_TALK = Regex("""^(i will|i'll|here is|here's)\b[^.!?\n]*[.!?:]\s*""", RegexOption.IGNORE_CASE)
+    private val ANSWER_LABEL = Regex("""^(the answer is|answer)\s*:\s*""", RegexOption.IGNORE_CASE)
+
+    /** Drops an opening like "Okay, I understand. I will use only the teachings..." or "The answer is:". */
+    private fun stripPreamble(text: String): String {
+        val m = PREAMBLE.find(text)
+        val rest = (if (m == null) text else text.substring(m.range.last + 1).replaceFirst(TASK_TALK, ""))
+            .trim().replaceFirst(ANSWER_LABEL, "").trim()
+        return rest.ifBlank { text }
+    }
+
+    /**
+     * True when the model's answer adds nothing from the teachings: it is only talk about the task,
+     * or it mostly repeats the question ("To do the kundalini meditation."). The app then shows the
+     * best matching teaching itself, which is always a real answer in Swamiji's words.
+     */
+    fun isUseless(answer: String, question: String = "", passages: List<KnowledgePassage> = emptyList()): Boolean {
+        val t = answer.trim()
+        if (t.length < 40 || PREAMBLE.containsMatchIn(t) || TASK_TALK.containsMatchIn(t)) return true
+        if (passages.isEmpty()) return false
+        // Words the answer brings from the teachings, beyond the question's own words
+        val asked = searchWords(question).toSet()
+        val taught = passages.flatMap { searchWords(it.text) }.toSet()
+        val added = searchWords(t).filter { it !in asked && it in taught }.toSet()
+        return added.size < MIN_TAUGHT_WORDS
+    }
+
+    /** The best passages as an answer, in Swamiji's words, without their title lines. */
+    fun extract(passages: List<KnowledgePassage>): String =
+        passages.take(2).joinToString("\n\n") { it.text.substringAfter('\n', it.text).trim() }.take(900)
+
+    private const val MIN_TAUGHT_WORDS = 4
 
     private val CRISIS = listOf(
         "suicide", "kill myself", "end my life", "want to die", "self harm", "hurt myself",

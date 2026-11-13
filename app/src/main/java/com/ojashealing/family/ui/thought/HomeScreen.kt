@@ -63,6 +63,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -346,12 +347,12 @@ fun ThoughtCard(
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
             LikeButton(liked = liked, enabled = canLike, onToggle = onLike)
-            com.ojashealing.family.ui.components.RollingCount(thought.likeCount, { stringResource(R.string.likes_count, it) })
+            com.ojashealing.family.ui.components.RollingCount(thought.likeCount, { pluralStringResource(R.plurals.likes_plural, it, it) })
             Box(Modifier.weight(1f))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                 Text(
-                    stringResource(R.string.home_view_comments, thought.commentCount),
+                    pluralStringResource(R.plurals.comments_plural, thought.commentCount, thought.commentCount),
                     style = MaterialTheme.typography.labelMedium,
                     color = if (preview) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                 )

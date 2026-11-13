@@ -127,7 +127,6 @@
     <string name="field_message">Message</string>
     <string name="field_date">Date</string>
     <string name="home_scheduled">Thought scheduled</string>
-    <string name="likes_count">%1$d likes</string>
     <string name="action_like">Like</string>
     <string name="community_qa">Q&amp;A</string>
     <string name="community_notices">Announcements</string>
@@ -393,7 +392,6 @@
     <string name="crop_hint">Pinch to zoom, drag to move</string>
     <string name="crop_use">Use photo</string>
     <string name="settings_hide_profile_locked">Hiding your profile opens at Level 3.</string>
-    <string name="home_view_comments">%1$d comments</string>
     <string name="about_title">Know more</string>
     <string name="about_ojas_family">About Ojas Family</string>
     <string name="about_swamiji">About Swamiji</string>
@@ -713,7 +711,6 @@
     <string name="ai_history_empty">Your questions and answers will be kept here.</string>
     <string name="ai_new_chat">New conversation</string>
     <string name="ai_delete_chat">Delete conversation</string>
-    <string name="ai_quota_left">%1$d questions left today</string>
     <string name="ai_quota_none">You\'ve asked today\'s questions. Come back tomorrow, or ask Swamiji personally.</string>
     <string name="ai_error">Swamiji AI couldn\'t answer just now. Please try again.</string>
     <string name="ai_speak">Speak your question</string>
@@ -757,4 +754,16 @@
     <string name="ai_crisis">You matter, and you don\'t have to face this alone. Please talk to someone you trust right now, or call Tele-MANAS on 14416 (free, any time, in your language). If you are in danger, call 112. You can also message Swamiji in the Ask tab.</string>
     <string name="ai_followup_about">Tell me more about %1$s</string>
     <string name="ai_need_download">Download Swamiji AI above to ask.</string>
+    <plurals name="likes_plural">
+        <item quantity="one">%1$d like</item>
+        <item quantity="other">%1$d likes</item>
+    </plurals>
+    <plurals name="comments_plural">
+        <item quantity="one">%1$d comment</item>
+        <item quantity="other">%1$d comments</item>
+    </plurals>
+    <plurals name="ai_quota_left_plural">
+        <item quantity="one">%1$d question left today</item>
+        <item quantity="other">%1$d questions left today</item>
+    </plurals>
 </resources>

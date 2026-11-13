@@ -126,7 +126,6 @@
     <string name="field_message">સંદેશ</string>
     <string name="field_date">તારીખ</string>
     <string name="home_scheduled">વિચાર શેડ્યૂલ થઈ ગયો</string>
-    <string name="likes_count">%1$d લાઇક</string>
     <string name="action_like">લાઇક</string>
     <string name="community_qa">પ્રશ્નોત્તર</string>
     <string name="community_notices">જાહેરાતો</string>
@@ -392,7 +391,6 @@
     <string name="crop_hint">ઝૂમ માટે પિંચ કરો, ખસેડવા માટે ખેંચો</string>
     <string name="crop_use">ફોટો વાપરો</string>
     <string name="settings_hide_profile_locked">પ્રોફાઇલ છુપાવવાનું લેવલ 3 પર ખૂલે છે.</string>
-    <string name="home_view_comments">%1$d કમેન્ટ</string>
     <string name="about_title">વધુ જાણો</string>
     <string name="about_ojas_family">ઓજસ પરિવાર વિશે</string>
     <string name="about_swamiji">સ્વામીજી વિશે</string>
@@ -712,7 +710,6 @@
     <string name="ai_history_empty">તમારા પ્રશ્નો અને જવાબ અહીં રહેશે.</string>
     <string name="ai_new_chat">નવી વાતચીત</string>
     <string name="ai_delete_chat">વાતચીત કાઢી નાખો</string>
-    <string name="ai_quota_left">આજે %1$d પ્રશ્ન બાકી</string>
     <string name="ai_quota_none">આજના પ્રશ્નો પૂરા થયા. કાલે ફરી આવો, અથવા સ્વામીજીને સીધા પૂછો.</string>
     <string name="ai_error">સ્વામીજી AI હમણાં જવાબ આપી શક્યું નહીં. કૃપા કરી ફરી પ્રયત્ન કરો.</string>
     <string name="ai_speak">તમારો પ્રશ્ન બોલો</string>
@@ -756,4 +753,16 @@
     <string name="ai_crisis">તમે મહત્વના છો, અને તમારે આ એકલા સહન કરવાનું નથી. કૃપા કરીને હમણાં જ કોઈ વિશ્વાસુ વ્યક્તિ સાથે વાત કરો, અથવા ટેલી-માનસ 14416 પર કૉલ કરો (મફત, ગમે ત્યારે, તમારી ભાષામાં). જો તમે જોખમમાં હો, તો 112 પર કૉલ કરો. તમે પૂછો ટેબમાં સ્વામીજીને સંદેશ પણ મોકલી શકો છો.</string>
     <string name="ai_followup_about">%1$s વિશે વધુ કહો</string>
     <string name="ai_need_download">પૂછવા માટે ઉપર સ્વામીજી AI ડાઉનલોડ કરો.</string>
+    <plurals name="likes_plural">
+        <item quantity="one">%1$d લાઇક</item>
+        <item quantity="other">%1$d લાઇક</item>
+    </plurals>
+    <plurals name="comments_plural">
+        <item quantity="one">%1$d કમેન્ટ</item>
+        <item quantity="other">%1$d કમેન્ટ</item>
+    </plurals>
+    <plurals name="ai_quota_left_plural">
+        <item quantity="one">આજે %1$d પ્રશ્ન બાકી</item>
+        <item quantity="other">આજે %1$d પ્રશ્ન બાકી</item>
+    </plurals>
 </resources>

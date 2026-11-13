@@ -4,12 +4,12 @@ import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Groups
-import androidx.compose.material.icons.filled.HelpCenter
+import androidx.compose.material.icons.filled.QuestionAnswer
 import androidx.compose.material.icons.filled.SelfImprovement
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Groups
-import androidx.compose.material.icons.outlined.HelpCenter
+import androidx.compose.material.icons.outlined.QuestionAnswer
 import androidx.compose.material.icons.outlined.SelfImprovement
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material3.Icon
@@ -37,7 +37,7 @@ enum class MainTab(@StringRes val label: Int, val selectedIcon: ImageVector, val
     Community(R.string.tab_community, Icons.Filled.Groups, Icons.Outlined.Groups),
     Spiritual(R.string.tab_spiritual, Icons.Filled.SelfImprovement, Icons.Outlined.SelfImprovement),
     Home(R.string.tab_home, Icons.Filled.Home, Icons.Outlined.Home),
-    Ask(R.string.tab_ask, Icons.Filled.HelpCenter, Icons.Outlined.HelpCenter),
+    Ask(R.string.tab_ask, Icons.Filled.QuestionAnswer, Icons.Outlined.QuestionAnswer),
     Profile(R.string.tab_profile, Icons.Filled.AccountCircle, Icons.Outlined.AccountCircle)
 }
 
@@ -74,13 +74,7 @@ fun OjasBottomBar(current: MainTab, onSelect: (MainTab) -> Unit, modifier: Modif
                 },
                 label = {
                     // Hindi and Gujarati labels can be wider than English; never wrap to a second line
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.labelMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.testTag("nav_label")
-                    )
+                    com.ojashealing.family.ui.components.FitText(label, MaterialTheme.typography.labelMedium, Modifier.testTag("nav_label"))
                 },
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,

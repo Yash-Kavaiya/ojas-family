@@ -111,6 +111,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
@@ -267,6 +268,7 @@ class SwamijiAiViewModel(private val repo: AiRepository, uid: kotlinx.coroutines
                     when (e) {
                         is AiStreamEvent.Stage -> _stage.value = e.stage
                         is AiStreamEvent.Text -> _messages.update { l -> l.map { if (it.id == answerId) it.copy(text = it.text + e.piece) else it } }
+                        is AiStreamEvent.Replace -> _messages.update { l -> l.map { if (it.id == answerId) it.copy(text = e.text) else it } }
                         is AiStreamEvent.Done -> {
                             _chatId.value = e.answer.chatId
                             // -1: the phone answered without using a question (no match, or help first)
@@ -451,7 +453,7 @@ fun SwamijiAiScreen(
             }
             quota?.takeIf { it.limit > 0 && ready }?.let { q ->
                 Text(
-                    if (q.remaining > 0) stringResource(R.string.ai_quota_left, q.remaining) else stringResource(R.string.ai_quota_none),
+                    if (q.remaining > 0) pluralStringResource(R.plurals.ai_quota_left_plural, q.remaining, q.remaining) else stringResource(R.string.ai_quota_none),
                     style = MaterialTheme.typography.labelMedium,
                     color = if (q.remaining > 0) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(horizontal = Spacing.xl),
@@ -744,7 +746,8 @@ private fun UserBubble(text: String, photoPath: String?, modifier: Modifier = Mo
         if (photoPath != null) {
             AsyncImage(
                 model = File(photoPath), contentDescription = null, contentScale = ContentScale.Crop,
-                modifier = Modifier.size(160.dp).clip(RoundedCornerShape(18.dp)),
+                modifier = Modifier.size(160.dp).clip(RoundedCornerShape(18.dp))
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(18.dp)),
             )
         }
         Text(
