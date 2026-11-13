@@ -124,6 +124,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.ojashealing.family.R
+import com.ojashealing.family.ui.theme.loopingFloat
 import com.ojashealing.family.data.call.callDuration
 import com.ojashealing.family.data.chat.Attachment
 import com.ojashealing.family.data.chat.ChatChannel
@@ -648,7 +649,7 @@ private fun DayChip(label: String) {
 @Composable
 private fun TypingBubble() {
     val t = rememberInfiniteTransition(label = "typing")
-    val phase by t.animateFloat(0f, 3f, infiniteRepeatable(tween(900, easing = LinearEasing)), label = "p")
+    val phase by loopingFloat(0f, 3f, infiniteRepeatable(tween(900, easing = LinearEasing)), rest = 1f, label = "p")
     Row(
         Modifier.padding(vertical = 2.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(16.dp)).padding(horizontal = 14.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp)

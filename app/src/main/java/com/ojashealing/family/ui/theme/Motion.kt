@@ -141,3 +141,28 @@ fun ShimmerBlock(modifier: Modifier = Modifier, shape: Shape = RoundedCornerShap
             )
     )
 }
+
+/**
+ * A value that loops between [from] and [to] for ambient motion (a glow, typing dots). When the
+ * system asks for reduced motion it holds still at [rest], so nothing pulses or blinks.
+ */
+@Composable
+fun loopingFloat(
+    from: Float,
+    to: Float,
+    spec: androidx.compose.animation.core.InfiniteRepeatableSpec<Float>,
+    rest: Float = to,
+    label: String = "loop",
+): androidx.compose.runtime.State<Float> =
+    if (LocalReducedMotion.current) {
+        androidx.compose.runtime.remember(rest) { androidx.compose.runtime.mutableFloatStateOf(rest) }
+    } else {
+        androidx.compose.animation.core.rememberInfiniteTransition(label = label).animateFloat(from, to, spec, label = label)
+    }
+
+/** The hairline around a photo: pure black in light mode, pure white in dark, at 10%, so it never tints the picture's edge. */
+@Composable
+fun imageOutline(): androidx.compose.ui.graphics.Color {
+    val dark = androidx.compose.material3.MaterialTheme.colorScheme.background.red < 0.5f
+    return (if (dark) androidx.compose.ui.graphics.Color.White else androidx.compose.ui.graphics.Color.Black).copy(alpha = 0.1f)
+}

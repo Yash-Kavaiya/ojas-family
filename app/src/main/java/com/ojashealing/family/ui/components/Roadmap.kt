@@ -1,5 +1,6 @@
 package com.ojashealing.family.ui.components
 
+import com.ojashealing.family.ui.theme.loopingFloat
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
@@ -115,8 +116,7 @@ fun Roadmap(steps: List<RoadStep>, modifier: Modifier = Modifier, action: (@Comp
 
 @Composable
 private fun StepDot(step: RoadStep) {
-    val pulse = rememberInfiniteTransition(label = "pulse")
-    val ring by pulse.animateFloat(1f, 1.18f, infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "ring")
+    val ring by loopingFloat(1f, 1.18f, infiniteRepeatable(tween(900), RepeatMode.Reverse), rest = 1f, label = "ring")
     when (step.state) {
         StepState.Done -> Box(
             Modifier.size(32.dp).clip(CircleShape).background(Brush.linearGradient(OjasGradients.saffron)),

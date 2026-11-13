@@ -1,6 +1,8 @@
 package com.ojashealing.family.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -43,9 +45,10 @@ fun SendButton(
 ) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(if (pressed) 0.88f else 1f, spring(dampingRatio = 0.5f), label = "sendScale")
-    val tilt by animateFloatAsState(if (pressed) -18f else 0f, spring(dampingRatio = 0.6f), label = "sendTilt")
     val active = enabled && !busy
+    // Sent many times a day: a quick 0.96 press with no bounce; a disabled button never moves
+    val scale by animateFloatAsState(if (pressed && active) 0.96f else 1f, tween(150, easing = LinearOutSlowInEasing), label = "sendScale")
+    val tilt by animateFloatAsState(if (pressed && active) -12f else 0f, tween(150, easing = LinearOutSlowInEasing), label = "sendTilt")
     val background = if (active) Brush.linearGradient(OjasGradients.saffron)
     else Brush.linearGradient(listOf(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.surfaceVariant))
 

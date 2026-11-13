@@ -82,7 +82,7 @@ fun CommentLikeAction(commentPath: String, count: Int, enabled: Boolean, modifie
 
     val shownLiked = pending ?: liked
     val shownCount = shownLikeCount(count, base, wasLiked, pending)
-    val pop by animateFloatAsState(if (shownLiked) 1f else 0.85f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow), label = "pop")
+    val pop by animateFloatAsState(if (shownLiked) 1f else 0.85f, spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium), label = "pop")
     val tint = if (shownLiked) LotusRose else MaterialTheme.colorScheme.onSurfaceVariant
     val likeLabel = stringResource(R.string.action_like)
 

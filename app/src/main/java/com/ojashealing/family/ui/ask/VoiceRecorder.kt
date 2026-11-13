@@ -61,6 +61,7 @@ import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.ojashealing.family.R
+import com.ojashealing.family.ui.theme.loopingFloat
 import com.ojashealing.family.data.chat.WAVEFORM_MAX
 import com.ojashealing.family.data.chat.downsample
 import com.ojashealing.family.data.practice.clockLabel
@@ -182,8 +183,7 @@ fun HoldToRecordButton(
 /** While holding the mic: a blinking red dot, the time, the live level and "slide to cancel". */
 @Composable
 fun RecordingBar(elapsedMs: Long, level: Float, dragX: Float, modifier: Modifier = Modifier) {
-    val blink = rememberInfiniteTransition(label = "rec")
-    val dot by blink.animateFloat(1f, 0.2f, infiniteRepeatable(tween(600), RepeatMode.Reverse), label = "dot")
+    val dot by loopingFloat(1f, 0.2f, infiniteRepeatable(tween(600), RepeatMode.Reverse), rest = 1f, label = "dot")
     Row(
         modifier.fillMaxWidth().height(48.dp).padding(horizontal = Spacing.m),
         verticalAlignment = Alignment.CenterVertically,

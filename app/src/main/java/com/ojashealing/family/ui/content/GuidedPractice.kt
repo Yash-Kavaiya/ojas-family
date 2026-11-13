@@ -1,5 +1,6 @@
 package com.ojashealing.family.ui.content
 
+import com.ojashealing.family.ui.theme.loopingFloat
 import androidx.compose.runtime.remember
 import com.ojashealing.family.ui.theme.pressScale
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -173,8 +174,7 @@ fun GuidedPracticeCard(card: GuidedCard, streak: PracticeStatus?, onOpen: () -> 
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val box = if (dark) tint.boxDark else tint.boxLight
     val accent = if (dark) tint.titleDark else tint.titleLight
-    val glow = rememberInfiniteTransition(label = "glow")
-    val pulse by glow.animateFloat(0.85f, 1.15f, infiniteRepeatable(tween(2200, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "p")
+    val pulse by loopingFloat(0.85f, 1.15f, infiniteRepeatable(tween(2200, easing = FastOutSlowInEasing), RepeatMode.Reverse), rest = 1f, label = "p")
 
     val press = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     Surface(

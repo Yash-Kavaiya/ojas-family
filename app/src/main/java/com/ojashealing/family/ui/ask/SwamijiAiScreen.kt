@@ -1,5 +1,7 @@
 package com.ojashealing.family.ui.ask
 
+import com.ojashealing.family.ui.theme.imageOutline
+import com.ojashealing.family.ui.theme.loopingFloat
 import android.Manifest
 import android.content.ClipData
 import android.content.pm.PackageManager
@@ -646,7 +648,7 @@ private fun PhotoChip(photo: AttachedPhoto?, reading: Boolean, failed: Boolean, 
         if (photo != null) {
             AsyncImage(
                 model = File(photo.path), contentDescription = null, contentScale = ContentScale.Crop,
-                modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)),
+                modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)).border(1.dp, imageOutline(), RoundedCornerShape(10.dp)),
             )
         } else if (reading) {
             CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
@@ -679,7 +681,7 @@ private fun share(context: Context, text: String) {
 @Composable
 private fun AiAvatar(size: Int, glowing: Boolean = false) {
     val t = rememberInfiniteTransition(label = "aiGlow")
-    val glow by t.animateFloat(0.4f, 1f, infiniteRepeatable(tween(900, easing = OjasEasing.Standard), RepeatMode.Reverse), label = "g")
+    val glow by loopingFloat(0.4f, 1f, infiniteRepeatable(tween(900, easing = OjasEasing.Standard), RepeatMode.Reverse), rest = 1f, label = "g")
     Box(contentAlignment = Alignment.Center) {
         if (glowing) Box(Modifier.size((size + 8).dp).alpha(glow * 0.5f).clip(CircleShape).background(Brush.radialGradient(listOf(Color(0xFF7CC4FF), Color.Transparent))))
         Box(
@@ -747,7 +749,7 @@ private fun UserBubble(text: String, photoPath: String?, modifier: Modifier = Mo
             AsyncImage(
                 model = File(photoPath), contentDescription = null, contentScale = ContentScale.Crop,
                 modifier = Modifier.size(160.dp).clip(RoundedCornerShape(18.dp))
-                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(18.dp)),
+                    .border(1.dp, imageOutline(), RoundedCornerShape(18.dp)),
             )
         }
         Text(
@@ -825,23 +827,23 @@ private fun AiBubble(
             }
             if (!m.streaming && m.error == null && m.text.isNotEmpty()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { onRate(1) }, modifier = Modifier.size(36.dp)) {
+                    IconButton(onClick = { onRate(1) }) {
                         Icon(if (m.rating == 1) Icons.Filled.ThumbUp else Icons.Outlined.ThumbUp, stringResource(R.string.ai_helpful), modifier = Modifier.size(18.dp),
                             tint = if (m.rating == 1) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    IconButton(onClick = { onRate(-1) }, modifier = Modifier.size(36.dp)) {
+                    IconButton(onClick = { onRate(-1) }) {
                         Icon(if (m.rating == -1) Icons.Filled.ThumbDown else Icons.Outlined.ThumbDown, stringResource(R.string.ai_not_helpful), modifier = Modifier.size(18.dp),
                             tint = if (m.rating == -1) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    IconButton(onClick = onSpeak, modifier = Modifier.size(36.dp)) {
+                    IconButton(onClick = onSpeak) {
                         Icon(
                             if (speaking) Icons.Outlined.StopCircle else Icons.AutoMirrored.Outlined.VolumeUp,
                             stringResource(if (speaking) R.string.ai_stop_reading else R.string.ai_read_aloud), modifier = Modifier.size(18.dp),
                             tint = if (speaking) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    IconButton(onClick = onCopy, modifier = Modifier.size(36.dp)) { Icon(Icons.Outlined.ContentCopy, stringResource(R.string.ai_copy), modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
-                    IconButton(onClick = onShare, modifier = Modifier.size(36.dp)) { Icon(Icons.Outlined.Share, stringResource(R.string.ai_share), modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    IconButton(onClick = onCopy) { Icon(Icons.Outlined.ContentCopy, stringResource(R.string.ai_copy), modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    IconButton(onClick = onShare) { Icon(Icons.Outlined.Share, stringResource(R.string.ai_share), modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
                 if (isLast && m.followUps.isNotEmpty()) {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
@@ -873,11 +875,10 @@ private fun SourceRow(s: AiSource, onClick: () -> Unit) {
 
 @Composable
 private fun ThinkingDots() {
-    val t = rememberInfiniteTransition(label = "dots")
     val label = stringResource(R.string.ai_writing)
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.semantics { contentDescription = label }) {
         repeat(3) { i ->
-            val a by t.animateFloat(0.25f, 1f, infiniteRepeatable(tween(500, delayMillis = i * 150), RepeatMode.Reverse), label = "dot$i")
+            val a by loopingFloat(0.25f, 1f, infiniteRepeatable(tween(500, delayMillis = i * 150), RepeatMode.Reverse), rest = 0.7f, label = "dot$i")
             Box(Modifier.size(8.dp).alpha(a).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
         }
     }
