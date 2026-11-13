@@ -380,10 +380,10 @@
     <string name="points_src_other">Moksha Points</string>
     <string name="ai_title">Ask Swamiji AI</string>
     <string name="ai_beta_tag">NEW</string>
-    <string name="ai_card_desc">Ask about meditation, healing, chakras and protection. Answers come from Swamiji\'s videos.</string>
+    <string name="ai_card_desc">Ask about meditation, healing, chakras and protection, by typing, speaking or sending a photo. Answers from Swamiji\'s teachings, right on your phone.</string>
     <string name="ai_hint">Ask about meditation, healing, protection…</string>
     <string name="ai_intro_title">🙏 Namaste! I am Swamiji AI</string>
-    <string name="ai_intro_body">I answer from Swamiji\'s own teachings on the Ojas Healing channel, and show you the videos I used. I\'m a guide, not Swamiji himself; for something personal, ask him directly.</string>
+    <string name="ai_intro_body">I answer from Swamiji\'s own teachings on the Ojas Healing channel, right on your phone, and show you the videos I used. Type, speak, or send a photo. I\'m a small guide, not Swamiji himself; for something personal, ask him directly.</string>
     <string name="ai_ask_real">Chat or call with Swamiji →</string>
     <string name="ai_suggest_meditation">How do I start meditating?</string>
     <string name="ai_suggest_stress">I feel stressed</string>
@@ -698,13 +698,13 @@
     <string name="profile_completion_done_body">Thank you. Your full profile helps the family know you.</string>
     <string name="profile_complete_title" formatted="false">Profile 100% complete</string>
     <string name="profile_complete_body">You earned a bonus of %1$d Moksha Points. Jai ho!</string>
-    <string name="ai_subtitle">Answers from Swamiji\'s teachings</string>
+    <string name="ai_subtitle">On your phone · from Swamiji\'s teachings</string>
     <string name="ai_writing">Writing…</string>
     <string name="ai_ask_real_short">Ask Swamiji</string>
     <string name="ai_try_asking">Try asking</string>
     <string name="ai_suggest_blue_light">How do I do the Blue Healing Light meditation?</string>
     <string name="ai_suggest_protection">How does Protection Vidhi protect me?</string>
-    <string name="ai_sources">From Swamiji\'s videos</string>
+    <string name="ai_sources">From these teachings</string>
     <string name="ai_helpful">Helpful</string>
     <string name="ai_not_helpful">Not helpful</string>
     <string name="ai_copy">Copy</string>
@@ -731,4 +731,30 @@
     </plurals>
     <string name="home_practice_sub">Blue Healing Light, Protection, Morning and Night</string>
     <string name="session_youtube_blocked">This video can\'t play inside the app yet. Watch it on YouTube; points are earned when it plays here.</string>
+    <string name="ai_model_title">Set up Ask Swamiji AI</string>
+    <string name="ai_model_body">Swamiji AI runs on your phone, so your questions stay with you and it works without the internet. It needs a one-time download of %1$s.</string>
+    <string name="ai_model_download">Download (%1$s)</string>
+    <string name="ai_model_wifi">Wi-Fi is best for this.</string>
+    <string name="ai_model_downloading">Downloading… %1$d%%</string>
+    <string name="ai_model_keep_open">You can keep using the app meanwhile.</string>
+    <string name="ai_model_failed">The download stopped. Check the internet and try again.</string>
+    <string name="ai_model_no_memory">This phone doesn\'t have enough memory for Swamiji AI. You can still ask Swamiji personally.</string>
+    <string name="ai_model_no_space">Free up %1$s of space on your phone, then try again.</string>
+    <string name="ai_stage_searching">Looking in Swamiji\'s teachings…</string>
+    <string name="ai_stage_loading">Getting ready…</string>
+    <string name="ai_photo_add">Add a photo</string>
+    <string name="ai_photo_gallery">Choose a photo</string>
+    <string name="ai_photo_camera">Take a photo</string>
+    <string name="ai_photo_reading">Reading the photo…</string>
+    <string name="ai_photo_ready">Photo added</string>
+    <string name="ai_photo_nothing">I couldn\'t read words in this photo, so tell me what you\'d like to know about it.</string>
+    <string name="ai_photo_remove">Remove photo</string>
+    <string name="ai_photo_question">What does Swamiji teach about this?</string>
+    <string name="ai_photo_failed">That photo couldn\'t be read. Try another one.</string>
+    <string name="ai_read_aloud">Read aloud</string>
+    <string name="ai_stop_reading">Stop reading</string>
+    <string name="ai_no_match">I couldn\'t find this in Swamiji\'s teachings yet. Please ask Swamiji personally in the Ask tab, or try asking in other words.</string>
+    <string name="ai_crisis">You matter, and you don\'t have to face this alone. Please talk to someone you trust right now, or call Tele-MANAS on 14416 (free, any time, in your language). If you are in danger, call 112. You can also message Swamiji in the Ask tab.</string>
+    <string name="ai_followup_about">Tell me more about %1$s</string>
+    <string name="ai_need_download">Download Swamiji AI above to ask.</string>
 </resources>

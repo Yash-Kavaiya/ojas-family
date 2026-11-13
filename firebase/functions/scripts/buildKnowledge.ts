@@ -7,35 +7,38 @@
 //      each playlist in tools/channel_playlists.txt (YouTube's public RSS feed). Gemini watches each
 //      video and writes teaching notes with timestamps; the notes become passages.
 //
-// Every passage is embedded with gemini-embedding-001 (768 dimensions) for vector search.
-// Videos already done are skipped, so running it again only adds new videos (--force redoes all).
+// Passages are kept in Firestore `knowledge/` (so a run only redoes what changed) and all of them
+// are published as one small file, ai/knowledge.json in Storage. The app downloads that file and
+// searches it on the phone, where Gemma answers. Videos already done are skipped, so running it
+// again only adds new videos (--force redoes all).
 //
-// Run (an owner of the project, Vertex AI API enabled):
+// Run (an owner of the project; Gemini notes use Vertex AI in the genaiguruyoutube project):
 //   gcloud auth application-default login
-//   npx ts-node scripts/buildKnowledge.ts [--force] [--limit 20] [--only-docs]
-//
-// Then create the vector index once (also in firestore.indexes.json):
-//   gcloud firestore indexes composite create --collection-group=knowledge --query-scope=COLLECTION \
-//     --field-config=vector-config='{"dimension":"768","flat":"{}"}',field-path=embedding
+//   npx ts-node scripts/buildKnowledge.ts [--force] [--limit 20] [--only-docs] [--publish-only]
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { initializeApp } from "firebase-admin/app";
+import { getStorage } from "firebase-admin/storage";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { XMLParser } from "fast-xml-parser";
 import { Type } from "@google/genai";
-import { embedText, genai } from "../src/aiGemini";
+import { genai } from "./gemini";
 import { DEFAULT_AI } from "../src/ai";
 
 // GCLOUD_PROJECT=demo-ojas with FIRESTORE_EMULATOR_HOST set builds into the local emulator instead
-initializeApp({ projectId: process.env.GCLOUD_PROJECT || "ojas-family-app" });
+const PROJECT = process.env.GCLOUD_PROJECT || "ojas-family-app";
+initializeApp({ projectId: PROJECT, storageBucket: process.env.STORAGE_BUCKET || `${PROJECT}.firebasestorage.app` });
 const db = getFirestore();
 
 const args = process.argv.slice(2);
 const FORCE = args.includes("--force");
 const ONLY_DOCS = args.includes("--only-docs");
+const PUBLISH_ONLY = args.includes("--publish-only");
 const LIMIT = Number(args[args.indexOf("--limit") + 1]) || Infinity;
 const NOTES_MODEL = process.env.NOTES_MODEL || "gemini-3-flash-preview";
+// The phone model reads only a few hundred words per passage well
+const MAX_PASSAGE_CHARS = 900;
 
 interface Chunk {
   text: string;
@@ -55,13 +58,34 @@ async function writeChunks(sourceId: string, chunks: Chunk[]) {
   const batch = db.batch();
   old.forEach((d) => batch.delete(d.ref));
   await batch.commit();
-  for (const c of chunks) {
-    const embedding = await embedText(DEFAULT_AI.embedModel, c.text, "RETRIEVAL_DOCUMENT", c.title);
-    await db.collection("knowledge").doc(idFor(`${sourceId}|${c.startSec ?? 0}|${c.text.slice(0, 60)}`)).set({
-      ...c, sourceId, embedding: FieldValue.vector(embedding), updatedAt: FieldValue.serverTimestamp(),
+  const write = db.batch();
+  for (const c of chunks.flatMap(splitLong)) {
+    // Firestore refuses undefined values: leave missing fields out
+    const clean = Object.fromEntries(Object.entries(c).filter(([, v]) => v !== undefined));
+    write.set(db.collection("knowledge").doc(idFor(`${sourceId}|${c.startSec ?? 0}|${c.text.slice(0, 60)}`)), {
+      ...clean, sourceId, updatedAt: FieldValue.serverTimestamp(),
     });
   }
+  await write.commit();
   console.log(`  ${chunks.length} passages from ${sourceId}`);
+}
+
+/** Long passages become several, cut at sentence ends, each starting with the passage title. */
+function splitLong(c: Chunk): Chunk[] {
+  if (c.text.length <= MAX_PASSAGE_CHARS) return [c];
+  const [head, ...rest] = c.text.split("\n");
+  const sentences = rest.join("\n").split(/(?<=[.!?।])\s+/);
+  const out: Chunk[] = [];
+  let cur = "";
+  for (const s of sentences) {
+    if (cur && head.length + cur.length + s.length + 2 > MAX_PASSAGE_CHARS) {
+      out.push({ ...c, text: `${head}\n${cur.trim()}` });
+      cur = "";
+    }
+    cur += `${s} `;
+  }
+  if (cur.trim()) out.push({ ...c, text: `${head}\n${cur.trim()}`.slice(0, MAX_PASSAGE_CHARS * 2) });
+  return out;
 }
 
 /** Splits markdown at "## " headings; each heading and its text is one passage. */
@@ -185,9 +209,30 @@ async function videos() {
   }
 }
 
+/** Publishes every passage as ai/knowledge.json, the file the app searches on the phone. */
+async function publish() {
+  const snap = await db.collection("knowledge").get();
+  const passages = snap.docs.map((d) => {
+    const x = d.data();
+    return {
+      id: d.id, title: String(x.title ?? ""), text: String(x.text ?? ""), url: String(x.url ?? ""),
+      ...(x.videoId ? { videoId: String(x.videoId) } : {}), ...(x.startSec ? { startSec: Number(x.startSec) } : {}),
+      sourceType: String(x.sourceType ?? ""), lang: String(x.lang ?? "en"),
+    };
+  });
+  const body = JSON.stringify({ version: Date.now(), passages });
+  await getStorage().bucket().file(DEFAULT_AI.knowledgePath).save(body, {
+    contentType: "application/json", resumable: false, metadata: { cacheControl: "no-cache" },
+  });
+  console.log(`Published ${passages.length} passages (${Math.round(body.length / 1024)} KB) to ${DEFAULT_AI.knowledgePath}`);
+}
+
 async function main() {
-  await docs();
-  if (!ONLY_DOCS) await videos();
+  if (!PUBLISH_ONLY) {
+    await docs();
+    if (!ONLY_DOCS) await videos();
+  }
+  await publish();
   console.log("Knowledge base ready.");
 }
 

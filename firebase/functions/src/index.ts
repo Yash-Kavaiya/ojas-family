@@ -30,8 +30,7 @@ import { istDay } from "./time";
 import { applyAdminList, applyAdminListNow, givePointsFor, statsFor } from "./admin";
 import { findGiftRecipientsFor, reverseTransferFor, setTransfersFrozenFor, staffAdjustPointsFor, transferPointsFor, updatePointsConfigFor } from "./transfer";
 import { onProfileWritten } from "./profilePoints";
-import { askSwamijiFor, deleteAiChatFor, rateAiAnswerFor, remainingToday } from "./ai";
-import { geminiDeps } from "./aiGemini";
+import { rateAiAnswerFor, remainingToday, startAiQuestionFor } from "./ai";
 
 initializeApp();
 const db = getFirestore();
@@ -233,29 +232,21 @@ export const updatePointsConfig = onCall(async (req) => {
   return updatePointsConfigFor(db, req.auth?.token, uid, (req.data ?? {}) as Record<string, unknown>);
 });
 
-// ---- Ask Swamiji (AI): Gemini answers grounded in Ojas Healing's teachings ----
-
-// Streams the answer as it is written when the app asks for a stream; the final result has it all
-
-export const askSwamiji = onCall({ enforceAppCheck: enforceAppCheck, timeoutSeconds: 120, memory: "512MiB" }, async (req, res) => {
-  const uid = requireUid(req);
-  return askSwamijiFor(db, geminiDeps(db), uid, req.auth?.token.role, (req.data ?? {}) as Record<string, unknown>, new Date(),
-    (piece) => { void res?.sendChunk({ text: piece }); });
-});
+// ---- Ask Swamiji (AI): Gemma answers on the member's phone; the server keeps the daily allowance ----
 
 export const aiQuota = onCall(async (req) => {
   const uid = requireUid(req);
   return remainingToday(db, uid, req.auth?.token.role, new Date());
 });
 
+export const startAiQuestion = onCall({ enforceAppCheck: enforceAppCheck }, async (req) => {
+  const uid = requireUid(req);
+  return startAiQuestionFor(db, uid, req.auth?.token.role, new Date());
+});
+
 export const rateAiAnswer = onCall(async (req) => {
   const uid = requireUid(req);
   return rateAiAnswerFor(db, uid, (req.data ?? {}) as Record<string, unknown>);
-});
-
-export const deleteAiChat = onCall(async (req) => {
-  const uid = requireUid(req);
-  return deleteAiChatFor(db, uid, (req.data ?? {}) as Record<string, unknown>);
 });
 
 // ---- Notifications ----
