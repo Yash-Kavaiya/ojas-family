@@ -3,7 +3,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 import {
-  addDoc, arrayRemove, arrayUnion, collection, collectionGroup, deleteDoc, doc, endAt, getDoc, getDocs, getFirestore,
+  addDoc, arrayRemove, arrayUnion, collection, collectionGroup, deleteDoc, deleteField, doc, endAt, getDoc, getDocs, getFirestore,
   limit, orderBy, query, serverTimestamp, setDoc, startAt, Timestamp, updateDoc, where,
 } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-functions.js";
@@ -97,7 +97,7 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 window.addEventListener("hashchange", route);
-const PAGES = { dashboard, members, points, ai, thoughts, content, moderation, announcements, calls, admins, settings };
+const PAGES = { dashboard, members, points, ai, practice, thoughts, content, moderation, announcements, calls, admins, settings };
 function route() {
   if (!auth.currentUser) return;
   const [page, arg] = (location.hash.slice(1) || "dashboard").split("/");
@@ -651,6 +651,98 @@ async function points() {
   $$("[data-reverse]").forEach((b) => (b.onclick = () => {
     if (!confirm("Undo this gift? The points go back to the sender (as far as the receiver still has them).")) return;
     run(b, () => call("reverseTransfer", { transferId: b.dataset.reverse }), (r) => `${r.returned} points returned`).then(points);
+  }));
+}
+
+// ---------- Practice tab: the one guided video or audio for each practice ----------
+const PRACTICE_SECTIONS = ["blue_light", "quick_protection", "morning", "night"];
+
+/** The 11-character YouTube id from a link or a bare id; "" when there is none. */
+function youTubeId(text) {
+  const t = (text || "").trim();
+  if (/^[A-Za-z0-9_-]{11}$/.test(t)) return t;
+  const m = /(?:youtu\.be\/|[?&]v=|\/embed\/|\/shorts\/|\/live\/)([A-Za-z0-9_-]{11})/.exec(t);
+  return m ? m[1] : "";
+}
+
+/** "1:02:05", "12:30" or "750" to seconds; 0 when it can't be read. */
+function toSeconds(text) {
+  const parts = (text || "").trim().split(":").map((x) => Number(x));
+  if (!parts.length || parts.some((n) => !Number.isFinite(n) || n < 0)) return 0;
+  return Math.floor(parts.reduce((acc, n) => acc * 60 + n, 0));
+}
+
+const clock = (sec) => {
+  const s = Math.max(0, Math.floor(Number(sec) || 0));
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60;
+  return h ? `${h}:${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}` : `${m}:${String(r).padStart(2, "0")}`;
+};
+
+async function practice() {
+  const cfg = (await getDoc(doc(db, "config", "practiceMedia"))).data() || {};
+  const card = (key) => {
+    const m = cfg[key] || {};
+    const yt = m.kind === "youtube";
+    const now = !m.kind ? `<span class="error">Nothing set: this practice is hidden in the app</span>`
+      : yt ? `YouTube <a href="https://www.youtube.com/watch?v=${esc(m.videoId)}" target="_blank" rel="noopener">${esc(m.videoId)}</a> · ${esc(clock(m.durationSec))}`
+        + (m.fallbackVideoId ? `<br>Fallback <a href="https://www.youtube.com/watch?v=${esc(m.fallbackVideoId)}" target="_blank" rel="noopener">${esc(m.fallbackVideoId)}</a> · ${esc(clock(m.fallbackDurationSec))}` : "")
+      : `${esc(m.kind === "audio" ? "Audio" : "Video")} file · ${esc(clock(m.durationSec))}`;
+    return `<div class="card stack" data-sec="${key}">
+      <h3>${esc(SECTIONS[key])}</h3>
+      <p class="muted">${esc(m.title || "")}</p>
+      <p>${now}</p>
+      ${yt ? `<p class="muted">If the app shows "Open in YouTube", the channel has embedding turned off for this video:
+        <a href="https://www.youtube.com/embed/${esc(m.videoId)}" target="_blank" rel="noopener">check it here</a> (it must play, not say "Video unavailable").</p>` : ""}
+      <label>Title shown in the app<input class="pm-title" value="${esc(m.title || "")}" maxlength="120"></label>
+      <label>Length (h:mm:ss, mm:ss or seconds)<input class="pm-length" value="${esc(m.durationSec ? clock(m.durationSec) : "")}" style="width:140px"></label>
+      <details ${yt || !m.kind ? "open" : ""}><summary>Play a YouTube video instead</summary>
+        <div class="stack" style="margin-top:8px">
+          <label>YouTube link<input class="pm-yt" value="${yt ? esc(`https://youtu.be/${m.videoId}`) : ""}" placeholder="https://youtu.be/..."></label>
+          <label>Fallback YouTube link (optional: plays when the main one can't play in the app)<input class="pm-fb" value="${m.fallbackVideoId ? esc(`https://youtu.be/${m.fallbackVideoId}`) : ""}" placeholder="https://youtu.be/..."></label>
+          <label>Fallback length<input class="pm-fb-length" value="${esc(m.fallbackDurationSec ? clock(m.fallbackDurationSec) : "")}" style="width:140px"></label>
+        </div></details>
+      <button class="primary pm-save">Save</button>
+    </div>`;
+  };
+  view().innerHTML = `
+    <h1>Practice tab</h1>
+    <p class="muted">Each guided practice plays one video or audio. Members earn points when they finish it (90% of the length must really play),
+      so the length must match the real video. Hosted files are uploaded with <code>scripts/uploadPracticeMedia.ts</code>; here you can change
+      titles and lengths, or switch a practice to a YouTube video (the video's "Allow embedding" must be on in YouTube Studio).</p>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(340px,1fr))">${PRACTICE_SECTIONS.map(card).join("")}</div>`;
+
+  $$(".pm-save").forEach((btn) => (btn.onclick = () => {
+    const box = btn.closest("[data-sec]");
+    const key = box.dataset.sec;
+    const m = cfg[key] || {};
+    const val = (cls) => box.querySelector(cls).value;
+    const title = val(".pm-title").trim();
+    const seconds = toSeconds(val(".pm-length"));
+    const ytText = val(".pm-yt").trim();
+    const fbText = val(".pm-fb").trim();
+    if (!(seconds > 0)) return toast("Enter the length, like 12:30", true);
+    const data = { title: title || m.title || SECTIONS[key], durationSec: seconds };
+    if (ytText) {
+      const id = youTubeId(ytText);
+      if (!id) return toast("That YouTube link doesn't look right", true);
+      Object.assign(data, { kind: "youtube", videoId: id, url: deleteField() });
+      if (fbText) {
+        const fb = youTubeId(fbText);
+        const fbSeconds = toSeconds(val(".pm-fb-length"));
+        if (!fb) return toast("That fallback link doesn't look right", true);
+        if (fb === id) return toast("The fallback must be a different video", true);
+        if (!(fbSeconds > 0)) return toast("Enter the fallback's length", true);
+        Object.assign(data, { fallbackVideoId: fb, fallbackDurationSec: fbSeconds });
+      } else {
+        Object.assign(data, { fallbackVideoId: deleteField(), fallbackDurationSec: deleteField() });
+      }
+    } else if (m.kind === "youtube") {
+      return toast("Add the YouTube link (a hosted file is uploaded with the script)", true);
+    } else if (!m.kind) {
+      return toast("Add a YouTube link, or upload a file with the script", true);
+    }
+    if (!confirm(`Save ${SECTIONS[key]}? Members see the change right away.`)) return;
+    run(btn, () => setDoc(doc(db, "config", "practiceMedia"), { [key]: data }, { merge: true }), "Saved").then(practice);
   }));
 }
 
