@@ -187,14 +187,48 @@ interface Notes {
 }
 
 /** One passage per part and language, so the phone can answer in the member's own language. */
-async function videoNotes(v: Video): Promise<Chunk[]> {
-  const url = `https://www.youtube.com/watch?v=${v.videoId}`;
+/** The video's length in seconds from its public watch page, or 0 when it can't be read. */
+async function videoSeconds(videoId: string): Promise<number> {
+  try {
+    const html = await (await fetch(`https://www.youtube.com/watch?v=${videoId}`, { headers: { "User-Agent": "Mozilla/5.0" } })).text();
+    return Number(/"lengthSeconds":"(\d+)"/.exec(html)?.[1] ?? 0);
+  } catch {
+    return 0;
+  }
+}
+
+// Long talks are read in parts: one request for a two-hour video drops before Gemini finishes
+const PART_SECONDS = 30 * 60;
+const LONG_VIDEO_SECONDS = 40 * 60;
+
+async function notesFor(url: string, startSec?: number, endSec?: number): Promise<Notes> {
+  const clip = startSec !== undefined && endSec !== undefined ? { videoMetadata: { startOffset: `${startSec}s`, endOffset: `${endSec}s` } } : {};
   const res = await genai().models.generateContent({
     model: NOTES_MODEL,
-    contents: [{ role: "user", parts: [{ fileData: { fileUri: url, mimeType: "video/*" } }, { text: NOTES_PROMPT }] }],
+    contents: [{ role: "user", parts: [{ fileData: { fileUri: url, mimeType: "video/*" }, ...clip }, { text: NOTES_PROMPT }] }],
     config: { responseMimeType: "application/json", responseSchema: NOTES_SCHEMA, temperature: 0.2, mediaResolution: "MEDIA_RESOLUTION_LOW" as never },
   });
-  const notes = JSON.parse(res.text ?? "{}") as Notes;
+  return JSON.parse(res.text ?? "{}") as Notes;
+}
+
+async function videoNotes(v: Video): Promise<Chunk[]> {
+  const url = `https://www.youtube.com/watch?v=${v.videoId}`;
+  const length = await videoSeconds(v.videoId);
+  let notes: Notes;
+  if (length > LONG_VIDEO_SECONDS) {
+    // Parts in order; the first part's summary stands for the video, every part's sections are kept
+    const parts: Notes[] = [];
+    for (let start = 0; start < length; start += PART_SECONDS) {
+      const part = await notesFor(url, start, Math.min(length, start + PART_SECONDS));
+      // Times inside a part may count from the part's start; make them count from the video's start
+      part.sections = (part.sections ?? []).map((s) => (Number(s.startSec) < start ? { ...s, startSec: Number(s.startSec) + start } : s));
+      parts.push(part);
+    }
+    notes = { ...parts[0], sections: parts.flatMap((p) => p.sections ?? []) };
+    console.log(`  read in ${parts.length} parts (${Math.round(length / 60)} min)`);
+  } else {
+    notes = await notesFor(url);
+  }
   const chunks: Chunk[] = [];
   const str = (x: unknown) => (typeof x === "string" ? x.trim() : "");
   for (const lang of LANGS) {
