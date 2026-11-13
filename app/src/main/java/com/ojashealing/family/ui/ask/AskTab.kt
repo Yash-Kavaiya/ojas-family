@@ -1,5 +1,9 @@
 package com.ojashealing.family.ui.ask
 
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.ui.draw.drawWithContent
+import com.ojashealing.family.ui.theme.staggeredEntrance
+import com.ojashealing.family.ui.theme.pressScale
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.size
@@ -141,7 +145,7 @@ fun AskTab(
         }
         item(key = "understandingHeader") { SectionHeader(stringResource(R.string.ask_understanding)) }
         when {
-            understanding == null -> item(key = "loading") { LoadingState(Modifier.fillMaxWidth().padding(Spacing.xl)) }
+            understanding == null -> item(key = "loading") { com.ojashealing.family.ui.components.LoadingSpinner(Modifier.fillMaxWidth().padding(Spacing.xl)) }
             understanding.isEmpty() -> item(key = "empty") {
                 Text(stringResource(R.string.empty_ask_body), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = Spacing.l))
@@ -205,15 +209,40 @@ private fun PersonalCard(icon: ImageVector, title: String, desc: String, status:
     }
 }
 
-/** Entry to Ask Swamiji AI: a sunrise card with a "Beta" tag, since the AI is still being built. */
+/**
+ * Entry to Ask Swamiji AI: a deep healing-blue card (the same light as the practice player) with
+ * a soft sheen passing over it now and then, so it reads as alive without shouting.
+ */
 @Composable
 private fun SwamijiAiCard(onOpen: () -> Unit, modifier: Modifier = Modifier) {
+    val press = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val reduced = com.ojashealing.family.ui.theme.LocalReducedMotion.current
+    val sheen = androidx.compose.animation.core.rememberInfiniteTransition(label = "aiSheen")
+    val x by sheen.animateFloat(
+        initialValue = -0.6f, targetValue = 1.6f,
+        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+            androidx.compose.animation.core.tween(4200, delayMillis = 1800, easing = com.ojashealing.family.ui.theme.OjasEasing.Standard)
+        ),
+        label = "x",
+    )
     Row(
         modifier = modifier
+            .staggeredEntrance(0, key = "aiCard")
             .fillMaxWidth()
+            .pressScale(press, pressed = 0.98f)
             .clip(androidx.compose.foundation.shape.RoundedCornerShape(24.dp))
-            .background(androidx.compose.ui.graphics.Brush.linearGradient(com.ojashealing.family.ui.theme.OjasGradients.sunrise))
-            .clickable(role = Role.Button, onClick = onOpen)
+            .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(androidx.compose.ui.graphics.Color(0xFF0B3D91), androidx.compose.ui.graphics.Color(0xFF2F2A8C), androidx.compose.ui.graphics.Color(0xFF4A1E6B))))
+            .drawWithContent {
+                drawContent()
+                if (!reduced) drawRect(
+                    androidx.compose.ui.graphics.Brush.linearGradient(
+                        listOf(androidx.compose.ui.graphics.Color.Transparent, androidx.compose.ui.graphics.Color.White.copy(alpha = 0.10f), androidx.compose.ui.graphics.Color.Transparent),
+                        start = androidx.compose.ui.geometry.Offset(size.width * x, 0f),
+                        end = androidx.compose.ui.geometry.Offset(size.width * x + size.width * 0.35f, size.height),
+                    )
+                )
+            }
+            .clickable(interactionSource = press, indication = androidx.compose.material3.ripple(), role = Role.Button, onClick = onOpen)
             .padding(Spacing.l),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Spacing.m)

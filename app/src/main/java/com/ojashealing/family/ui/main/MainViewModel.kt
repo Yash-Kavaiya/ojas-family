@@ -47,7 +47,10 @@ class MainViewModel(
         viewModelScope.launch {
             auth.currentUid.filterNotNull()
                 .flatMapLatest { uid -> points.observeNewEvents(uid).retryBriefly().catch { } }
-                .collect { e -> _reward.value = RewardEvent(e.amount, e.reason, e.milestone) }
+                .collect { e ->
+                    // Only gains get the coin animation; points sent to another member don't
+                    if (e.amount > 0) _reward.value = RewardEvent(e.amount, e.reason, e.milestone)
+                }
         }
     }
 

@@ -40,6 +40,7 @@ class AppContainer(context: Context) {
     val auth: AuthRepository = FirebaseAuthRepository(Firebase.auth, app.getString(R.string.default_web_client_id))
     val users: UserRepository = FirestoreUserRepository(Firebase.firestore, Firebase.storage, app.contentResolver)
     val points: PointsRepository = FirebasePointsRepository(Firebase.firestore, functions)
+    val ai: com.ojashealing.family.data.ai.AiRepository = com.ojashealing.family.data.ai.FirebaseAiRepository(Firebase.firestore, functions)
     val settings = SettingsStore(app)
     val content: ContentRepository = FirestoreContentRepository(Firebase.firestore, functions)
     val thoughts = ThoughtRepository(Firebase.firestore)

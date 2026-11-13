@@ -38,7 +38,9 @@ fun VideoPlayerScreen(
     videoId: String,
     title: String,
     onBack: () -> Unit,
-    practice: (@Composable () -> Unit)? = null
+    practice: (@Composable () -> Unit)? = null,
+    /** Where to start, e.g. the moment an Ask Swamiji AI answer cited. */
+    startSec: Int = 0,
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
@@ -55,7 +57,7 @@ fun VideoPlayerScreen(
                         lifecycleOwner.lifecycle.addObserver(this)
                         addYouTubePlayerListener(object : AbstractYouTubePlayerListener() {
                             override fun onReady(youTubePlayer: YouTubePlayer) {
-                                youTubePlayer.loadVideo(videoId, 0f)
+                                youTubePlayer.loadVideo(videoId, startSec.toFloat())
                             }
                         })
                     }

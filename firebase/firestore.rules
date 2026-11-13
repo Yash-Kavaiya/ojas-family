@@ -82,6 +82,16 @@ service cloud.firestore {
         allow write: if false;
       }
 
+      // Ask Swamiji (AI) conversations: the member reads them; only Functions write (and delete)
+      match /aiChats/{chatId} {
+        allow read: if signedIn() && request.auth.uid == uid;
+        allow write: if false;
+        match /messages/{messageId} {
+          allow read: if signedIn() && request.auth.uid == uid;
+          allow write: if false;
+        }
+      }
+
       // Written by the logPractice function, which stamps the IST day itself
       match /practiceLog/{day} {
         allow read: if signedIn() && request.auth.uid == uid;
@@ -588,6 +598,32 @@ service cloud.firestore {
       allow read: if signedIn() && (request.auth.uid == uid || isStaff() || isStaffUid(uid));
       allow write: if signedIn() && request.auth.uid == uid
         && request.resource.data.keys().hasOnly(['lastActiveAt']) && request.resource.data.lastActiveAt == request.time;
+    }
+
+    // Ask Swamiji (AI) grounding passages and build marks: Functions and scripts only
+    match /knowledge/{chunkId} {
+      allow read, write: if false;
+    }
+    match /knowledgeSources/{videoId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    // Thumbs up/down on AI answers, for admins to review
+    match /aiFeedback/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Moksha Point gifts between members: the two members, Swamiji and admins can read them
+    match /pointTransfers/{id} {
+      allow read: if signedIn() && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid
+        || role() in ['admin', 'swamiji']);
+      allow write: if false;
+    }
+    // Every change Swamiji or an admin makes to someone's points
+    match /pointAdjustments/{id} {
+      allow read: if role() in ['admin', 'swamiji'];
+      allow write: if false;
     }
 
     // App settings every member needs (levels, staff, practice media, about). The admin email list

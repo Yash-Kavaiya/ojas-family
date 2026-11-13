@@ -6,12 +6,12 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.HelpCenter
 import androidx.compose.material.icons.filled.SelfImprovement
-import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.HelpCenter
 import androidx.compose.material.icons.outlined.SelfImprovement
-import androidx.compose.material.icons.outlined.WbSunny
+import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -36,7 +36,7 @@ import com.ojashealing.family.R
 enum class MainTab(@StringRes val label: Int, val selectedIcon: ImageVector, val icon: ImageVector) {
     Community(R.string.tab_community, Icons.Filled.Groups, Icons.Outlined.Groups),
     Spiritual(R.string.tab_spiritual, Icons.Filled.SelfImprovement, Icons.Outlined.SelfImprovement),
-    Home(R.string.tab_home, Icons.Filled.WbSunny, Icons.Outlined.WbSunny),
+    Home(R.string.tab_home, Icons.Filled.Home, Icons.Outlined.Home),
     Ask(R.string.tab_ask, Icons.Filled.HelpCenter, Icons.Outlined.HelpCenter),
     Profile(R.string.tab_profile, Icons.Filled.AccountCircle, Icons.Outlined.AccountCircle)
 }

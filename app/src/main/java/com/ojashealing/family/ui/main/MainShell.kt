@@ -69,12 +69,15 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.material.icons.filled.Stars
+import com.ojashealing.family.ui.theme.Durations
+import com.ojashealing.family.ui.theme.OjasEasing
+import com.ojashealing.family.ui.theme.calmSpring
 import androidx.compose.animation.ContentTransform
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -172,7 +175,7 @@ import kotlinx.serialization.Serializable
 @Serializable object AnnounceRoute
 @Serializable object ModerationRoute
 @Serializable data class GoalSubmitRoute(val goalId: String)
-@Serializable data class VideoRoute(val videoId: String, val title: String, val section: String = "")
+@Serializable data class VideoRoute(val videoId: String, val title: String, val section: String = "", val startSec: Int = 0)
 /** A guided practice session (Blue Healing Light, Quick Protection, Morning, Night). */
 @Serializable data class PracticeSessionRoute(val section: String)
 @Serializable data class DailyPostRoute(val id: String)
@@ -232,6 +235,9 @@ fun MainShell(container: AppContainer) {
     val practiceVm: PracticeViewModel = viewModel(factory = viewModelFactory { initializer { PracticeViewModel(container.practice, vm.profile) } })
     val practiceStatus by practiceVm.status.collectAsStateWithLifecycle()
     val practiceBusy by practiceVm.busy.collectAsStateWithLifecycle()
+    val practiceStreak by practiceVm.streak.collectAsStateWithLifecycle()
+    val pointsConfigForProfile by remember { container.points.observePointsConfig().catch { emit(com.ojashealing.family.data.points.PointsConfig()) } }
+        .collectAsStateWithLifecycle(com.ojashealing.family.data.points.PointsConfig())
     val practiceMessage by practiceVm.message.collectAsStateWithLifecycle()
     val progressStore = remember { com.ojashealing.family.ui.content.PracticeProgressStore(context.applicationContext) }
     val guidedVm: com.ojashealing.family.ui.content.GuidedPracticeViewModel = viewModel(factory = viewModelFactory {
@@ -512,10 +518,11 @@ fun MainShell(container: AppContainer) {
             navController = nav,
             startDestination = TabsRoute,
             // New screens glide in from the side and fade; Back plays it in reverse
-            enterTransition = { slideInHorizontally(tween(NAV_MS, easing = FastOutSlowInEasing)) { it / 4 } + fadeIn(tween(NAV_MS)) },
-            exitTransition = { slideOutHorizontally(tween(NAV_MS, easing = FastOutSlowInEasing)) { -it / 10 } + fadeOut(tween(NAV_MS / 2)) },
-            popEnterTransition = { slideInHorizontally(tween(NAV_MS, easing = FastOutSlowInEasing)) { -it / 10 } + fadeIn(tween(NAV_MS)) },
-            popExitTransition = { slideOutHorizontally(tween(NAV_MS, easing = FastOutSlowInEasing)) { it / 4 } + fadeOut(tween(NAV_MS / 2)) }
+            // New screens glide in from the side with the emphasized curve; leaving is quicker than arriving
+            enterTransition = { slideInHorizontally(tween(NAV_MS, easing = OjasEasing.Emphasized)) { it / 5 } + fadeIn(tween(NAV_MS, easing = OjasEasing.Emphasized)) },
+            exitTransition = { slideOutHorizontally(tween(NAV_MS, easing = OjasEasing.Emphasized)) { -it / 12 } + fadeOut(tween(Durations.Quick)) },
+            popEnterTransition = { slideInHorizontally(tween(NAV_MS, easing = OjasEasing.Emphasized)) { -it / 12 } + fadeIn(tween(NAV_MS, easing = OjasEasing.Emphasized)) },
+            popExitTransition = { slideOutHorizontally(tween(Durations.Base - 60, easing = OjasEasing.Exit)) { it / 5 } + fadeOut(tween(Durations.Quick)) }
         ) {
             composable<TabsRoute> {
                 val chrome = rememberWindowChrome()
@@ -580,10 +587,14 @@ fun MainShell(container: AppContainer) {
                                     MainTab.Spiritual -> PracticeTab(
                                         practice, onPlay = play, practice = practiceStatus, practiceBusy = practiceBusy, onMarkPractice = practiceVm::mark,
                                         guided = guided,
+                                        streak = practiceStreak,
                                         onOpenGuided = { nav.navigate(PracticeSessionRoute(it.id)) },
                                     )
                                     MainTab.Home -> HomeScreen(
                                         thoughtVm,
+                                        firstName = profile?.displayName.orEmpty().trim().substringBefore(' '),
+                                        streak = practiceStreak,
+                                        onOpenPractice = { tab = MainTab.Spiritual },
                                         onSchedule = { nav.navigate(ScheduleThoughtRoute()) },
                                         onOpenThought = { nav.navigate(ThoughtRoute(it)) },
                                         about = about,
@@ -643,6 +654,7 @@ fun MainShell(container: AppContainer) {
                                         },
                                     )
                                     MainTab.Profile -> ProfileTab(
+                                        pointsConfig = pointsConfigForProfile,
                                         profile = profile,
                                         locations = container.locations,
                                         onEditProfile = { nav.navigate(EditProfileRoute) },
@@ -738,7 +750,7 @@ fun MainShell(container: AppContainer) {
                 val kind = ContentSection.fromId(route.section)?.practiceKind()
                 val status = practiceStatus
                 VideoPlayerScreen(
-                    route.videoId, route.title, onBack = { nav.popBackStack() },
+                    route.videoId, route.title, onBack = { nav.popBackStack() }, startSec = route.startSec,
                     practice = if (kind != null && status != null) { { PracticeBar(kind, status, practiceBusy, { practiceVm.mark(kind) }) } } else null
                 )
             }
@@ -844,7 +856,24 @@ fun MainShell(container: AppContainer) {
             }
             composable<MemberProfileRoute> { entry ->
                 val uid = entry.toRoute<MemberProfileRoute>().uid
-                PublicProfileScreen(remember(uid) { container.publicProfiles.observe(uid) }, goals.goals, container.locations, onBack = { nav.popBackStack() })
+                val staffRole = profile?.viewer?.role
+                val pointsStaff = staffRole == com.ojashealing.family.domain.Role.Admin || staffRole == com.ojashealing.family.domain.Role.Swamiji
+                var managing by rememberSaveable { mutableStateOf(false) }
+                val managePointsVm: com.ojashealing.family.ui.screens.PointsActionsViewModel = viewModel(factory = viewModelFactory {
+                    initializer { com.ojashealing.family.ui.screens.PointsActionsViewModel(container.points) }
+                })
+                PublicProfileScreen(
+                    remember(uid) { container.publicProfiles.observe(uid) }, goals.goals, container.locations, onBack = { nav.popBackStack() },
+                    // Swamiji and admins have full control over a member's Moksha Points
+                    staffActions = if (pointsStaff && uid != profile?.uid) { name ->
+                        androidx.compose.material3.OutlinedButton(onClick = { managing = true }, modifier = Modifier.fillMaxWidth()) {
+                            Icon(androidx.compose.material.icons.Icons.Filled.Stars, null)
+                            androidx.compose.foundation.layout.Spacer(Modifier.size(8.dp))
+                            Text(stringResource(R.string.points_manage))
+                        }
+                        if (managing) com.ojashealing.family.ui.screens.ManagePointsSheet(managePointsVm, uid, name, onDismiss = { managing = false })
+                    } else null,
+                )
             }
             composable<ThoughtRoute> { entry -> ThoughtDetailScreen(thoughtVm, entry.toRoute<ThoughtRoute>().id, onBack = { nav.popBackStack() }) }
             composable<AnnouncementRoute> { entry -> AnnouncementDetailScreen(communityVm, entry.toRoute<AnnouncementRoute>().id, onBack = { nav.popBackStack() }) }
@@ -856,15 +885,49 @@ fun MainShell(container: AppContainer) {
                 val targets by remember { container.points.observeLevelTargets().catch { emit(LevelTargets()) } }.collectAsStateWithLifecycle(LevelTargets())
                 val historyMore by remember(uid) { uid?.let { container.points.historyHasMore(it) } ?: flowOf(false) }.collectAsStateWithLifecycle(false)
                 val scope = rememberCoroutineScope()
+                val pointsVm: com.ojashealing.family.ui.screens.PointsActionsViewModel = viewModel(factory = viewModelFactory {
+                    initializer { com.ojashealing.family.ui.screens.PointsActionsViewModel(container.points) }
+                })
+                val pointsConfig by pointsVm.config.collectAsStateWithLifecycle()
+                // Explain how points work before anything else, the first time this screen opens
+                val explained by container.settings.pointsExplained.collectAsStateWithLifecycle(initialValue = true)
+                var explain by rememberSaveable { mutableStateOf(false) }
+                LaunchedEffect(explained) { if (!explained) explain = true }
+                var sending by rememberSaveable { mutableStateOf(false) }
+                var editing by rememberSaveable { mutableStateOf(false) }
+                val role = profile?.viewer?.role
+                val canEditAmounts = role == com.ojashealing.family.domain.Role.Admin || role == com.ojashealing.family.domain.Role.Swamiji
                 PointsHistoryScreen(
                     profile, history, targets,
                     onBack = { nav.popBackStack() },
                     hasMore = historyMore,
                     onLoadOlder = { uid?.let { id -> scope.launch { container.points.loadOlderHistory(id) } } },
+                    onHowItWorks = { explain = true },
+                    onSend = { sending = true },
                 )
+                if (explain) com.ojashealing.family.ui.screens.PointsExplainerSheet(
+                    pointsConfig, targets,
+                    onDismiss = { explain = false; scope.launch { container.settings.markPointsExplained() } },
+                    onEditAmounts = if (canEditAmounts) ({ explain = false; editing = true }) else null,
+                )
+                if (sending) profile?.let { p ->
+                    com.ojashealing.family.ui.screens.SendPointsSheet(
+                        pointsVm, balance = p.mokshaPoints, myLevel = p.viewer.userLevel.rank, frozen = p.transfersFrozen,
+                        onDismiss = { sending = false },
+                    )
+                }
+                if (editing) com.ojashealing.family.ui.screens.PointsAmountsSheet(pointsVm, onDismiss = { editing = false })
             }
             composable<SwamijiAiRoute> {
-                SwamijiAiScreen(onBack = { nav.popBackStack() }, onAskSwamiji = { nav.popBackStack(); tab = MainTab.Ask })
+                val aiVm: com.ojashealing.family.ui.ask.SwamijiAiViewModel = viewModel(factory = viewModelFactory {
+                    initializer { com.ojashealing.family.ui.ask.SwamijiAiViewModel(container.ai, vm.profile.map { it?.uid }) }
+                })
+                SwamijiAiScreen(
+                    aiVm,
+                    onBack = { nav.popBackStack() },
+                    onAskSwamiji = { nav.popBackStack(); tab = MainTab.Ask },
+                    onOpenVideo = { id, title, start -> nav.navigate(VideoRoute(id, title, startSec = start)) },
+                )
             }
             composable<MembersRoute> {
                 val membersVm: MembersViewModel = viewModel(factory = viewModelFactory { initializer { MembersViewModel(container.publicProfiles, container.paid) } })
@@ -915,14 +978,17 @@ fun MainShell(container: AppContainer) {
     }
 }
 
-private const val NAV_MS = 320
+private const val NAV_MS = Durations.Nav
 
-/** Tabs slide toward the side of the tab you tapped, with a soft fade and a slight zoom. */
+/**
+ * Switching tabs is a frequent action, so it stays short: the new tab fades in and drifts
+ * 8dp from the side you tapped while the old one fades out quickly.
+ */
 private fun tabTransition(from: MainTab, to: MainTab): ContentTransform {
     val dir = if (to.ordinal > from.ordinal) 1 else -1
-    val enter = slideInHorizontally(tween(280, easing = FastOutSlowInEasing)) { dir * it / 6 } +
-        fadeIn(tween(280)) + scaleIn(tween(280), initialScale = 0.98f)
-    val exit = slideOutHorizontally(tween(220, easing = FastOutSlowInEasing)) { -dir * it / 8 } + fadeOut(tween(180))
+    val enter = fadeIn(tween(Durations.Base - 80, delayMillis = 40, easing = OjasEasing.Emphasized)) +
+        slideInHorizontally(tween(Durations.Base, easing = OjasEasing.Emphasized)) { dir * (it / 40).coerceAtMost(48) }
+    val exit = fadeOut(tween(Durations.Quick - 30, easing = OjasEasing.Exit))
     return enter togetherWith exit
 }
 
@@ -1056,7 +1122,20 @@ private fun SuiteIcon(tab: MainTab, selected: Boolean, photoUrl: String, askUnre
                 modifier = Modifier.size(24.dp).clip(CircleShape).border(1.dp, MaterialTheme.colorScheme.outline, CircleShape),
             )
         } else {
-            Icon(if (selected) tab.selectedIcon else tab.icon, contentDescription = null)
+            // Outline when idle, filled when selected; the swap pops in from small without bouncing
+            androidx.compose.animation.Crossfade(
+                targetState = selected,
+                animationSpec = tween(Durations.Quick),
+                label = "tabIcon",
+            ) { on ->
+                val pop = remember { androidx.compose.animation.core.Animatable(if (on) 0.25f else 1f) }
+                LaunchedEffect(on) { if (on) pop.animateTo(1f, calmSpring()) }
+                Icon(
+                    if (on) tab.selectedIcon else tab.icon,
+                    contentDescription = null,
+                    modifier = Modifier.graphicsLayer { scaleX = pop.value; scaleY = pop.value },
+                )
+            }
         }
     }
 }

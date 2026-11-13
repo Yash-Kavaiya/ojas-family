@@ -365,7 +365,7 @@ describe("admin website helpers", () => {
     const r = await givePointsFor(db, ADMIN, { uids: ["m1", "m2", "nobody"], amount: 25 });
     expect(r.given).toBe(2);
     expect((await db.doc("users/m2").get()).get("mokshaPoints")).toBe(25);
-    await expect(givePointsFor(db, { role: "member" }, { uids: ["m1"], amount: 5 })).rejects.toThrow(/Admins/);
+    await expect(givePointsFor(db, { role: "member" }, { uids: ["m1"], amount: 5 })).rejects.toThrow(/Swamiji and admins/);
   });
 });
 

@@ -28,7 +28,11 @@ data class UserProfile(
     val about: String = "",
     val village: String = "",
     /** Days of paid membership counted so far (server-owned): 90 = Member Level 2, 180 = Level 3. */
-    val paidDays: Int = 0
+    val paidDays: Int = 0,
+    /** Points that count for Level: [mokshaPoints] minus what other members sent (server-owned). */
+    val earnedPoints: Int = mokshaPoints,
+    /** Swamiji or an admin paused this member's sending of points. */
+    val transfersFrozen: Boolean = false
 )
 
 // The only profile fields a client sends; server-owned fields (points, levels, role) are never written here
@@ -73,6 +77,8 @@ internal fun DocumentSnapshot.toUserProfile(): UserProfile {
         ),
         about = getString("about").orEmpty(),
         village = getString("village").orEmpty(),
-        paidDays = getLong("paidDays")?.toInt() ?: 0
+        paidDays = getLong("paidDays")?.toInt() ?: 0,
+        earnedPoints = (getLong("earnedPoints") ?: getLong("mokshaPoints"))?.toInt() ?: 0,
+        transfersFrozen = getBoolean("transfersFrozen") ?: false
     )
 }

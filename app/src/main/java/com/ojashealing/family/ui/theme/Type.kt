@@ -136,5 +136,11 @@ val BrandTitleStyle = TextStyle(fontFamily = Poppins, fontWeight = FontWeight.Bo
 /** Numbers on coins and counters: Poppins SemiBold, so digits look the same in every language. */
 val BrandNumberStyle = TextStyle(fontFamily = Poppins, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 18.sp)
 
+/** Big counting numbers: a streak, a points balance, an amount to send. */
+val BrandNumberLargeStyle = TextStyle(fontFamily = Poppins, fontWeight = FontWeight.SemiBold, fontSize = 34.sp, lineHeight = 40.sp)
+
+/** Small point tags such as "+5". */
+val BrandNumberSmallStyle = TextStyle(fontFamily = Poppins, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, lineHeight = 16.sp)
+
 /** The digit inside a small level coin. */
 val CoinDigitStyle = TextStyle(fontFamily = Poppins, fontWeight = FontWeight.Bold, fontSize = 10.sp, lineHeight = 10.sp)

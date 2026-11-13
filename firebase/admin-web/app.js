@@ -97,7 +97,7 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 window.addEventListener("hashchange", route);
-const PAGES = { dashboard, members, thoughts, content, moderation, announcements, calls, admins, settings };
+const PAGES = { dashboard, members, points, ai, thoughts, content, moderation, announcements, calls, admins, settings };
 function route() {
   if (!auth.currentUser) return;
   const [page, arg] = (location.hash.slice(1) || "dashboard").split("/");
@@ -181,10 +181,10 @@ async function members() {
   const updateCount = () => ($("#m-count").textContent = `${selected().length} selected`);
   const draw = () => {
     const rows = filtered();
-    $("#m-table").innerHTML = `<table><thead><tr><th></th><th>Member</th><th>Points</th><th>Level</th><th>Member level</th><th>Role</th><th>Last open</th></tr></thead><tbody>${
+    $("#m-table").innerHTML = `<table><thead><tr><th></th><th>Member</th><th>Points</th><th>Earned</th><th>Level</th><th>Member level</th><th>Role</th><th>Last open</th></tr></thead><tbody>${
       rows.map((m) => `<tr><td><input type="checkbox" value="${esc(m.uid)}"></td>
-        <td><div class="row">${m.photoUrl ? `<img class="avatar" src="${esc(m.photoUrl)}" alt="">` : ""}<div>${esc(m.displayName || "(no name)")}<br><span class="muted" style="font-size:12px">${esc([m.city, m.country].filter(Boolean).join(", "))}</span></div></div></td>
-        <td>${esc(m.mokshaPoints ?? 0)}</td><td>${esc(m.userLevel ?? 1)}</td><td>${esc(m.memberLevel ?? 0)}</td><td>${esc(ROLES[m.role] || "Member")}</td><td>${esc(m.lastDailyOpen || "")}</td></tr>`).join("")
+        <td title="${esc(m.uid)}"><div class="row">${m.photoUrl ? `<img class="avatar" src="${esc(m.photoUrl)}" alt="">` : ""}<div>${esc(m.displayName || "(no name)")}<br><span class="muted" style="font-size:12px">${esc([m.city, m.country].filter(Boolean).join(", "))}</span></div></div></td>
+        <td>${esc(m.mokshaPoints ?? 0)}</td><td>${esc(m.earnedPoints ?? m.mokshaPoints ?? 0)}</td><td>${esc(m.userLevel ?? 1)}</td><td>${esc(m.memberLevel ?? 0)}</td><td>${esc(ROLES[m.role] || "Member")}</td><td>${esc(m.lastDailyOpen || "")}</td></tr>`).join("")
     }</tbody></table><p class="muted">${rows.length} shown</p>`;
     $$("#m-table input[type=checkbox]").forEach((c) => (c.onchange = updateCount));
     updateCount();
@@ -583,4 +583,105 @@ async function settings() {
   $("#s-turn").onclick = (e) => run(e.target, () => setDoc(doc(db, "config", "turn"), {
     urls: $("#turn-urls").value.split(",").map((s) => s.trim()).filter(Boolean), username: $("#turn-user").value.trim(), credential: $("#turn-pass").value.trim(),
   }), "Saved");
+}
+
+// ---------- Moksha Points: amounts, gifting rules, one member's points, gifts ----------
+const POINT_FIELDS = [
+  ["dailyOpen", "Daily app open", 1], ["practice", "Each guided practice finished (once a day each)", 2],
+  ["allPracticesBonus", "Bonus: all four practices in one day", 3], ["streakBonus", "Streak bonus", 10],
+  ["streakBonusEvery", "Streak bonus every … days in a row", 7], ["like", "Like", 1], ["comment", "Comment", 1],
+  ["question", "Question", 1], ["answer", "Answer", 1], ["profileField", "Each profile item filled in (once)", 5],
+  ["profileComplete", "Bonus: profile 100% (once)", 25], ["aiDaily", "First Ask Swamiji AI question of the day", 1],
+  ["maxTransfer", "Largest single gift between members", 100], ["dailySendCap", "Most a member can gift per day", 100],
+  ["minLevelToSend", "Level needed to gift points", 2],
+];
+
+async function points() {
+  const cfg = (await getDoc(doc(db, "config", "points"))).data() || {};
+  const transfers = await getDocs(query(collection(db, "pointTransfers"), orderBy("createdAt", "desc"), limit(50)));
+  const adjustments = await getDocs(query(collection(db, "pointAdjustments"), orderBy("createdAt", "desc"), limit(30)));
+  const when = (t) => (t?.toDate ? t.toDate().toLocaleString() : "");
+  view().innerHTML = `
+    <h1>Moksha Points</h1>
+    <p class="muted">What each activity earns and the gifting rules. Members see the same amounts in the app under "How it works". Swamiji can change them in the app too.</p>
+    <div class="card stack"><h3>Points for each activity</h3>
+      <table><tbody>${POINT_FIELDS.map(([k, label, d]) => `<tr><td>${esc(label)}</td><td><input type="number" min="0" max="100000" id="pt-${k}" value="${esc(cfg[k] ?? d)}" style="width:110px"></td></tr>`).join("")}
+      <tr><td>Members can gift points to each other</td><td><input type="checkbox" id="pt-transfersEnabled" ${cfg.transfersEnabled === false ? "" : "checked"}></td></tr></tbody></table>
+      <button class="primary" id="pt-save">Save amounts</button></div>
+
+    <div class="card stack" style="margin-top:12px"><h3>Change one member's points</h3>
+      <p class="muted">On the Members page, hold the pointer on a member's name to see their id, and paste it here. Swamiji and admins can also do this in the app from the member's profile. "Count for Level" also changes the points their Level is based on.</p>
+      <div class="row">
+        <label>Member id<input id="adj-uid" style="width:260px"></label>
+        <label>Change<select id="adj-mode"><option value="add">Add</option><option value="deduct">Remove</option><option value="set">Set to</option></select></label>
+        <label>Points<input id="adj-amount" type="number" min="0" style="width:110px"></label>
+        <label><input type="checkbox" id="adj-earned"> Count for Level</label>
+      </div>
+      <div class="row"><label>Reason (the member sees it)<input id="adj-note" style="width:320px"></label>
+        <button class="primary" id="adj-go">Apply</button>
+        <button id="adj-freeze">Pause gifting</button><button id="adj-unfreeze">Resume gifting</button></div></div>
+
+    <div class="card" style="margin-top:12px"><h3>Latest gifts between members</h3>
+      <table><thead><tr><th>When</th><th>From</th><th>To</th><th>Points</th><th>Note</th><th></th></tr></thead><tbody>${
+        transfers.docs.map((d) => { const t = d.data(); return `<tr><td>${esc(when(t.createdAt))}</td><td>${esc(t.fromName)}</td><td>${esc(t.toName)}</td><td>${esc(t.amount)}</td><td>${esc(t.note || "")}</td>
+          <td>${t.status === "reversed" ? `<span class="muted">Undone</span>` : `<button class="link" data-reverse="${esc(d.id)}">Undo</button>`}</td></tr>`; }).join("") || `<tr><td colspan="6" class="muted">No gifts yet</td></tr>`
+      }</tbody></table></div>
+
+    <div class="card" style="margin-top:12px"><h3>Changes made by Swamiji and admins</h3>
+      <table><thead><tr><th>When</th><th>Member</th><th>By</th><th>Change</th><th>Reason</th></tr></thead><tbody>${
+        adjustments.docs.map((d) => { const a = d.data(); return `<tr><td>${esc(when(a.createdAt))}</td><td>${esc(a.uid)}</td><td>${esc(a.byRole)}</td>
+          <td>${esc(a.mode)}${a.amount !== undefined ? ` ${esc(a.amount)} (${esc(a.before)} → ${esc(a.after)})` : ""}</td><td>${esc(a.note || "")}</td></tr>`; }).join("") || `<tr><td colspan="5" class="muted">None yet</td></tr>`
+      }</tbody></table></div>`;
+
+  $("#pt-save").onclick = (e) => {
+    const data = { transfersEnabled: $("#pt-transfersEnabled").checked };
+    for (const [k] of POINT_FIELDS) data[k] = Math.max(0, Math.floor(Number($(`#pt-${k}`).value) || 0));
+    run(e.target, () => call("updatePointsConfig", data), "Amounts saved");
+  };
+  const uid = () => $("#adj-uid").value.trim();
+  $("#adj-go").onclick = (e) => {
+    if (!uid()) return toast("Enter the member id", true);
+    if (!$("#adj-note").value.trim()) return toast("Add a reason", true);
+    const body = { uid: uid(), mode: $("#adj-mode").value, amount: Number($("#adj-amount").value), target: $("#adj-earned").checked ? "earned" : "balance", note: $("#adj-note").value };
+    if (!confirm(`${body.mode} ${body.amount} points for ${body.uid}?`)) return;
+    run(e.target, () => call("staffAdjustPoints", body), (r) => `Done. Balance ${r.balance}, Level ${r.userLevel}`).then(points);
+  };
+  $("#adj-freeze").onclick = (e) => uid() ? run(e.target, () => call("setTransfersFrozen", { uid: uid(), frozen: true }), "Gifting paused") : toast("Enter the member id", true);
+  $("#adj-unfreeze").onclick = (e) => uid() ? run(e.target, () => call("setTransfersFrozen", { uid: uid(), frozen: false }), "Gifting resumed") : toast("Enter the member id", true);
+  $$("[data-reverse]").forEach((b) => (b.onclick = () => {
+    if (!confirm("Undo this gift? The points go back to the sender (as far as the receiver still has them).")) return;
+    run(b, () => call("reverseTransfer", { transferId: b.dataset.reverse }), (r) => `${r.returned} points returned`).then(points);
+  }));
+}
+
+// ---------- Ask Swamiji AI ----------
+async function ai() {
+  const cfg = (await getDoc(doc(db, "config", "ai"))).data() || {};
+  const feedback = await getDocs(query(collection(db, "aiFeedback"), orderBy("createdAt", "desc"), limit(50)));
+  const sources = await getDocs(query(collection(db, "knowledgeSources"), limit(500)));
+  const done = sources.docs.filter((d) => d.get("status") === "done").length;
+  const failed = sources.docs.filter((d) => d.get("status") === "failed");
+  view().innerHTML = `
+    <h1>Ask Swamiji AI</h1>
+    <p class="muted">Gemini answers from Swamiji's teachings only: notes made from ${done} Ojas Healing videos plus the About texts. Rebuild after adding videos:
+      <code>cd firebase/functions &amp;&amp; npx ts-node scripts/buildKnowledge.ts</code></p>
+    <div class="card stack"><h3>Settings</h3>
+      <div class="row">
+        <label><input type="checkbox" id="ai-enabled" ${cfg.enabled === false ? "" : "checked"}> AI is on</label>
+        <label>Questions a day (free)<input type="number" id="ai-free" min="0" value="${esc(cfg.dailyFree ?? 5)}" style="width:90px"></label>
+        <label>Questions a day (members, staff)<input type="number" id="ai-member" min="0" value="${esc(cfg.dailyMember ?? 5)}" style="width:90px"></label>
+        <label>Model<input id="ai-model" value="${esc(cfg.model || "gemini-3-flash-preview")}" style="width:180px"></label>
+      </div>
+      <button class="primary" id="ai-save">Save</button></div>
+    ${failed.length ? `<div class="card" style="margin-top:12px"><h3>Videos that could not be read (${failed.length})</h3><ul>${failed.slice(0, 30).map((d) => `<li>${esc(d.get("title"))} <span class="muted">${esc(d.get("error") || "")}</span></li>`).join("")}</ul></div>` : ""}
+    <div class="card" style="margin-top:12px"><h3>Members' feedback on answers</h3>
+      <table><thead><tr><th></th><th>Question</th><th>Answer</th><th>Comment</th></tr></thead><tbody>${
+        feedback.docs.map((d) => { const f = d.data(); return `<tr><td>${f.rating > 0 ? "👍" : "👎"}</td><td>${esc(f.question)}</td><td><details><summary>Show</summary>${esc(f.answer)}</details></td><td>${esc(f.comment || "")}</td></tr>`; }).join("") || `<tr><td colspan="4" class="muted">No feedback yet</td></tr>`
+      }</tbody></table></div>`;
+  $("#ai-save").onclick = (e) => run(e.target, () => setDoc(doc(db, "config", "ai"), {
+    enabled: $("#ai-enabled").checked,
+    dailyFree: Math.max(0, Math.floor(Number($("#ai-free").value) || 0)),
+    dailyMember: Math.max(0, Math.floor(Number($("#ai-member").value) || 0)),
+    model: $("#ai-model").value.trim() || "gemini-3-flash-preview",
+  }, { merge: true }), "AI settings saved");
 }

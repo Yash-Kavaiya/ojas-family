@@ -20,6 +20,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ojashealing.family.ui.theme.Spacing
+import com.ojashealing.family.ui.theme.pressScale
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.runtime.remember
+import androidx.compose.ui.draw.shadow
 
 // The one card used across screens so padding, corner radius and elevation stay consistent
 @Composable
@@ -30,11 +34,16 @@ fun OjasCard(
     borderColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.outlineVariant,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val shape = RoundedCornerShape(16.dp)
+    val shape = RoundedCornerShape(20.dp)
     val colors = CardDefaults.cardColors(containerColor = containerColor)
-    // A soft shadow plus a hairline border keeps white cards clear on the ivory background in light mode
-    val elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    val border = BorderStroke(1.dp, borderColor)
+    // Depth comes from a soft, low shadow rather than a heavy outline; the hairline stays only
+    // as a faint edge so white cards still read on the ivory background
+    val elevation = CardDefaults.cardElevation(defaultElevation = 0.dp, pressedElevation = 0.dp)
+    val border = BorderStroke(1.dp, borderColor.copy(alpha = borderColor.alpha * 0.6f))
+    val ambient = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.06f)
+    val lifted = modifier
+        .fillMaxWidth()
+        .shadow(elevation = 10.dp, shape = shape, ambientColor = ambient, spotColor = ambient)
     val inner: @Composable ColumnScope.() -> Unit = {
         Column(
             modifier = Modifier.padding(Spacing.l),
@@ -43,9 +52,15 @@ fun OjasCard(
         )
     }
     if (onClick != null) {
-        Card(onClick = onClick, modifier = modifier.fillMaxWidth(), shape = shape, colors = colors, elevation = elevation, border = border, content = inner)
+        val interaction = remember { MutableInteractionSource() }
+        Card(
+            onClick = onClick,
+            modifier = lifted.pressScale(interaction, pressed = 0.98f),
+            shape = shape, colors = colors, elevation = elevation, border = border,
+            interactionSource = interaction, content = inner,
+        )
     } else {
-        Card(modifier = modifier.fillMaxWidth(), shape = shape, colors = colors, elevation = elevation, border = border, content = inner)
+        Card(modifier = lifted, shape = shape, colors = colors, elevation = elevation, border = border, content = inner)
     }
 }
 

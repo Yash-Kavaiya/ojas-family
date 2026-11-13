@@ -10,10 +10,21 @@ export interface Award {
   activeDaysDelta?: number;
   extra?: Record<string, unknown>; // other server-only fields to set in the same transaction
   cap?: { action: "like" | "comment" | "question"; day: string }; // counts against config dailyCaps for that IST day
+  countsForLevel?: boolean; // default true; false only adds to the spendable balance
 }
 
 /**
- * The only writer of mokshaPoints. Records users/{uid}/pointEvents/{eventKey} and updates the
+ * Points that count toward Level: everything earned, but not points received from other members.
+ * Older accounts have no earnedPoints yet; until then their whole balance was earned.
+ */
+export function earnedOf(user: Record<string, unknown> | undefined): number {
+  const d = user ?? {};
+  return Number(d.earnedPoints ?? d.mokshaPoints ?? 0);
+}
+
+/**
+ * Writes mokshaPoints (the spendable balance) and earnedPoints (what Level uses). Transfers and
+ * staff adjustments in transfer.ts are the only other writers. Records users/{uid}/pointEvents/{eventKey} and updates the
  * total and level atomically. Returns false, changing nothing, if the event was already awarded.
  */
 export async function awardPoints(db: Firestore, uid: string, award: Award): Promise<boolean> {
@@ -39,8 +50,9 @@ export async function awardPoints(db: Firestore, uid: string, award: Award): Pro
 
     const data = user.data() ?? {};
     const points = (data.mokshaPoints ?? 0) + award.amount;
+    const earned = earnedOf(data) + (award.countsForLevel === false ? 0 : award.amount);
     const activeDays = (data.activeDays ?? 0) + (award.activeDaysDelta ?? 0);
-    const userLevel = computeUserLevel({ activeDays, points }, cfg);
+    const userLevel = computeUserLevel({ activeDays, points: earned }, cfg);
 
     tx.set(eventRef, {
       amount: award.amount,
@@ -49,7 +61,7 @@ export async function awardPoints(db: Firestore, uid: string, award: Award): Pro
       ...(award.note ? { note: award.note } : {}),
       createdAt: FieldValue.serverTimestamp(),
     });
-    tx.set(userRef, { ...award.extra, mokshaPoints: points, activeDays, userLevel }, { merge: true });
+    tx.set(userRef, { ...award.extra, mokshaPoints: points, earnedPoints: earned, activeDays, userLevel }, { merge: true });
     return true;
   });
 }

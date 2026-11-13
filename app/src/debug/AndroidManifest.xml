@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Debug builds only: lets the app reach the Firebase emulators on a developer's computer (see LocalBackend.kt) -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application android:networkSecurityConfig="@xml/debug_network_security_config" />
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <application android:networkSecurityConfig="@xml/debug_network_security_config">
+        <!-- Debug builds start Firebase in OjasApp instead, so LocalBackend can choose the live project or
+             the emulators before anything (Crashlytics, Sessions) attaches to it. Deleting and recreating
+             the default app afterwards crashes Firebase Sessions. -->
+        <provider
+            android:name="com.google.firebase.provider.FirebaseInitProvider"
+            android:authorities="${applicationId}.firebaseinitprovider"
+            tools:node="remove" />
+    </application>
 </manifest>

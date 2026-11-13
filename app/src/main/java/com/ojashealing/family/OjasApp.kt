@@ -18,9 +18,8 @@ class OjasApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        Firebase.initialize(this)
-        // Debug builds can be pointed at local Firebase emulators (see LocalBackend); a no-op otherwise
-        LocalBackend.useIfAsked(this)
+        // Debug builds can be pointed at local Firebase emulators (see LocalBackend); otherwise the live project
+        if (!LocalBackend.initializeIfAsked(this)) Firebase.initialize(this)
         // Sign-in failures from an APK signed with an unregistered key look like Firebase errors
         // (MISSING_CLIENT_IDENTIFIER, DEVELOPER_ERROR); tagging every report with the key makes them obvious
         runCatching { FirebaseCrashlytics.getInstance().setCustomKey("signing_sha1", signingSha1(this) ?: "unknown") }

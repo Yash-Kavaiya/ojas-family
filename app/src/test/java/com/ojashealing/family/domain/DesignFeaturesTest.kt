@@ -10,8 +10,8 @@ import com.ojashealing.family.data.points.levelProgress
 import com.ojashealing.family.data.points.sourceOf
 import com.ojashealing.family.data.points.totalsBySource
 import com.ojashealing.family.data.social.MediaKind
-import com.ojashealing.family.ui.ask.AiTopic
-import com.ojashealing.family.ui.ask.aiTopicFor
+import com.ojashealing.family.ui.ask.AnswerPart
+import com.ojashealing.family.ui.ask.answerParts
 import com.ojashealing.family.ui.components.roleBadgeStyle
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -54,13 +54,13 @@ class DesignFeaturesTest {
     }
 
     @Test
-    fun aiPicksATopicInAnyLanguage() {
-        assertEquals(AiTopic.Meditation, aiTopicFor("How do I start meditating?"))
-        assertEquals(AiTopic.Stress, aiTopicFor("मुझे तनाव महसूस होता है"))
-        assertEquals(AiTopic.Chakra, aiTopicFor("ચક્ર શું છે?"))
-        assertEquals(AiTopic.Sleep, aiTopicFor("I can't sleep well"))
-        assertEquals(AiTopic.General, aiTopicFor("Hello"))
-        assertEquals(AiTopic.General, aiTopicFor("I will still try"))
+    fun aiAnswerCitationsAreSplitOut() {
+        assertEquals(
+            listOf(AnswerPart.Plain("Sit still "), AnswerPart.Cite(1), AnswerPart.Plain(". Breathe"), AnswerPart.Cite(2), AnswerPart.Cite(3)),
+            answerParts("Sit still [1]. Breathe[2][3]")
+        )
+        assertEquals(listOf(AnswerPart.Plain("No sources")), answerParts("No sources"))
+        assertEquals(listOf(AnswerPart.Plain("Keep [x] as text")), answerParts("Keep [x] as text"))
     }
 
     @Test

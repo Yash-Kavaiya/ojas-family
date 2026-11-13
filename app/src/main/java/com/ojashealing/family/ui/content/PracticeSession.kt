@@ -1,5 +1,29 @@
 package com.ojashealing.family.ui.content
 
+import com.ojashealing.family.ui.theme.LocalReducedMotion
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.media3.common.C
+import com.ojashealing.family.data.practice.AudioLevelMeter
+import com.ojashealing.family.data.practice.MeteredRenderersFactory
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.togetherWith
+import androidx.compose.material.icons.outlined.Headphones
+import androidx.compose.material.icons.outlined.Videocam
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.style.TextOverflow
+import com.ojashealing.family.ui.theme.Durations
+import com.ojashealing.family.ui.theme.OjasEasing
+import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.PlayerConstants
+import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
+import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener
+import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView
 import android.content.Context
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
@@ -132,8 +156,21 @@ data class SessionUi(
     /** Furthest point reached by playing; forward seeks stop here. */
     val reachedMs: Long = 0,
     val doneToday: Boolean = false,
-    val awarded: Boolean = false
+    val awarded: Boolean = false,
+    /** Points the server gave for this session (practice plus any bonuses). */
+    val pointsEarned: Int = 0,
+    /** Days in a row with at least one practice, after this one; 0 when unknown. */
+    val streak: Int = 0,
+    /** Video files start as sound only (eyes closed); the member can bring the picture back. */
+    val showVideo: Boolean = false
 )
+
+/** What the session asks the embedded YouTube player to do. */
+sealed interface YouTubeCommand {
+    data object Play : YouTubeCommand
+    data object Pause : YouTubeCommand
+    data class SeekTo(val ms: Long) : YouTubeCommand
+}
 
 /** Saves where a member stopped in today's practice, so they can come back and carry on. */
 class PracticeProgressStore(context: Context) {
@@ -167,6 +204,7 @@ class PracticeProgressStore(context: Context) {
  * another screen does not restart the video. Only real playing time counts toward finishing.
  */
 @kotlin.OptIn(ExperimentalCoroutinesApi::class)
+@androidx.annotation.OptIn(UnstableApi::class)
 class PracticeSessionViewModel(
     context: Context,
     val section: ContentSection,
@@ -175,16 +213,28 @@ class PracticeSessionViewModel(
     uid: Flow<String?>
 ) : ViewModel() {
 
-    val player: ExoPlayer = ExoPlayer.Builder(context.applicationContext).build()
+    private val meter = AudioLevelMeter()
+    val player: ExoPlayer = ExoPlayer.Builder(context.applicationContext, MeteredRenderersFactory(context.applicationContext, meter)).build()
+    /** Loudness of what is playing right now, 0..1, for the wave. */
+    val level: StateFlow<Float> = meter.level
     private val _ui = MutableStateFlow(SessionUi())
     val ui: StateFlow<SessionUi> = _ui.asStateFlow()
     private var started = false
+
+    // YouTube practices play in a view owned by the screen; it reports back here
+    private val _youTube = MutableSharedFlow<YouTubeCommand>(extraBufferCapacity = 8)
+    val youTubeCommands: SharedFlow<YouTubeCommand> = _youTube.asSharedFlow()
+    private var ytPositionMs = 0L
+    private var ytPlaying = false
+    private val isYouTube get() = _ui.value.media?.type == MediaType.YouTube
+    private fun position(): Long = if (isYouTube) ytPositionMs else player.currentPosition
+    private fun playingNow(): Boolean = if (isYouTube) ytPlaying else player.isPlaying
 
     init {
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 _ui.update { it.copy(playing = isPlaying) }
-                if (isPlaying) markStarted()
+                if (isPlaying) markStarted() else meter.reset()
             }
 
             override fun onPlaybackStateChanged(state: Int) {
@@ -207,8 +257,13 @@ class PracticeSessionViewModel(
             _ui.update {
                 it.copy(media = media, phase = SessionPhase.Ready, durationMs = media.durationSec * 1000L, positionMs = pos, watchedMs = watched, reachedMs = reached)
             }
-            player.setMediaItem(MediaItem.fromUri(media.url), pos)
-            player.prepare()
+            ytPositionMs = pos
+            if (media.type != MediaType.YouTube) {
+                // Eyes closed: a video practice starts as sound only
+                if (media.type == MediaType.Video) setVideoTrack(false)
+                player.setMediaItem(MediaItem.fromUri(media.url), pos)
+                player.prepare()
+            }
         }
         viewModelScope.launch {
             uid.filterNotNull().flatMapLatest { repo.observeDoneToday(it) }.collect { done ->
@@ -217,14 +272,14 @@ class PracticeSessionViewModel(
         }
         // Count only time that really played: a jump forward is not watching
         viewModelScope.launch {
-            var last = player.currentPosition
+            var last = position()
             var sinceSave = 0
             while (isActive) {
                 delay(TICK_MS)
-                val pos = player.currentPosition
+                val pos = position()
                 val step = pos - last
                 last = pos
-                if (!player.isPlaying) continue
+                if (!playingNow()) continue
                 _ui.update {
                     val counted = if (step in 1..(TICK_MS * 4)) step else 0
                     it.copy(positionMs = pos, watchedMs = it.watchedMs + counted, reachedMs = maxOf(it.reachedMs, pos))
@@ -247,11 +302,51 @@ class PracticeSessionViewModel(
 
     private fun onEnded() {
         val u = _ui.value
-        val duration = maxOf(u.durationMs, player.duration)
+        val duration = if (isYouTube) u.durationMs else maxOf(u.durationMs, player.duration)
         _ui.update { it.copy(positionMs = duration, reachedMs = duration) }
         if (watchedEnough(u.watchedMs + TICK_MS * 4, duration)) finish()
-        else player.seekTo(u.reachedMs.coerceAtMost(duration))
+        else seekTo(u.reachedMs.coerceAtMost(duration))
     }
+
+    private fun seekTo(ms: Long) {
+        if (isYouTube) { ytPositionMs = ms; _youTube.tryEmit(YouTubeCommand.SeekTo(ms)) } else player.seekTo(ms)
+    }
+
+    @androidx.annotation.OptIn(UnstableApi::class)
+    private fun setVideoTrack(on: Boolean) {
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, !on)
+            .build()
+    }
+
+    /** Brings the picture back (or hides it again) without stopping the sound. */
+    fun toggleVideo() {
+        val show = !_ui.value.showVideo
+        setVideoTrack(show)
+        _ui.update { it.copy(showVideo = show) }
+    }
+
+    /** The embedded YouTube player's latest state. */
+    fun onYouTubeProgress(positionMs: Long, playing: Boolean) {
+        ytPositionMs = positionMs
+        if (playing != ytPlaying) {
+            ytPlaying = playing
+            _ui.update { it.copy(playing = playing, buffering = false) }
+            if (playing) markStarted()
+        }
+    }
+
+    fun onYouTubeBuffering(buffering: Boolean) = _ui.update { it.copy(buffering = buffering) }
+
+    /** The YouTube video reached its end. */
+    fun onYouTubeEnded() {
+        ytPlaying = false
+        _ui.update { it.copy(playing = false) }
+        onEnded()
+    }
+
+    /** The YouTube player is ready: start where the member stopped earlier today. */
+    fun youTubeStartSeconds(): Float = ytPositionMs / 1000f
 
     fun finish() {
         _ui.update { it.copy(phase = SessionPhase.Finishing) }
@@ -261,13 +356,17 @@ class PracticeSessionViewModel(
             repo.complete(section)
                 .onSuccess { r ->
                     progress.clear(section)
-                    _ui.update { it.copy(phase = SessionPhase.Complete, awarded = r.awarded) }
+                    _ui.update { it.copy(phase = SessionPhase.Complete, awarded = r.awarded, pointsEarned = r.points, streak = r.streak) }
                 }
                 .onFailure { _ui.update { it.copy(phase = SessionPhase.Failed) } }
         }
     }
 
     fun togglePlay() {
+        if (isYouTube) {
+            _youTube.tryEmit(if (ytPlaying) YouTubeCommand.Pause else YouTubeCommand.Play)
+            return
+        }
         if (player.isPlaying) player.pause() else {
             if (player.playbackState == Player.STATE_ENDED) player.seekTo(0)
             player.play()
@@ -277,19 +376,20 @@ class PracticeSessionViewModel(
     /** Back freely; forward only up to the furthest point already played. */
     fun seekBy(deltaMs: Long) {
         val u = _ui.value
-        val target = (player.currentPosition + deltaMs).coerceIn(0, maxOf(u.reachedMs, player.currentPosition))
-        player.seekTo(target)
+        val now = position()
+        val target = (now + deltaMs).coerceIn(0, maxOf(u.reachedMs, now))
+        seekTo(target)
         _ui.update { it.copy(positionMs = target) }
     }
 
     fun pause() {
-        player.pause()
+        if (isYouTube) _youTube.tryEmit(YouTubeCommand.Pause) else player.pause()
         save()
     }
 
     /** Back on the Practice tab after finishing: start over if they want to practise again. */
     fun again() {
-        player.seekTo(0)
+        seekTo(0)
         _ui.update { it.copy(phase = SessionPhase.Ready, positionMs = 0, watchedMs = 0, reachedMs = 0) }
     }
 
@@ -316,6 +416,8 @@ private fun sessionColors(section: ContentSection): SessionColors {
 fun PracticeSessionScreen(vm: PracticeSessionViewModel, onClose: () -> Unit) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val colors = sessionColors(vm.section)
+    val level = vm.level.collectAsStateWithLifecycle()
+    val media = ui.media
 
     // The screen stays on while practising; leaving the app pauses and keeps the place
     val view = LocalView.current
@@ -330,11 +432,18 @@ fun PracticeSessionScreen(vm: PracticeSessionViewModel, onClose: () -> Unit) {
         onDispose { lifecycle.removeObserver(obs) }
     }
 
+    // YouTube sound can't be measured, so its wave follows a gentle swell while it plays
+    val swell = rememberInfiniteTransition(label = "swell")
+    val synthetic by swell.animateFloat(0.25f, 0.85f, infiniteRepeatable(tween(2300, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "syn")
+    val isYouTube = media?.type == MediaType.YouTube
+    val loudness: () -> Float = { if (isYouTube) (if (ui.playing) synthetic else 0f) else level.value }
+
     Box(
         Modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(colors.top, BackgroundDark, Color(0xFF120A22))))
+            .background(Brush.verticalGradient(listOf(Color(0xFF0A1B3D), colors.top, BackgroundDark, Color(0xFF0B0718))))
     ) {
+        BlueLightSweep(playing = ui.playing, level = loudness)
         FloatingLights(colors.accent)
         Column(
             Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(horizontal = Spacing.l),
@@ -344,20 +453,19 @@ fun PracticeSessionScreen(vm: PracticeSessionViewModel, onClose: () -> Unit) {
                 IconButton(onClick = onClose) { Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.action_close), tint = Color.White) }
                 Column(Modifier.weight(1f)) {
                     Text(stringResource(vm.section.label()), style = MaterialTheme.typography.titleMedium, color = Color.White, maxLines = 1)
-                    ui.media?.title?.takeIf { it.isNotBlank() }?.let {
-                        Text(it, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f), maxLines = 1)
+                    media?.title?.takeIf { it.isNotBlank() }?.let {
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
                 PointChip(done = ui.doneToday, accent = colors.accent)
             }
 
-            Spacer(Modifier.height(Spacing.l))
-            val media = ui.media
+            Spacer(Modifier.height(Spacing.m))
             if (media == null) {
                 Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                     if (ui.phase == SessionPhase.Failed) Text(stringResource(R.string.session_complete_failed), color = Color.White, textAlign = TextAlign.Center)
                     else Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
-                        CircularProgressIndicator(color = colors.accent)
+                        CircularProgressIndicator(color = colors.accent, strokeCap = StrokeCap.Round)
                         Text(stringResource(R.string.session_loading), color = Color.White.copy(alpha = 0.8f))
                     }
                 }
@@ -365,34 +473,145 @@ fun PracticeSessionScreen(vm: PracticeSessionViewModel, onClose: () -> Unit) {
             }
 
             val progress = if (ui.durationMs > 0) ui.positionMs.toFloat() / ui.durationMs else 0f
-            if (media.type == MediaType.Video) {
-                VideoSurface(vm.player, onTap = vm::togglePlay, buffering = ui.buffering, accent = colors.accent)
-                Spacer(Modifier.weight(1f))
-                TimerRing(progress, ui, colors, Modifier.size(196.dp))
-            } else {
-                Spacer(Modifier.weight(0.5f))
-                Box(contentAlignment = Alignment.Center) {
-                    BreathingOrb(ui.playing, colors, Modifier.size(280.dp))
-                    TimerRing(progress, ui, colors, Modifier.size(280.dp), showClock = false)
+            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                if (isYouTube) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        YouTubeSurface(vm, colors.accent)
+                        Spacer(Modifier.height(Spacing.l))
+                        TimerRing(progress, ui, colors, Modifier.size(150.dp))
+                    }
+                } else {
+                    AnimatedContent(
+                        targetState = ui.showVideo,
+                        transitionSpec = {
+                            (fadeIn(tween(Durations.Base, easing = OjasEasing.Emphasized)) + scaleIn(tween(Durations.Base, easing = OjasEasing.Emphasized), initialScale = 0.96f)) togetherWith
+                                fadeOut(tween(Durations.Quick))
+                        },
+                        label = "surface",
+                    ) { video ->
+                        if (video) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                VideoSurface(vm.player, onTap = vm::togglePlay, buffering = ui.buffering, accent = colors.accent)
+                                Spacer(Modifier.height(Spacing.l))
+                                TimerRing(progress, ui, colors, Modifier.size(150.dp))
+                            }
+                        } else {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    BreathingOrb(ui.playing, colors, Modifier.size(260.dp), level = { level.value })
+                                    TimerRing(progress, ui, colors, Modifier.size(260.dp), showClock = false)
+                                }
+                                Spacer(Modifier.height(Spacing.s))
+                                Text(clockLabel(ui.durationMs - ui.positionMs), style = MaterialTheme.typography.displaySmall, color = Color.White)
+                                Text(stringResource(R.string.session_left, clockLabel(ui.durationMs)), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
+                            }
+                        }
+                    }
                 }
-                Spacer(Modifier.height(Spacing.m))
-                Text(clockLabel(ui.durationMs - ui.positionMs), style = MaterialTheme.typography.displaySmall, color = Color.White)
-                Text(stringResource(R.string.session_left, clockLabel(ui.durationMs)), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
             }
-            Spacer(Modifier.weight(1f))
+
+            // The healing wave: rises and falls with the voice and the music
+            Wavefront(level = loudness, playing = ui.playing, modifier = Modifier.fillMaxWidth().height(96.dp))
+            Spacer(Modifier.height(Spacing.s))
 
             Controls(ui, colors, onToggle = vm::togglePlay, onSeek = vm::seekBy)
-            Spacer(Modifier.height(Spacing.m))
+            Spacer(Modifier.height(Spacing.s))
+            if (media.type == MediaType.Video) {
+                TextButton(onClick = vm::toggleVideo) {
+                    Icon(if (ui.showVideo) Icons.Outlined.Headphones else Icons.Outlined.Videocam, null, tint = Color.White.copy(alpha = 0.85f), modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.size(6.dp))
+                    Text(stringResource(if (ui.showVideo) R.string.session_sound_only else R.string.session_show_video), color = Color.White.copy(alpha = 0.85f))
+                }
+            }
             Text(
                 if (ui.doneToday) stringResource(R.string.session_done_hint) else stringResource(R.string.session_watch_hint, PRACTICE_POINTS),
                 style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.75f),
+                color = Color.White.copy(alpha = 0.7f),
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(bottom = Spacing.l)
             )
         }
 
         CompletionOverlay(ui, colors, onBack = onClose, onRetry = vm::finish, onAgain = vm::again)
+    }
+}
+
+/**
+ * Quick Protection streams from the Ojas Healing YouTube channel. The player stays visible (as
+ * YouTube requires), tells the session what it is doing, and takes play, pause and seek from it.
+ */
+@Composable
+private fun YouTubeSurface(vm: PracticeSessionViewModel, accent: Color) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val videoId = vm.ui.collectAsStateWithLifecycle().value.media?.url ?: return
+    var ytPlayer by remember { mutableStateOf<YouTubePlayer?>(null) }
+    // The channel can switch off playback outside YouTube for a video; then say so and offer the YouTube app
+    var blocked by remember { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(ytPlayer) {
+        val p = ytPlayer ?: return@LaunchedEffect
+        vm.youTubeCommands.collect { c ->
+            when (c) {
+                YouTubeCommand.Play -> p.play()
+                YouTubeCommand.Pause -> p.pause()
+                is YouTubeCommand.SeekTo -> p.seekTo(c.ms / 1000f)
+            }
+        }
+    }
+    Box(
+        Modifier.fillMaxWidth().aspectRatio(16f / 9f)
+            .clip(RoundedCornerShape(20.dp))
+            .border(1.dp, accent.copy(alpha = 0.35f), RoundedCornerShape(20.dp))
+            .background(Color.Black)
+    ) {
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { ctx ->
+                YouTubePlayerView(ctx).apply {
+                    // Pauses on ON_STOP and releases on ON_DESTROY: no background playback (YouTube terms)
+                    lifecycleOwner.lifecycle.addObserver(this)
+                    addYouTubePlayerListener(object : AbstractYouTubePlayerListener() {
+                        private var playing = false
+                        private var lastSecond = 0f
+                        override fun onReady(youTubePlayer: YouTubePlayer) {
+                            ytPlayer = youTubePlayer
+                            youTubePlayer.cueVideo(videoId, vm.youTubeStartSeconds())
+                        }
+                        override fun onStateChange(youTubePlayer: YouTubePlayer, state: PlayerConstants.PlayerState) {
+                            playing = state == PlayerConstants.PlayerState.PLAYING
+                            vm.onYouTubeBuffering(state == PlayerConstants.PlayerState.BUFFERING)
+                            if (state == PlayerConstants.PlayerState.ENDED) vm.onYouTubeEnded()
+                            else vm.onYouTubeProgress((lastSecond * 1000).toLong(), playing)
+                        }
+                        override fun onCurrentSecond(youTubePlayer: YouTubePlayer, second: Float) {
+                            lastSecond = second
+                            vm.onYouTubeProgress((second * 1000).toLong(), playing)
+                        }
+                        override fun onError(youTubePlayer: YouTubePlayer, error: PlayerConstants.PlayerError) {
+                            blocked = true
+                            vm.onYouTubeBuffering(false)
+                        }
+                    })
+                }
+            },
+            onRelease = { v ->
+                lifecycleOwner.lifecycle.removeObserver(v)
+                v.release()
+            }
+        )
+        if (blocked) {
+            Column(
+                Modifier.fillMaxSize().background(Color(0xF00B1530)).padding(Spacing.l),
+                verticalArrangement = Arrangement.spacedBy(Spacing.s, Alignment.CenterVertically),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(stringResource(R.string.session_youtube_blocked), color = Color.White, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium)
+                Button(
+                    onClick = { runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://www.youtube.com/watch?v=$videoId"))) } },
+                    colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = BackgroundDark),
+                ) { Text(stringResource(R.string.video_open_youtube)) }
+            }
+        }
     }
 }
 
@@ -475,17 +694,30 @@ private fun TimerRing(progress: Float, ui: SessionUi, colors: SessionColors, mod
     }
 }
 
-/** For audio: a lotus in soft light that grows on the in-breath and settles on the out-breath. */
+/**
+ * Eyes closed: a lotus in soft blue light that grows on the in-breath and settles on the
+ * out-breath. Its glow also swells with the sound, so the voice seems to come from the light.
+ */
 @Composable
-private fun BreathingOrb(playing: Boolean, colors: SessionColors, modifier: Modifier) {
+private fun BreathingOrb(playing: Boolean, colors: SessionColors, modifier: Modifier, level: () -> Float = { 0f }) {
+    val reduced = LocalReducedMotion.current
     val t = rememberInfiniteTransition(label = "breath")
     val breath by t.animateFloat(0f, 1f, infiniteRepeatable(tween(BREATH_MS, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "b")
-    val b = if (playing) breath else 0.4f
+    val b = if (playing && !reduced) breath else 0.4f
     Box(modifier, contentAlignment = Alignment.Center) {
-        Canvas(Modifier.fillMaxSize().padding(22.dp)) {
+        Canvas(Modifier.fillMaxSize().padding(18.dp)) {
             val r = size.minDimension / 2
+            val voice = level().coerceIn(0f, 1f)
+            // Outer halo that follows the sound
+            drawCircle(
+                Brush.radialGradient(
+                    listOf(HealingLight.Sky.copy(alpha = 0.10f + 0.30f * voice), Color.Transparent),
+                    center = center, radius = r * (0.95f + 0.12f * voice),
+                ),
+                radius = r * (0.95f + 0.12f * voice),
+            )
             for (i in 3 downTo 1) {
-                drawCircle(colors.accent.copy(alpha = 0.06f * i + 0.1f * b), r * (0.55f + 0.15f * i * (0.7f + 0.3f * b)))
+                drawCircle(colors.accent.copy(alpha = 0.06f * i + 0.1f * b), r * (0.52f + 0.14f * i * (0.7f + 0.3f * b)))
             }
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -590,11 +822,12 @@ private fun CompletionOverlay(ui: SessionUi, colors: SessionColors, onBack: () -
                                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Icon(Icons.Outlined.Stars, null, tint = Color(0xFF7A4500))
-                                Text(stringResource(R.string.session_complete_points, PRACTICE_POINTS), style = BrandNumberStyle, color = Color(0xFF3B2300))
+                                Text(stringResource(R.string.session_complete_points, ui.pointsEarned.coerceAtLeast(1)), style = BrandNumberStyle, color = Color(0xFF3B2300))
                             }
                         } else {
                             Text(stringResource(R.string.session_complete_again), style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.8f), textAlign = TextAlign.Center)
                         }
+                        if (ui.streak > 0) StreakBadge(ui.streak)
                         Button(onClick = onBack, colors = ButtonDefaults.buttonColors(containerColor = colors.accent, contentColor = BackgroundDark)) {
                             Text(stringResource(R.string.session_back))
                         }
@@ -613,3 +846,30 @@ private fun CompletionOverlay(ui: SessionUi, colors: SessionColors, onBack: () -
     }
 }
 
+
+/** "🔥 5 days in a row": the flame pops in a moment after the lotus, then the number counts up. */
+@Composable
+private fun StreakBadge(days: Int) {
+    val shown = remember { androidx.compose.animation.core.Animatable(0f) }
+    LaunchedEffect(days) {
+        delay(450)
+        shown.animateTo(1f, tween(Durations.Slow, easing = OjasEasing.Emphasized))
+    }
+    // The day just added ticks over once the badge has mostly arrived
+    val count = if (shown.value >= 0.6f) days else (days - 1).coerceAtLeast(0)
+    Row(
+        Modifier
+            .graphicsLayer { alpha = shown.value.coerceAtLeast(0.001f); scaleX = 0.8f + 0.2f * shown.value; scaleY = scaleX }
+            .clip(RoundedCornerShape(50))
+            .background(Color.White.copy(alpha = 0.10f))
+            .padding(horizontal = Spacing.l, vertical = Spacing.s),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Icon(Icons.Filled.LocalFireDepartment, null, tint = Color(0xFFFF8A3D))
+        Text(
+            pluralStringResource(R.plurals.streak_days_in_row, count, count),
+            style = MaterialTheme.typography.titleSmall, color = Color.White,
+        )
+    }
+}

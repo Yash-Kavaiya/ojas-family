@@ -71,8 +71,8 @@ private val OjasShapes = Shapes(
     extraSmall = RoundedCornerShape(8.dp),
     small = RoundedCornerShape(12.dp),
     medium = RoundedCornerShape(16.dp),
-    large = RoundedCornerShape(16.dp),
-    extraLarge = RoundedCornerShape(20.dp)
+    large = RoundedCornerShape(20.dp),
+    extraLarge = RoundedCornerShape(28.dp)
 )
 
 @Composable
@@ -85,7 +85,8 @@ fun OjasFamilyTheme(
     val script = scriptFor(locale)
     val typography = remember(script) { ojasTypography(script) }
     val quote = remember(script) { quoteStyle(script) }
-    CompositionLocalProvider(LocalQuoteStyle provides quote) {
+    val reducedMotion = rememberReducedMotion()
+    CompositionLocalProvider(LocalQuoteStyle provides quote, LocalReducedMotion provides reducedMotion) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = typography,

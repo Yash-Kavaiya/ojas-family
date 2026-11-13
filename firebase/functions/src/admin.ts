@@ -30,11 +30,11 @@ export async function applyAdminList(
   return true;
 }
 
-/** Admin: give Moksha Points (a gift; shown to the member with the big coin animation). */
+/** Admin or Swamiji: give Moksha Points (a gift; shown to the member with the big coin animation). */
 export async function givePointsFor(
   db: Firestore, token: Claims, input: { uids?: unknown; amount?: unknown; note?: unknown },
 ): Promise<{ given: number }> {
-  requireAdmin(token);
+  if (token?.role !== "admin" && token?.role !== "swamiji") throw new HttpsError("permission-denied", "Only Swamiji and admins can give points");
   const uids = (Array.isArray(input.uids) ? input.uids : []).filter((u): u is string => typeof u === "string").slice(0, 500);
   const amount = Math.floor(Number(input.amount));
   if (uids.length === 0 || !(amount >= 1 && amount <= 100000)) throw new HttpsError("invalid-argument", "uids and an amount from 1 to 100000 are required");

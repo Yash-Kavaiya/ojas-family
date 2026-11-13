@@ -21,3 +21,6 @@ debug.keystore
 
 # Source practice videos (uploaded to Firebase Storage, too big for git)
 /videos/
+
+# Local-only secrets for the Functions emulator
+firebase/functions/.secret.local

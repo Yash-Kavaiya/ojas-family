@@ -28,6 +28,10 @@ import {
 import type { Messenger } from "./notify";
 import { istDay } from "./time";
 import { applyAdminList, applyAdminListNow, givePointsFor, statsFor } from "./admin";
+import { findGiftRecipientsFor, reverseTransferFor, setTransfersFrozenFor, staffAdjustPointsFor, transferPointsFor, updatePointsConfigFor } from "./transfer";
+import { onProfileWritten } from "./profilePoints";
+import { askSwamijiFor, deleteAiChatFor, rateAiAnswerFor, remainingToday } from "./ai";
+import { geminiDeps } from "./aiGemini";
 
 initializeApp();
 const db = getFirestore();
@@ -193,6 +197,65 @@ export const completePractice = onCall({ enforceAppCheck: enforceAppCheck }, asy
 export const userWritten = onDocumentWritten("users/{uid}", async (e) => {
   await syncPublicProfile(db, e.params.uid, e.data?.after.data());
   await refreshAuthorSnapshots(db, e.params.uid, e.data?.before.data(), e.data?.after.data());
+  // Points for each profile item filled in, and a bonus at 100%; once each
+  await onProfileWritten(db, e.params.uid, e.data?.before.data(), e.data?.after.data());
+});
+
+// ---- Moksha Points: member-to-member gifts and Swamiji/admin control ----
+
+export const transferPoints = onCall({ enforceAppCheck: enforceAppCheck }, async (req) => {
+  const uid = requireUid(req);
+  return transferPointsFor(db, uid, (req.data ?? {}) as Record<string, unknown>, new Date());
+});
+
+export const findGiftRecipients = onCall({ enforceAppCheck: enforceAppCheck }, async (req) => {
+  const uid = requireUid(req);
+  return findGiftRecipientsFor(db, uid, (req.data ?? {}) as Record<string, unknown>);
+});
+
+export const staffAdjustPoints = onCall(async (req) => {
+  const uid = requireUid(req);
+  return staffAdjustPointsFor(db, req.auth?.token, uid, (req.data ?? {}) as Record<string, unknown>);
+});
+
+export const reverseTransfer = onCall(async (req) => {
+  const uid = requireUid(req);
+  return reverseTransferFor(db, req.auth?.token, uid, (req.data ?? {}) as Record<string, unknown>);
+});
+
+export const setTransfersFrozen = onCall(async (req) => {
+  const uid = requireUid(req);
+  return setTransfersFrozenFor(db, req.auth?.token, uid, (req.data ?? {}) as Record<string, unknown>);
+});
+
+export const updatePointsConfig = onCall(async (req) => {
+  const uid = requireUid(req);
+  return updatePointsConfigFor(db, req.auth?.token, uid, (req.data ?? {}) as Record<string, unknown>);
+});
+
+// ---- Ask Swamiji (AI): Gemini answers grounded in Ojas Healing's teachings ----
+
+// Streams the answer as it is written when the app asks for a stream; the final result has it all
+
+export const askSwamiji = onCall({ enforceAppCheck: enforceAppCheck, timeoutSeconds: 120, memory: "512MiB" }, async (req, res) => {
+  const uid = requireUid(req);
+  return askSwamijiFor(db, geminiDeps(db), uid, req.auth?.token.role, (req.data ?? {}) as Record<string, unknown>, new Date(),
+    (piece) => { void res?.sendChunk({ text: piece }); });
+});
+
+export const aiQuota = onCall(async (req) => {
+  const uid = requireUid(req);
+  return remainingToday(db, uid, req.auth?.token.role, new Date());
+});
+
+export const rateAiAnswer = onCall(async (req) => {
+  const uid = requireUid(req);
+  return rateAiAnswerFor(db, uid, (req.data ?? {}) as Record<string, unknown>);
+});
+
+export const deleteAiChat = onCall(async (req) => {
+  const uid = requireUid(req);
+  return deleteAiChatFor(db, uid, (req.data ?? {}) as Record<string, unknown>);
 });
 
 // ---- Notifications ----

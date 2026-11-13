@@ -1,5 +1,12 @@
 package com.ojashealing.family.ui.thought
 
+import androidx.compose.animation.togetherWith
+import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.filled.LocalFireDepartment
+import com.ojashealing.family.ui.theme.Durations
+import com.ojashealing.family.ui.theme.OjasEasing
+import com.ojashealing.family.ui.theme.pressScale
+import com.ojashealing.family.ui.theme.staggeredEntrance
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.heightIn
@@ -102,6 +109,11 @@ fun HomeScreen(
     onOpenScheduled: () -> Unit = {},
     notificationPrefs: Map<String, Boolean> = emptyMap(),
     onNotificationPrefs: (Map<String, Boolean>) -> Unit = {},
+    /** The member's first name for the greeting; empty hides the name. */
+    firstName: String = "",
+    /** Today's practice streak and whether today is done, for the practice nudge; null hides it. */
+    streak: com.ojashealing.family.data.practice.StreakSummary? = null,
+    onOpenPractice: () -> Unit = {},
 ) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val liked by vm.liked.collectAsStateWithLifecycle()
@@ -110,7 +122,13 @@ fun HomeScreen(
     val state = ui ?: return LoadingState()
     Box(Modifier.fillMaxSize()) {
         LazyColumn(contentPadding = PaddingValues(bottom = 96.dp), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
-            item(key = "header", contentType = "header") { SectionHeader(stringResource(R.string.notif_thought)) }
+            item(key = "greeting", contentType = "greeting") { Greeting(firstName, Modifier.padding(horizontal = Spacing.l).staggeredEntrance(0, key = "greeting")) }
+            streak?.let { s ->
+                item(key = "practiceNudge", contentType = "practiceNudge") {
+                    PracticeNudge(s, onOpenPractice, Modifier.padding(horizontal = Spacing.l).staggeredEntrance(1, key = "practiceNudge"))
+                }
+            }
+            item(key = "header", contentType = "header") { SectionHeader(stringResource(R.string.notif_thought), Modifier.staggeredEntrance(2, key = "header")) }
             summary?.let { sum ->
                 item(key = "scheduled", contentType = "scheduled") { ScheduledStrip(sum, onOpenScheduled, Modifier.padding(horizontal = Spacing.l)) }
             }
@@ -134,17 +152,30 @@ fun HomeScreen(
                 item(key = "card", contentType = "card") {
                     // The thought sits in its own box; tapping it opens the thought with all its comments.
                     // The yellow-orange "Thought of the Day" strip stays off Home for every role.
-                    ThoughtCard(
-                        thought = thought,
-                        dayText = if (thought.id == vm.todayId) stringResource(R.string.home_today) else dayLabel(thought.id),
-                        liked = liked,
-                        canLike = state.canLike,
-                        onLike = vm::toggleLike,
-                        onOpen = { onOpenThought(thought.id) },
-                        preview = true,
-                        showBanner = false,
-                        modifier = Modifier.padding(horizontal = Spacing.l)
-                    )
+                    // Changing the day fades the old thought out and lifts the new one in.
+                    androidx.compose.animation.AnimatedContent(
+                        targetState = thought,
+                        contentKey = { it.id },
+                        transitionSpec = {
+                            (androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(Durations.Base, delayMillis = 60, easing = OjasEasing.Emphasized)) +
+                                androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(Durations.Base, easing = OjasEasing.Emphasized)) { it / 16 }) togetherWith
+                                androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(Durations.Quick))
+                        },
+                        modifier = Modifier.staggeredEntrance(3, key = "card"),
+                        label = "thought",
+                    ) { shown ->
+                        ThoughtCard(
+                            thought = shown,
+                            dayText = if (shown.id == vm.todayId) stringResource(R.string.home_today) else dayLabel(shown.id),
+                            liked = liked,
+                            canLike = state.canLike,
+                            onLike = vm::toggleLike,
+                            onOpen = { onOpenThought(shown.id) },
+                            preview = true,
+                            showBanner = false,
+                            modifier = Modifier.padding(horizontal = Spacing.l)
+                        )
+                    }
                 }
             }
             item(key = "notifications", contentType = "notifications") {
@@ -161,6 +192,61 @@ fun HomeScreen(
                 onClick = onSchedule,
                 modifier = Modifier.align(Alignment.BottomEnd).padding(Spacing.l)
             ) { Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.home_schedule)) }
+        }
+    }
+}
+
+/** "Good morning, Meera" with a sun, moon or lamp for the time of day (India time). */
+@Composable
+private fun Greeting(firstName: String, modifier: Modifier = Modifier) {
+    val hour = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Kolkata")).get(java.util.Calendar.HOUR_OF_DAY)
+    val (res, icon, tint) = when (hour) {
+        in 4..11 -> Triple(R.string.home_greet_morning, Icons.Outlined.WbSunny, Color(0xFFF59E0B))
+        in 12..16 -> Triple(R.string.home_greet_afternoon, Icons.Outlined.WbSunny, Color(0xFFE65100))
+        else -> Triple(R.string.home_greet_evening, Icons.Outlined.DarkMode, Color(0xFF7C9CFF))
+    }
+    Row(modifier.fillMaxWidth().padding(top = Spacing.m), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.m)) {
+        Box(Modifier.size(44.dp).clip(CircleShape).background(tint.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
+            Icon(icon, contentDescription = null, tint = tint)
+        }
+        Column {
+            Text(
+                if (firstName.isBlank()) stringResource(res) else stringResource(R.string.home_greet_named, stringResource(res), firstName),
+                style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(stringResource(R.string.home_greet_sub), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+/** A gentle nudge to today's practice, with the streak it would keep alive. */
+@Composable
+private fun PracticeNudge(streak: com.ojashealing.family.data.practice.StreakSummary, onOpen: () -> Unit, modifier: Modifier = Modifier) {
+    val interaction = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    Surface(
+        onClick = onOpen,
+        interactionSource = interaction,
+        shape = RoundedCornerShape(20.dp),
+        color = Color.Transparent,
+        modifier = modifier.fillMaxWidth().pressScale(interaction, pressed = 0.98f),
+    ) {
+        Row(
+            Modifier.background(Brush.linearGradient(listOf(Color(0xFF0B3D91), Color(0xFF2A1450)))).padding(Spacing.l),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.m),
+        ) {
+            Icon(Icons.Filled.LocalFireDepartment, null, tint = if (streak.current > 0) Color(0xFFFF8A3D) else Color.White.copy(alpha = 0.5f), modifier = Modifier.size(32.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    when {
+                        streak.doneToday -> stringResource(R.string.home_practice_done)
+                        streak.current > 0 -> androidx.compose.ui.res.pluralStringResource(R.plurals.home_practice_keep, streak.current, streak.current)
+                        else -> stringResource(R.string.home_practice_start)
+                    },
+                    style = MaterialTheme.typography.titleMedium, color = Color.White,
+                )
+                Text(stringResource(R.string.home_practice_sub), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.75f))
+            }
+            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = Color.White)
         }
     }
 }

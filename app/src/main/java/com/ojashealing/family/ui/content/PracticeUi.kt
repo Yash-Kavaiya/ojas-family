@@ -54,6 +54,11 @@ class PracticeViewModel(private val repo: PracticeRepository, profile: Flow<User
         else repo.observeLogs(p.uid, todayIst()).map { practiceStatus(it, todayIst()) }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
+    /** Everyone's "any practice" streak for the streak card, including free members. */
+    val streak: StateFlow<com.ojashealing.family.data.practice.StreakSummary?> = profile.filterNotNull().flatMapLatest { p ->
+        repo.observeLogs(p.uid, todayIst()).map { com.ojashealing.family.data.practice.streakSummary(it, todayIst()) }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
     private val _message = MutableStateFlow<Int?>(null)
     @StringRes val message: StateFlow<Int?> = _message
     private val _busy = MutableStateFlow(false)

@@ -70,3 +70,60 @@ No app update is needed.
   "I did today's practice", photo button appears in comments.
 - Two phones: member with a call pack taps **Ask → Call now**; Swamiji's phone rings (also when closed).
 - Settings → notifications: switch off "Thought of the Day" and check no 06:00 push arrives next day.
+
+## 7. UI, practice, Moksha Points and Ask Swamiji AI upgrade (branch `feat/wow-ui-ai-points`)
+
+Built and tested locally. Each step below changes the live project, so it needs the owner's go-ahead.
+
+1. **Deploy** rules, indexes and functions (step 1 above). The new `knowledge` vector index takes a
+   few minutes to build.
+2. **Gemini key** (owner's AI Studio key, 2026-11-13): store it as a secret; the app never sees it.
+   The key's AI Studio project needs prepaid credits (on 2026-11-13 it answered "prepayment credits
+   are depleted"): https://ai.studio/projects
+   ```sh
+   cd firebase && firebase functions:secrets:set GEMINI_API_KEY --project ojas-family-app
+   ```
+   `askSwamiji` needs this secret to deploy. With the key in place the Vertex AI step below is not
+   needed; to build the knowledge base with it, run the script with `GEMINI_API_KEY=<key>` set.
+
+   **Or Vertex AI** (no key): enable the API once, then let the Functions service account use it. 2nd-gen functions run as the Compute default service account (check the account shown on a function in the Cloud console if it was changed):
+   ```sh
+   gcloud services enable aiplatform.googleapis.com --project ojas-family-app
+   gcloud projects add-iam-policy-binding ojas-family-app \
+     --member=serviceAccount:207605785922-compute@developer.gserviceaccount.com --role=roles/aiplatform.user
+   ```
+3. **Knowledge base for Ask Swamiji AI** (Gemini watches each Ojas Healing video and writes notes;
+   about 110+ videos, so it takes a while and costs some Vertex AI usage). Edit
+   `firebase/functions/knowledge/ojas-basics.md` first if anything there should be different.
+   ```sh
+   cd firebase/functions
+   gcloud auth application-default login
+   npx ts-node scripts/buildKnowledge.ts --limit 5     # try a few first
+   npx ts-node scripts/buildKnowledge.ts               # then the rest; re-runs only add new videos
+   ```
+   Admin site → **Ask Swamiji AI** shows how many videos were read, which failed, members' 👍/👎 on
+   answers, the daily question allowance and an on/off switch.
+4. **Turn on embedding on the Ojas Healing YouTube videos first.** Checked 2026-11-13: YouTube answers
+   "embedding disabled" for every library video tested, including Vidhi 1 (KPRvRrJgmVk), so they
+   can't play inside the app (the Spiritual library and Quick Protection show "Open in YouTube"
+   instead, and no practice points can be earned for them). In YouTube Studio → Content → select all
+   → Edit → **Allow embedding** → Update.
+   **Quick Protection = Protection Vidhi 1 from YouTube** (no upload). Put the video's length in seconds
+   (the server checks the member really listened to 90% of it):
+   ```sh
+   npx ts-node scripts/uploadPracticeMedia.ts ../../videos/streaming --youtube quick_protection=KPRvRrJgmVk:<seconds>
+   ```
+   The other three practices keep their uploaded files. The Practice tab now shows only the one
+   guided meditation per section; the other videos stay in the Spiritual library.
+5. **Moksha Points**: amounts and gifting rules are in `config/points` (defaults apply until saved).
+   Admin site → **Moksha Points**, or in the app (Swamiji/admin) → Moksha Points → How it works →
+   Edit amounts. Defaults: daily open 1, each practice 2, all four in a day +3, every 7-day streak +10,
+   like/comment/question/answer 1, each profile item 5 and 100% +25, first AI question of the day 1;
+   gifts from Level 2, up to 100 per gift and 100 a day. Points received from members never raise a
+   Level (`earnedPoints`); existing accounts start with earned = their current balance automatically.
+
+Check on a phone: Practice tab streak card and the immersive player (wave moves with the voice, blue
+light pours down, Show video works); Moksha Points → How it works opens on the first visit; send
+points between two test accounts and see the sender's Level stay the same; as Swamiji, open a
+member's profile → Manage points; fill the profile to 100% and see the bonus; Ask Swamiji AI answers
+with videos under the answer.

@@ -1,5 +1,7 @@
 package com.ojashealing.family.ui.content
 
+import androidx.compose.runtime.remember
+import com.ojashealing.family.ui.theme.pressScale
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -174,7 +176,12 @@ fun GuidedPracticeCard(card: GuidedCard, streak: PracticeStatus?, onOpen: () -> 
     val glow = rememberInfiniteTransition(label = "glow")
     val pulse by glow.animateFloat(0.85f, 1.15f, infiniteRepeatable(tween(2200, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "p")
 
-    Surface(onClick = onOpen, shape = RoundedCornerShape(20.dp), color = box, modifier = modifier.fillMaxWidth()) {
+    val press = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    Surface(
+        onClick = onOpen, shape = RoundedCornerShape(20.dp), color = box,
+        interactionSource = press,
+        modifier = modifier.fillMaxWidth().pressScale(press, pressed = 0.98f),
+    ) {
         Row(Modifier.padding(Spacing.l), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.m)) {
             // The icon breathes in a soft halo; a ring around it shows how much of today's practice is played
             Box(Modifier.size(64.dp), contentAlignment = Alignment.Center) {

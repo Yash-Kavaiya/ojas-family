@@ -20,6 +20,13 @@
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
+    <!-- Voice questions for Ask Swamiji AI use the phone's speech recognizer (Android 11+ package visibility) -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
+
     <application
         android:name=".OjasApp"
         android:allowBackup="true"
