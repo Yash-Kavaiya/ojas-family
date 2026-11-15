@@ -112,11 +112,14 @@ export class KnowledgeSearch {
   /**
    * The first playlist leads: passages from it that answer the question well enough ([good]) go to the
    * front in their own order, and the other videos fill whatever places are left. When the playlist
-   * does not cover the question nothing moves, so the other videos answer as before.
+   * does not cover the question nothing moves, so the other videos answer as before. When another
+   * video is the best match of all, the playlist leads with fewer passages, so that video's teaching
+   * is still among the [k] the answer is written from.
    */
-  private firstPlaylistFirst(order: number[], good: (i: number) => boolean): number[] {
-    const front = order.filter((i) => this.passages[i].first && good(i));
+  private firstPlaylistFirst(order: number[], good: (i: number) => boolean, k: number): number[] {
+    let front = order.filter((i) => this.passages[i].first && good(i));
     if (!front.length) return order;
+    if (!this.passages[order[0]].first) front = front.slice(0, Math.max(1, k - PLACES_KEPT_FOR_OTHERS));
     const lead = new Set(front);
     return [...front, ...order.filter((i) => !lead.has(i))];
   }
@@ -127,7 +130,7 @@ export class KnowledgeSearch {
     if (!scores.size) return [];
     const best = Math.max(...scores.values());
     const order = [...scores].filter(([, s]) => s >= best * MIN_SHARE_OF_BEST).sort((a, b) => b[1] - a[1]).map(([i]) => i);
-    return this.pick(this.firstPlaylistFirst(order, (i) => (scores.get(i) ?? 0) >= best * FIRST_KEYWORD_SHARE), k, lang);
+    return this.pick(this.firstPlaylistFirst(order, (i) => (scores.get(i) ?? 0) >= best * FIRST_KEYWORD_SHARE, k), k, lang);
   }
 
   /**
@@ -167,7 +170,7 @@ export class KnowledgeSearch {
     const order = [...fused].sort((x, y) => y[1] - x[1]).map(([i]) => i);
     // A playlist passage leads when it is about the question and not far behind the closest passage anywhere
     const goodEnough = Math.max(minCosine, closest - FIRST_COSINE_MARGIN);
-    return this.pick(this.firstPlaylistFirst(order, (i) => likeness[i] >= goodEnough), k, lang);
+    return this.pick(this.firstPlaylistFirst(order, (i) => likeness[i] >= goodEnough, k), k, lang);
   }
 }
 
@@ -190,6 +193,12 @@ const KEYWORD_COSINE_SHARE = 0.85;
 const FIRST_COSINE_MARGIN = 0.08;
 /** The same idea for keyword search alone: at least this share of the best passage's score. */
 const FIRST_KEYWORD_SHARE = 0.6;
+/**
+ * Measured 2026-11-15 on the live knowledge: for "what should I do in the morning practice?" the best
+ * passage was another video's (0.442) with the playlist close behind (0.425), and the playlist took all
+ * five places. Two places stay for the other videos whenever one of them is the best match.
+ */
+const PLACES_KEPT_FOR_OTHERS = 2;
 /**
  * Below this likeness a passage is not about the question. Measured 2026-11-13 with
  * nvidia/nemotron-3.5-embed-8b at 1024 numbers: questions the teachings cover scored 0.41 to 0.51
