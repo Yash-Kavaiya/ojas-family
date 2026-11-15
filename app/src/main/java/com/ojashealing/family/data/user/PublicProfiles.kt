@@ -26,6 +26,8 @@ data class PublicProfile(
     val role: Role,
     val hidden: Boolean,
     val achievedGoals: List<String>,
+    /** Sadhana goals being done now: goal id to (days in a row, last day ticked "yyyy-MM-dd"). */
+    val goalDays: Map<String, Pair<Int, String>> = emptyMap(),
     val about: String = "",
     val village: String = ""
 )
@@ -56,6 +58,10 @@ private fun DocumentSnapshot.toPublicProfile(): PublicProfile {
         role = Role.fromId(getString("role")),
         hidden = getBoolean("hidden") == true,
         achievedGoals = goals,
+        goalDays = (get("goalDays") as? Map<String, Any?>).orEmpty().mapNotNull { (id, v) ->
+            val m = v as? Map<String, Any?> ?: return@mapNotNull null
+            id to (((m["streak"] as? Number)?.toInt() ?: 0) to m["lastDay"]?.toString().orEmpty())
+        }.toMap(),
         about = getString("about").orEmpty(),
         village = getString("village").orEmpty()
     )

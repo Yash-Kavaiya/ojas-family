@@ -54,7 +54,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.ojashealing.family.R
-import com.ojashealing.family.data.goals.Goal
 import com.ojashealing.family.ui.goals.ProfileGoalsCard
 import com.ojashealing.family.ui.goals.ProfileGoalsState
 import com.ojashealing.family.data.location.LocationRepository
@@ -76,7 +75,11 @@ fun ProfileTab(
     onOpenAdmin: () -> Unit = {},
     onOpenModeration: () -> Unit = {},
     goals: ProfileGoalsState = ProfileGoalsState(),
-    onSubmitGoal: (Goal) -> Unit = {},
+    onOpenGoals: () -> Unit = {},
+    /** Member Level 3: the face photo for the opening animation. */
+    showFacePhoto: Boolean = false,
+    facePhoto: com.ojashealing.family.data.user.FacePhoto? = null,
+    onUploadFacePhoto: suspend (Uri) -> Result<Unit> = { Result.success(Unit) },
     onPickPhoto: (Uri) -> Unit = {},
     photoUploading: Boolean = false,
     @StringRes photoError: Int? = null,
@@ -125,7 +128,8 @@ fun ProfileTab(
                     Text(stringResource(R.string.members_title), modifier = Modifier.padding(start = Spacing.s))
                 }
             }
-            ProfileGoalsCard(goals, onSubmit = onSubmitGoal)
+            ProfileGoalsCard(goals, onOpen = onOpenGoals)
+            if (showFacePhoto) FacePhotoCard(facePhoto, onUploadFacePhoto)
         }
     }
 }

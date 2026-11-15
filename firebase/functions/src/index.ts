@@ -8,7 +8,7 @@ import { HttpsError, onCall, type CallableRequest } from "firebase-functions/v2/
 import { deleteAccountData, ensureUserDoc, setRoleFor } from "./auth";
 import { claimDailyOpenFor } from "./daily";
 import { addVideoFor, importPlaylistFor } from "./content";
-import { onGoalProgressWritten } from "./goals";
+import { onGoalProgressWritten, tickGoalFor } from "./goals";
 import { onAnswerWritten, onCommentWritten, onLikeChanged, onQuestionWritten } from "./social";
 import { onDocumentCreated, onDocumentDeleted, onDocumentUpdated, onDocumentWritten } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
@@ -176,6 +176,12 @@ export const goalProgressWritten = onDocumentWritten("users/{uid}/goalProgress/{
   onGoalProgressWritten(db, e.params.uid, e.params.goalId, e.data?.before.data(), e.data?.after.data()));
 
 // ---- Daily practices (design §7.4) ----
+
+// A daily sadhana goal (Practice > Freedom Practice): the member ticks today; the server counts the days in a row
+export const tickGoal = onCall({ enforceAppCheck: enforceAppCheck }, async (req) => {
+  const uid = requireUid(req);
+  return tickGoalFor(db, uid, String((req.data ?? {}).goalId ?? ""), new Date());
+});
 
 export const logPractice = onCall({ enforceAppCheck: enforceAppCheck }, async (req) => {
   const uid = requireUid(req);

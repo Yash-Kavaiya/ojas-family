@@ -87,11 +87,36 @@ data class ProfileGoalsState(
     /** The suggested goal's last photo was not approved, so the card says to try again. */
     val suggestedWasRejected: Boolean = false,
     val waiting: List<Goal> = emptyList(),
-    val achieved: List<Goal> = emptyList()
+    val achieved: List<Goal> = emptyList(),
+    val progress: Map<String, GoalProgress> = emptyMap()
 )
 
-/** The member's own goals on their profile. `hideGoals` only hides them from others, never from the owner. */
-class ProfileGoalsViewModel(goals: Flow<List<Goal>>, progress: Flow<Map<String, GoalProgress>>) : ViewModel() {
+/**
+ * The member's own goals, for Practice > Freedom Practice and the profile. `hideGoals` only hides them
+ * from others, never from the owner. [tickGoal] marks today for a daily sadhana goal.
+ */
+class ProfileGoalsViewModel(
+    goals: Flow<List<Goal>>,
+    progress: Flow<Map<String, GoalProgress>>,
+    private val tickGoal: suspend (String) -> Result<Boolean> = { Result.success(false) }
+) : ViewModel() {
+
+    private val _ticking = MutableStateFlow<String?>(null)
+    /** The goal whose tick is being saved, so its button waits. */
+    val ticking: StateFlow<String?> = _ticking.asStateFlow()
+    private val _tickFailed = MutableStateFlow(false)
+    val tickFailed: StateFlow<Boolean> = _tickFailed.asStateFlow()
+
+    fun tick(goal: Goal) {
+        if (_ticking.value != null) return
+        _ticking.value = goal.id
+        _tickFailed.value = false
+        viewModelScope.launch {
+            tickGoal(goal.id).onFailure { _tickFailed.value = true }
+            _ticking.value = null
+        }
+    }
+
     val state: StateFlow<ProfileGoalsState> = combine(goals.catch { emit(emptyList()) }, progress.catch { emit(emptyMap()) }) { g, p ->
         val suggested = suggestGoal(g, p)
         ProfileGoalsState(
@@ -100,7 +125,8 @@ class ProfileGoalsViewModel(goals: Flow<List<Goal>>, progress: Flow<Map<String, 
             suggested = suggested,
             suggestedWasRejected = suggested?.let { p[it.id]?.status == GoalStatus.Rejected } ?: false,
             waiting = g.filter { p[it.id]?.status == GoalStatus.Submitted }.sortedBy { it.order },
-            achieved = achieved(g, p)
+            achieved = achieved(g, p),
+            progress = p
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ProfileGoalsState())
 }
@@ -145,87 +171,6 @@ class GoalSubmitViewModel(private val submit: suspend (Uri, String) -> Result<Un
 
     companion object {
         const val MAX_NOTE = 500
-    }
-}
-
-@Composable
-fun ProfileGoalsCard(state: ProfileGoalsState, onSubmit: (Goal) -> Unit) {
-    val lang = goalLanguage()
-    OjasCard {
-        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.m), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Outlined.Flag, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-            Text(stringResource(R.string.profile_goals_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
-        }
-        val suggested = state.suggested
-        if (!state.loaded) return@OjasCard
-        if (state.goals.isEmpty()) {
-            Text(stringResource(R.string.profile_goals_empty), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            return@OjasCard
-        }
-        val done = state.achieved.map { it.id }.toSet()
-        val waiting = state.waiting.map { it.id }.toSet()
-        // The roadmap: every goal in order, with the one to do now highlighted
-        val ordered = state.goals.sortedBy { it.order }
-        Text(
-            stringResource(R.string.road_goals_progress, done.size, ordered.size),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary
-        )
-        com.ojashealing.family.ui.components.Roadmap(
-            ordered.map { g ->
-                com.ojashealing.family.ui.components.RoadStep(
-                    title = g.titleIn(lang),
-                    detail = if (g.id == suggested?.id) g.descriptionIn(lang) else stringResource(R.string.goal_reward, g.reward),
-                    state = when (g.id) {
-                        in done -> com.ojashealing.family.ui.components.StepState.Done
-                        in waiting -> com.ojashealing.family.ui.components.StepState.Waiting
-                        suggested?.id -> com.ojashealing.family.ui.components.StepState.Current
-                        else -> com.ojashealing.family.ui.components.StepState.Upcoming
-                    },
-                    icon = if (g.id == suggested?.id) Icons.Outlined.Flag else null
-                )
-            }
-        ) { i ->
-            val g = ordered[i]
-            SuggestedGoal(g, lang, state.suggestedWasRejected, onSubmit, compact = true)
-        }
-        if (suggested == null && done.size == ordered.size) {
-            Text(stringResource(R.string.goal_all_done), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
-        }
-    }
-}
-
-@Composable
-private fun SuggestedGoal(goal: Goal, lang: String, wasRejected: Boolean, onSubmit: (Goal) -> Unit, compact: Boolean = false) {
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
-        if (!compact) {
-            Text(stringResource(R.string.goal_suggested), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-            Text(goal.titleIn(lang), style = MaterialTheme.typography.titleMedium)
-            goal.descriptionIn(lang).takeIf { it.isNotEmpty() }?.let {
-                Text(it, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-        Text(stringResource(R.string.goal_reward, goal.reward), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (wasRejected) {
-            Text(stringResource(R.string.goal_rejected_retry), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-        }
-        if (goal.kind == GoalKind.Photo) {
-            Button(onClick = { onSubmit(goal) }, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Outlined.AddAPhoto, contentDescription = null, modifier = Modifier.size(18.dp))
-                Text(stringResource(R.string.goal_submit_photo), modifier = Modifier.padding(start = Spacing.s))
-            }
-        } else {
-            // 21-day practice goals complete on their own from the practice log
-            Text(stringResource(R.string.goal_practice_auto), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
-@Composable
-private fun GoalLine(title: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s), verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
-        Text(title, style = MaterialTheme.typography.bodyLarge)
     }
 }
 

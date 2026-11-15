@@ -321,10 +321,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Members submit a photo; only admins approve or reject. Progress is private to its owner.
+    // Paid members submit a photo (it is also shared in Community > Activity); only admins approve or
+    // reject. Daily sadhana goals are ticked through the tickGoal function, never written by the app.
+    // Progress is private to its owner.
     match /users/{uid}/goalProgress/{goalId} {
       allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
-      allow create, update: if (signedIn() && request.auth.uid == uid
+      allow create, update: if (isPaid() && request.auth.uid == uid
           && request.resource.data.status == 'submitted'
           && request.resource.data.keys().hasOnly(['status', 'photoUrl', 'note', 'submittedAt'])
           && request.resource.data.photoUrl is string && request.resource.data.photoUrl.size() < 1000
@@ -336,6 +338,19 @@ service cloud.firestore {
 
     match /{path=**}/goalProgress/{goalId} {
       allow read: if isAdmin();
+    }
+
+    // ---- Face photo for the opening animation: Member Level 3 uploads, an admin approves ----
+    match /facePhotos/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create, update: if (signedIn() && request.auth.uid == uid && (isStaff() || rank('memberLevel') >= 3)
+          && request.resource.data.status == 'submitted'
+          && request.resource.data.keys().hasOnly(['status', 'photoUrl', 'submittedAt'])
+          && request.resource.data.photoUrl is string && request.resource.data.photoUrl.size() > 0
+          && request.resource.data.photoUrl.size() < 1000)
+        || (isAdmin() && resource != null && request.resource.data.status in ['approved', 'rejected']
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reviewedAt']));
+      allow delete: if signedIn() && request.auth.uid == uid;
     }
 
     // Admin moderation queue reads pending posts across every thread

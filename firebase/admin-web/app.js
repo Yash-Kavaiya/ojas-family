@@ -147,13 +147,13 @@ let memberRows = [];
 async function members() {
   view().innerHTML = `
     <h1>Members &amp; gifts</h1>
-    <p class="muted">Select members, then give Moksha Points, membership, chat or calls (for payments taken outside the app, or as a gift).</p>
+    <p class="muted">Select members, then give Freedom Points, membership, chat or calls (for payments taken outside the app, or as a gift).</p>
     <div class="row"><input id="m-search" placeholder="Search by name (as written)" style="flex:1;min-width:200px"><button id="m-go">Search</button>
       <select id="m-filter"><option value="">Everyone</option><option value="paid">Paid members</option><option value="free">Free</option><option value="staff">Staff</option></select></div>
     <div class="card stack" style="margin:12px 0">
       <div class="row"><b id="m-count">0 selected</b><button class="link" id="m-all">Select all shown</button><button class="link" id="m-none">Clear</button></div>
       <div class="row">
-        <label>Moksha Points<input id="g-points" type="number" min="1" max="100000" value="50" style="width:110px"></label>
+        <label>Freedom Points<input id="g-points" type="number" min="1" max="100000" value="50" style="width:110px"></label>
         <label>Note (optional)<input id="g-note" placeholder="e.g. Diwali gift" style="width:200px"></label>
         <button class="primary" id="g-give-points">Give points</button>
       </div>
@@ -198,7 +198,7 @@ async function members() {
   $("#g-give-points").onclick = (e) => {
     const uids = need(1); if (!uids) return;
     const amount = Number($("#g-points").value);
-    if (!confirm(`Give ${amount} Moksha Points to ${uids.length} member(s)?`)) return;
+    if (!confirm(`Give ${amount} Freedom Points to ${uids.length} member(s)?`)) return;
     run(e.target, () => call("adminGivePoints", { uids, amount, note: $("#g-note").value }), (r) => `Points given to ${r.given} member(s)`).then(load);
   };
   const grant = (e, revoke) => {
@@ -541,12 +541,12 @@ async function settings() {
   const turn = (await getDoc(doc(db, "config", "turn"))).data() || {};
   const staff = (await getDoc(doc(db, "config", "staff"))).data() || {};
   const about = (await getDoc(doc(db, "config", "about"))).data() || {};
-  const ta = (id, label) => `<label>${label}<textarea id="ab-${id}" maxlength="3000">${esc(about[id] || "")}</textarea></label>`;
+  const ta = (id, label) => `<label>${label}<textarea id="ab-${id}" maxlength="8000">${esc(about[id] || "")}</textarea></label>`;
   const n = (path, dflt) => path.split(".").reduce((o, k) => o?.[k], lv) ?? dflt;
   const lvl = (k, d, p) => `<tr><td>${k.toUpperCase()}</td><td><input type="number" id="${k}-days" value="${esc(n(`${k}.days`, d))}" style="width:100px"></td><td><input type="number" id="${k}-points" value="${esc(n(`${k}.points`, p))}" style="width:120px"></td></tr>`;
   view().innerHTML = `
     <h1>Settings</h1>
-    <div class="card stack"><h3>Free user levels</h3><p class="muted">A level needs both: days of using the app and Moksha Points. Changes apply at each member's next point.</p>
+    <div class="card stack"><h3>Free user levels</h3><p class="muted">A level needs both: days of using the app and Freedom Points. Changes apply at each member's next point.</p>
       <table><thead><tr><th>Level</th><th>Days</th><th>Points</th></tr></thead><tbody>${lvl("l2", 7, 7)}${lvl("l3", 90, 200)}${lvl("l4", 365, 10000)}</tbody></table>
       <h3>Daily point limits</h3><div class="row">
         <label>Likes<input type="number" id="cap-like" value="${esc(n("dailyCaps.like", 50))}" style="width:90px"></label>
@@ -563,6 +563,8 @@ async function settings() {
       <p class="muted">Leave a box empty to show the app's built-in text. Hindi and Gujarati are optional; English shows when they are empty.</p>
       ${ta("ojasFamily", "About Ojas Family (English)")}${ta("ojasFamily_hi", "About Ojas Family (Hindi)")}${ta("ojasFamily_gu", "About Ojas Family (Gujarati)")}
       ${ta("swamiji", "About Swamiji (English)")}${ta("swamiji_hi", "About Swamiji (Hindi)")}${ta("swamiji_gu", "About Swamiji (Gujarati)")}
+      ${ta("help", "App help: how to use the app (English)")}${ta("help_hi", "App help (Hindi)")}${ta("help_gu", "App help (Gujarati)")}
+      ${ta("legal", "Legal disclaimer (English)")}${ta("legal_hi", "Legal disclaimer (Hindi)")}${ta("legal_gu", "Legal disclaimer (Gujarati)")}
       <label>Extra links, one per line: Title | https://link<textarea id="ab-links">${esc((about.links || []).map((l) => `${l.title} | ${l.url}`).join("\n"))}</textarea></label>
       <button class="primary" id="s-about">Save About</button></div>`;
   const num = (id) => Math.max(0, Math.floor(Number($(id).value) || 0));
@@ -577,7 +579,7 @@ async function settings() {
     const bad = links.find((p) => !p[1].startsWith("https://"));
     if (bad) return toast(`Links must start with https:// (${bad[0]})`, true);
     const data = { links: links.map(([title, url]) => ({ title: title.slice(0, 60), url: url.slice(0, 500) })) };
-    for (const k of ["ojasFamily", "ojasFamily_hi", "ojasFamily_gu", "swamiji", "swamiji_hi", "swamiji_gu"]) data[k] = $(`#ab-${k}`).value.trim();
+    for (const k of ["ojasFamily", "ojasFamily_hi", "ojasFamily_gu", "swamiji", "swamiji_hi", "swamiji_gu", "help", "help_hi", "help_gu", "legal", "legal_hi", "legal_gu"]) data[k] = $(`#ab-${k}`).value.trim();
     run(e.target, () => setDoc(doc(db, "config", "about"), data), "About saved");
   };
   $("#s-turn").onclick = (e) => run(e.target, () => setDoc(doc(db, "config", "turn"), {
@@ -585,7 +587,7 @@ async function settings() {
   }), "Saved");
 }
 
-// ---------- Moksha Points: amounts, gifting rules, one member's points, gifts ----------
+// ---------- Freedom Points: amounts, gifting rules, one member's points, gifts ----------
 const POINT_FIELDS = [
   ["dailyOpen", "Daily app open", 1], ["practice", "Each guided practice finished (once a day each)", 2],
   ["allPracticesBonus", "Bonus: all four practices in one day", 3], ["streakBonus", "Streak bonus", 10],
@@ -602,7 +604,7 @@ async function points() {
   const adjustments = await getDocs(query(collection(db, "pointAdjustments"), orderBy("createdAt", "desc"), limit(30)));
   const when = (t) => (t?.toDate ? t.toDate().toLocaleString() : "");
   view().innerHTML = `
-    <h1>Moksha Points</h1>
+    <h1>Freedom Points</h1>
     <p class="muted">What each activity earns and the gifting rules. Members see the same amounts in the app under "How it works". Swamiji can change them in the app too.</p>
     <div class="card stack"><h3>Points for each activity</h3>
       <table><tbody>${POINT_FIELDS.map(([k, label, d]) => `<tr><td>${esc(label)}</td><td><input type="number" min="0" max="100000" id="pt-${k}" value="${esc(cfg[k] ?? d)}" style="width:110px"></td></tr>`).join("")}

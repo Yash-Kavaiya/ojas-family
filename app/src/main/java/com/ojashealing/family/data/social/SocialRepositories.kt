@@ -255,7 +255,8 @@ class DailyRepository(private val db: FirebaseFirestore) {
     private fun DocumentSnapshot.toDaily() = DailyPost(
         id = id, author = author(), text = getString("text").orEmpty(), imageUrl = getString("imageUrl").orEmpty(),
         createdAt = millis("createdAt"), likeCount = getLong("likeCount")?.toInt() ?: 0,
-        replyCount = getLong("replyCount")?.toInt() ?: 0, status = status()
+        replyCount = getLong("replyCount")?.toInt() ?: 0, status = status(),
+        goalTitle = (get("goalTitle") as? Map<*, *>).orEmpty().entries.associate { it.key.toString() to it.value?.toString().orEmpty() }
     )
 
     fun observePosts(viewer: Viewer, uid: String): Flow<List<DailyPost>> {

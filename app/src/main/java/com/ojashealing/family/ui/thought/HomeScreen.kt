@@ -27,6 +27,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
 import com.ojashealing.family.data.about.AboutInfo
 import com.ojashealing.family.data.about.OJAS_YOUTUBE
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
+import androidx.compose.material.icons.outlined.Gavel
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -352,7 +354,7 @@ fun ThoughtCard(
     }
 }
 
-/** Below the thought: About Ojas Family, About Swamiji, the YouTube channel and any links admins add. */
+/** Below the thought: About Ojas Family, About Swamiji, App help, Legal, the YouTube channel and any links admins add. */
 @Composable
 fun AboutBox(about: AboutInfo, onOpenAbout: (String) -> Unit, modifier: Modifier = Modifier) {
     val uri = androidx.compose.ui.platform.LocalUriHandler.current
@@ -360,6 +362,8 @@ fun AboutBox(about: AboutInfo, onOpenAbout: (String) -> Unit, modifier: Modifier
         Text(stringResource(R.string.about_title), style = MaterialTheme.typography.titleMedium)
         AboutRow(Icons.Outlined.Spa, stringResource(R.string.about_ojas_family)) { onOpenAbout("ojas") }
         AboutRow(Icons.Outlined.SelfImprovement, stringResource(R.string.about_swamiji)) { onOpenAbout("swamiji") }
+        AboutRow(Icons.AutoMirrored.Outlined.HelpOutline, stringResource(R.string.about_help)) { onOpenAbout("help") }
+        AboutRow(Icons.Outlined.Gavel, stringResource(R.string.about_legal)) { onOpenAbout("legal") }
         AboutRow(Icons.Outlined.SmartDisplay, stringResource(R.string.about_youtube)) { runCatching { uri.openUri(OJAS_YOUTUBE) } }
         about.links.forEach { l -> AboutRow(Icons.Outlined.Link, l.title) { runCatching { uri.openUri(l.url) } } }
     }
@@ -467,11 +471,21 @@ fun CommentBar(content: @Composable () -> Unit) {
     }
 }
 
-/** About Ojas Family or About Swamiji: the admin's text from config/about, or the built-in wording. */
+/**
+ * About Ojas Family, About Swamiji, App help or Legal: the admin's text from config/about, or the
+ * built-in wording. Help and Legal are plain text pages, without the picture and the YouTube button.
+ */
 @Composable
 fun AboutScreen(kind: String, about: AboutInfo, onBack: () -> Unit) {
-    val swamiji = kind == "swamiji"
-    val text = (if (swamiji) about.swamiji else about.ojasFamily).ifBlank { stringResource(if (swamiji) R.string.about_swamiji_body else R.string.about_ojas_body) }
+
+    val plain = kind == "help" || kind == "legal"
+    val (custom, builtIn, title) = when (kind) {
+        "swamiji" -> Triple(about.swamiji, R.string.about_swamiji_body, R.string.about_swamiji)
+        "help" -> Triple(about.help, R.string.about_help_body, R.string.about_help)
+        "legal" -> Triple(about.legal, R.string.about_legal_body, R.string.about_legal)
+        else -> Triple(about.ojasFamily, R.string.about_ojas_body, R.string.about_ojas_family)
+    }
+    val text = custom.ifBlank { stringResource(builtIn) }
     val uri = androidx.compose.ui.platform.LocalUriHandler.current
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
         Column(
@@ -480,9 +494,9 @@ fun AboutScreen(kind: String, about: AboutInfo, onBack: () -> Unit) {
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(Spacing.s)) {
                 IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
-                Text(stringResource(if (swamiji) R.string.about_swamiji else R.string.about_ojas_family), style = MaterialTheme.typography.titleLarge)
+                Text(stringResource(title), style = MaterialTheme.typography.titleLarge)
             }
-            Box(
+            if (!plain) Box(
                 Modifier.padding(horizontal = Spacing.l).fillMaxWidth().clip(RoundedCornerShape(24.dp))
                     .background(Brush.linearGradient(OjasGradients.sunrise)).padding(Spacing.xl),
                 contentAlignment = Alignment.Center
@@ -497,7 +511,8 @@ fun AboutScreen(kind: String, about: AboutInfo, onBack: () -> Unit) {
             OjasCard(modifier = Modifier.padding(horizontal = Spacing.l)) {
                 Text(text, style = MaterialTheme.typography.bodyLarge)
             }
-            androidx.compose.material3.OutlinedButton(
+            if (plain) androidx.compose.foundation.layout.Spacer(Modifier.padding(bottom = Spacing.l))
+            else androidx.compose.material3.OutlinedButton(
                 onClick = { runCatching { uri.openUri(OJAS_YOUTUBE) } },
                 modifier = Modifier.padding(horizontal = Spacing.l).fillMaxWidth()
             ) {

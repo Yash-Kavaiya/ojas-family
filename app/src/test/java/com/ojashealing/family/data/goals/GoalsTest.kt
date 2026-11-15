@@ -33,4 +33,29 @@ class GoalsTest {
     }
 
     @Test fun titleFallsBackToEnglish() = assertEquals("a", g("a", 1).titleIn("gu"))
+
+    private fun sadhana(id: String, level: GoalLevel) =
+        Goal(id, mapOf("en" to id), emptyMap(), GoalKind.Check, 20, 1, true, level, days = 7)
+
+    @Test fun nextSadhanaLevelOpensAfterTwoGoalsOfTheLevelBefore() {
+        val all = listOf(
+            sadhana("e1", GoalLevel.Easy), sadhana("e2", GoalLevel.Easy), sadhana("e3", GoalLevel.Easy),
+            sadhana("m1", GoalLevel.Medium), sadhana("h1", GoalLevel.Hard), g("photo", 1)
+        )
+        assertEquals(setOf(GoalLevel.Easy), unlockedLevels(all, emptySet()))
+        // Photo activities do not count towards the sadhana levels
+        assertEquals(setOf(GoalLevel.Easy), unlockedLevels(all, setOf("e1", "photo")))
+        assertEquals(setOf(GoalLevel.Easy, GoalLevel.Medium), unlockedLevels(all, setOf("e1", "e3")))
+        // Medium has a single goal, so that one opens Hard
+        assertEquals(GoalLevel.entries.toSet(), unlockedLevels(all, setOf("e1", "e3", "m1")))
+    }
+
+    @Test fun dailyCountEndsOnceADayIsMissed() {
+        val p = GoalProgress("e1", GoalStatus.Active, "", 0, streak = 4, lastDay = "2026-11-14")
+        assertEquals(4, p.streakOn(today = "2026-11-14", yesterday = "2026-11-13"))
+        assertEquals(4, p.streakOn(today = "2026-11-15", yesterday = "2026-11-14"))
+        assertEquals(0, p.streakOn(today = "2026-11-16", yesterday = "2026-11-15"))
+        assertEquals(true, p.tickedOn("2026-11-14"))
+        assertEquals(false, p.tickedOn("2026-11-15"))
+    }
 }

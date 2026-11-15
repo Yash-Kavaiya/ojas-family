@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -202,6 +204,17 @@ fun DailyFeed(vm: DailyViewModel, canPost: Boolean, onOpen: (String) -> Unit, on
     }
 }
 
+/** On a goal photo from Freedom Practice: which goal it is for. */
+@Composable
+private fun GoalLabel(post: DailyPost) {
+    val title = post.goalTitleIn(com.ojashealing.family.ui.goals.goalLanguage())
+    if (title.isEmpty()) return
+    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs), verticalAlignment = Alignment.CenterVertically) {
+        Icon(androidx.compose.material.icons.Icons.Outlined.Flag, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+        Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+    }
+}
+
 @Composable
 private fun DailyCard(post: DailyPost, onClick: () -> Unit) {
     OjasCard(onClick = onClick) {
@@ -210,6 +223,7 @@ private fun DailyCard(post: DailyPost, onClick: () -> Unit) {
             AuthorLine(post.author)
         }
         com.ojashealing.family.ui.components.ResponsiveImage(post.imageUrl, maxHeight = 400.dp)
+        GoalLabel(post)
         if (post.text.isNotBlank()) Text(post.text, style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
         Text(
             listOf(pluralStringResource(R.plurals.likes_plural, post.likeCount, post.likeCount), stringResource(R.string.replies_count, post.replyCount)).joinToString(" · "),
@@ -248,6 +262,7 @@ fun DailyPostScreen(vm: DailyViewModel, postId: String, onBack: () -> Unit, show
                         ReportMenu(post.author, "dailyPosts/${post.id}", onBlocked = onBack)
                     }
                     PostImage(post.imageUrl)
+                    GoalLabel(post)
                     if (post.text.isNotBlank()) Text(post.text, style = MaterialTheme.typography.bodyMedium)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         LikeButton(liked = liked, enabled = true, onToggle = { vm.setLiked(post.id, !liked) })

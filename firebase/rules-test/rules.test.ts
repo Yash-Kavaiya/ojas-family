@@ -347,7 +347,18 @@ describe("goals", () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), "goals", "tree"), goal);
       await setDoc(doc(ctx.firestore(), "users", BOB, "goalProgress", "rejected1"), { ...submitted, status: "rejected" });
+      // Photo goals are for paid members
+      await updateDoc(doc(ctx.firestore(), "users", ALICE), { memberLevel: 1 });
+      await updateDoc(doc(ctx.firestore(), "users", BOB), { memberLevel: 1 });
+      await setDoc(doc(ctx.firestore(), "users", "free1"), { displayName: "Free", userLevel: 4, memberLevel: 0, role: "member" });
     });
+  });
+
+  test("a free member cannot submit a goal photo", async () => {
+    await assertFails(setDoc(doc(asUser("free1"), "users", "free1", "goalProgress", "tree"), submitted));
+  });
+  test("a member cannot tick a daily goal by writing progress directly", async () => {
+    await assertFails(setDoc(doc(asUser(ALICE), "users", ALICE, "goalProgress", "tree"), { status: "active", streak: 40, lastDay: "2026-11-15" }));
   });
 
   test("members read goals; only admin writes", async () => {
@@ -377,6 +388,27 @@ describe("goals", () => {
     const q = (db: ReturnType<typeof asUser>) => getDocs(query(collectionGroup(db, "goalProgress"), where("status", "==", "submitted")));
     await assertSucceeds(q(ADMIN()));
     await assertFails(q(asUser(ALICE)));
+  });
+});
+
+describe("face photo for the opening animation", () => {
+  const ADMIN = () => asUser("root", { role: "admin" });
+  const sent = { status: "submitted", photoUrl: "https://x/face.jpg", submittedAt: new Date() };
+
+  test("only Member Level 3 uploads, and never as approved", async () => {
+    await assertFails(setDoc(doc(asUser(ALICE), "facePhotos", ALICE), sent));
+    await env.withSecurityRulesDisabled(async (ctx) => { await updateDoc(doc(ctx.firestore(), "users", ALICE), { memberLevel: 3 }); });
+    await assertSucceeds(setDoc(doc(asUser(ALICE), "facePhotos", ALICE), sent));
+    await assertFails(setDoc(doc(asUser(ALICE), "facePhotos", ALICE), { ...sent, status: "approved" }));
+    await assertFails(setDoc(doc(asUser(ALICE), "facePhotos", BOB), sent));
+  });
+
+  test("an admin approves; other members cannot read it", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => { await setDoc(doc(ctx.firestore(), "facePhotos", ALICE), sent); });
+    await assertFails(getDoc(doc(asUser(BOB), "facePhotos", ALICE)));
+    await assertFails(updateDoc(doc(ADMIN(), "facePhotos", ALICE), { status: "approved", photoUrl: "https://x/other.jpg" }));
+    await assertSucceeds(updateDoc(doc(ADMIN(), "facePhotos", ALICE), { status: "approved", reviewedAt: new Date() }));
+    await assertSucceeds(getDoc(doc(asUser(ALICE), "facePhotos", ALICE)));
   });
 });
 

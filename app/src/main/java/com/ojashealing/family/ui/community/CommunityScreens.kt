@@ -79,10 +79,10 @@ import com.ojashealing.family.ui.components.PostComposer
 import com.ojashealing.family.ui.components.PostImage
 
 
-/** Community tab order: Announcements first, then Daily, then Q&A. */
+/** Community tab order: Activity (Daily) first and shown on open, then Announcements, then Q&A. */
 object CommunityTab {
-    const val NOTICES = 0
-    const val DAILY = 1
+    const val DAILY = 0
+    const val NOTICES = 1
     const val QA = 2
 }
 
@@ -94,7 +94,7 @@ fun CommunityScreen(
     onAnnounce: () -> Unit,
     daily: @Composable (canPost: Boolean) -> Unit = {},
     onOpenAnnouncement: (String) -> Unit = {},
-    tab: Int = CommunityTab.NOTICES,
+    tab: Int = CommunityTab.DAILY,
     onTab: (Int) -> Unit = {}
 ) {
     val perms by vm.permissions.collectAsStateWithLifecycle()
@@ -111,8 +111,8 @@ fun CommunityScreen(
                 containerColor = MaterialTheme.colorScheme.surface,
                 contentColor = MaterialTheme.colorScheme.primary
             ) {
-                Tab(selected = tab == CommunityTab.NOTICES, onClick = { onTab(CommunityTab.NOTICES) }, text = { com.ojashealing.family.ui.components.FitText(stringResource(R.string.community_notices), MaterialTheme.typography.labelLarge) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
                 Tab(selected = tab == CommunityTab.DAILY, onClick = { onTab(CommunityTab.DAILY) }, text = { com.ojashealing.family.ui.components.FitText(stringResource(R.string.community_daily), MaterialTheme.typography.labelLarge) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
+                Tab(selected = tab == CommunityTab.NOTICES, onClick = { onTab(CommunityTab.NOTICES) }, text = { com.ojashealing.family.ui.components.FitText(stringResource(R.string.community_notices), MaterialTheme.typography.labelLarge) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
                 Tab(selected = tab == CommunityTab.QA, onClick = { onTab(CommunityTab.QA) }, text = { com.ojashealing.family.ui.components.FitText(stringResource(R.string.community_qa), MaterialTheme.typography.labelLarge) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (tab == CommunityTab.DAILY) {

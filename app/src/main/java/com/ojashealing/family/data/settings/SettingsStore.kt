@@ -43,6 +43,23 @@ class SettingsStore(private val context: Context) : ThemeSettings {
         context.settingsDataStore.edit { it[introKey] = true }
     }
 
+    private val introFaceUidKey = androidx.datastore.preferences.core.stringPreferencesKey("intro_face_uid")
+    private val introFaceUrlKey = androidx.datastore.preferences.core.stringPreferencesKey("intro_face_url")
+
+    /**
+     * The member's approved face photo for the opening animation, as (uid, url). Kept on the phone
+     * because the animation plays before the profile has loaded; the uid stops one account's photo
+     * showing for another account on the same phone.
+     */
+    val introFace: Flow<Pair<String, String>> = context.settingsDataStore.data.map {
+        it[introFaceUidKey].orEmpty() to it[introFaceUrlKey].orEmpty()
+    }
+
+    /** An empty [url] goes back to the plain animation. */
+    suspend fun setIntroFace(uid: String, url: String) {
+        context.settingsDataStore.edit { it[introFaceUidKey] = uid; it[introFaceUrlKey] = url }
+    }
+
     private val pointsExplainedKey = booleanPreferencesKey("points_explained")
 
     /** False until "How Moksha Points work" has been shown once on this phone. */

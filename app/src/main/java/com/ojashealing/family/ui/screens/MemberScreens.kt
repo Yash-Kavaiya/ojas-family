@@ -21,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.EmojiEvents
+import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.AssistChip
@@ -136,13 +137,28 @@ fun PublicProfileScreen(
                 }
                 staffActions?.invoke(u.displayName)
                 val achieved = goals.filter { it.id in u.achievedGoals }
+                val lang = goalLanguage()
+                // The sadhana this member is doing now, with its days in a row (a missed day ends the count)
+                val (today, yesterday) = com.ojashealing.family.ui.goals.istTodayAndYesterday()
+                val doing = goals.filter { it.id !in u.achievedGoals }.mapNotNull { g ->
+                    val (streak, lastDay) = u.goalDays[g.id] ?: return@mapNotNull null
+                    if (streak > 0 && (lastDay == today || lastDay == yesterday)) g to streak else null
+                }
+                if (doing.isNotEmpty()) OjasCard {
+                    Text(stringResource(R.string.profile_sadhana_doing), style = MaterialTheme.typography.titleLarge)
+                    doing.forEach { (g, streak) ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.LocalFireDepartment, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Text(stringResource(R.string.goal_doing_days, g.titleIn(lang), streak, g.days), style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                }
                 if (achieved.isNotEmpty()) OjasCard {
                     Text(stringResource(R.string.profile_achieved), style = MaterialTheme.typography.titleLarge)
-                    val lang = goalLanguage()
                     achieved.forEach { g ->
                         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Outlined.EmojiEvents, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            Text(g.titleIn(lang), style = MaterialTheme.typography.bodyLarge)
+                            Text(com.ojashealing.family.ui.goals.achievedLabel(g, lang), style = MaterialTheme.typography.bodyLarge)
                         }
                     }
                 }

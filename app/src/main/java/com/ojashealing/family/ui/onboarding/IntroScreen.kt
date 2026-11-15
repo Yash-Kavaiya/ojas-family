@@ -16,7 +16,9 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
@@ -68,9 +70,12 @@ fun IntroBackdrop() {
  * Blue healing light at the start. The first open after install is 5 seconds: the light moves
  * down, then the lotus and name rest. Every later open is 3 seconds of that same light moving
  * from the top of the screen to the bottom. A tap skips it.
+ *
+ * With [faceUrl] (the member's approved face photo, from Member Level 3) the photo stands large under
+ * the logo and the light is drawn over it, so it passes across the face. Without it the intro is unchanged.
  */
 @Composable
-fun IntroScreen(firstLaunch: Boolean, onFinished: () -> Unit) {
+fun IntroScreen(firstLaunch: Boolean, onFinished: () -> Unit, faceUrl: String = "") {
     val finish by rememberUpdatedState(onFinished)
     val sweep = remember { Animatable(0f) }
     val after = remember { Animatable(0f) }
@@ -103,6 +108,7 @@ fun IntroScreen(firstLaunch: Boolean, onFinished: () -> Unit) {
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { finish() },
         contentAlignment = Alignment.Center
     ) {
+        val light: @Composable () -> Unit = {
         Canvas(Modifier.fillMaxSize()) {
             val band = size.height * 0.45f
             // The band's centre travels from above the top edge to below the bottom edge
@@ -140,15 +146,30 @@ fun IntroScreen(firstLaunch: Boolean, onFinished: () -> Unit) {
                 )
             }
         }
+        }
+        val withFace = faceUrl.isNotEmpty()
+        if (!withFace) light()
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
             Image(
                 painter = painterResource(R.drawable.ojas_lotus),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.size(112.dp).alpha(logo).scale((0.9f + 0.1f * logo) * (1f + 0.05f * pulse * logo)).clip(CircleShape)
+                modifier = Modifier.size(if (withFace) 72.dp else 112.dp).alpha(logo).scale((0.9f + 0.1f * logo) * (1f + 0.05f * pulse * logo)).clip(CircleShape)
             )
             Text(stringResource(R.string.app_name), style = BrandTitleStyle, color = Color.White, modifier = Modifier.alpha(logo))
+            if (withFace) coil.compose.AsyncImage(
+                model = faceUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxWidth(0.72f)
+                    .aspectRatio(0.8f)
+                    .alpha(logo)
+                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(28.dp))
+            )
         }
+        // Over the photo, so the blue light passes across the face
+        if (withFace) light()
     }
 }
 

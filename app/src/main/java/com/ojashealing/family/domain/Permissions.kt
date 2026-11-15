@@ -43,6 +43,9 @@ object Permissions {
     /** Hiding your profile opens at User Level 3; staff can always. firestore.rules checks the same. */
     fun canHideProfile(v: Viewer): Boolean = v.role != Role.Member || v.userLevel.rank >= 3
 
+    /** A face photo for the opening animation: Member Level 3; an admin approves it. firestore.rules checks the same. */
+    fun canUploadFacePhoto(v: Viewer): Boolean = isStaff(v) || v.memberLevel >= MemberLevel.M3
+
     fun canViewOtherProfiles(v: Viewer): Boolean = isStaff(v) || v.memberLevel >= MemberLevel.M3
 
     fun canBuyWeeklyChat(v: Viewer): Boolean = isStaff(v) || effectiveFreeRank(v) >= UserLevel.L2.rank

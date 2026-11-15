@@ -64,6 +64,9 @@ fun OjasRoot() {
 
     // First install is the 5-second intro. Every later open is the 3-second light, top to bottom.
     val introSeen by container.settings.introSeen.collectAsStateWithLifecycle(initialValue = null)
+    // The signed-in member's approved face photo, if they have one (Member Level 3); else the plain intro
+    val introFace by container.settings.introFace.collectAsStateWithLifecycle(initialValue = "" to "")
+    val introUid by container.auth.currentUid.collectAsStateWithLifecycle()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     var playIntro by rememberSaveable { mutableStateOf(true) }
     var leftApp by rememberSaveable { mutableStateOf(false) }
@@ -107,7 +110,7 @@ fun OjasRoot() {
             else IntroScreen(firstLaunch = introSeen == false, onFinished = {
                 playIntro = false
                 if (introSeen == false) scope.launch { container.settings.markIntroSeen() }
-            })
+            }, faceUrl = introFace.second.takeIf { introFace.first.isNotEmpty() && introFace.first == introUid }.orEmpty())
         }
     }
 }

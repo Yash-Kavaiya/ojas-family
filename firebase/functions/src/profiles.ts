@@ -23,6 +23,8 @@ export function publicProfileOf(user: Record<string, unknown>): Record<string, u
     role: user.role ?? "member",
     hidden: user.hideProfile === true,
     achievedGoals: user.hideGoals === true ? [] : (user.achievedGoalIds ?? []),
+    // Sadhana goals being done now: { goalId: { streak, lastDay } }
+    goalDays: user.hideGoals === true ? {} : (user.goalDays ?? {}),
   };
 }
 

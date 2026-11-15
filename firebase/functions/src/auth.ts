@@ -52,6 +52,7 @@ export async function deleteUserData(db: Firestore, uid: string): Promise<void> 
   await db.recursiveDelete(db.doc(`adminChats/${uid}`));
   await db.doc(`presence/${uid}`).delete();
   await db.doc(`publicProfiles/${uid}`).delete();
+  await db.doc(`facePhotos/${uid}`).delete();
 }
 
 export interface AccountCleanup {

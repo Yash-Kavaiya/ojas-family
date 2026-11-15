@@ -147,7 +147,44 @@ fun PracticeTab(
     onMarkPractice: (com.ojashealing.family.data.practice.PracticeKind) -> Unit = {},
     guided: List<GuidedCard>? = null,
     streak: com.ojashealing.family.data.practice.StreakSummary? = null,
-    onOpenGuided: (ContentSection) -> Unit = {}
+    onOpenGuided: (ContentSection) -> Unit = {},
+    /** 0 = Daily Practice (morning, night, meditation), 1 = Freedom Practice (the goals). */
+    part: Int = 0,
+    onPart: (Int) -> Unit = {},
+    freedom: @Composable () -> Unit = {}
+) {
+    Column(Modifier.fillMaxSize()) {
+        androidx.compose.material3.TabRow(
+            selectedTabIndex = part,
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.primary
+        ) {
+            listOf(R.string.practice_tab_daily, R.string.practice_tab_freedom).forEachIndexed { i, label ->
+                androidx.compose.material3.Tab(
+                    selected = part == i, onClick = { onPart(i) },
+                    text = { com.ojashealing.family.ui.components.FitText(stringResource(label), MaterialTheme.typography.labelLarge) },
+                    unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        Box(Modifier.weight(1f)) {
+            if (part == 1) freedom()
+            else DailyPractice(sections, onPlay, practice, practiceBusy, onMarkPractice, guided, streak, onOpenGuided)
+        }
+    }
+}
+
+/** Daily Practice: the streak, the guided morning / night / meditation practices and their videos. */
+@Composable
+private fun DailyPractice(
+    sections: List<SectionUi>?,
+    onPlay: (ContentItem) -> Unit,
+    practice: com.ojashealing.family.data.practice.PracticeStatus?,
+    practiceBusy: Boolean,
+    onMarkPractice: (com.ojashealing.family.data.practice.PracticeKind) -> Unit,
+    guided: List<GuidedCard>?,
+    streak: com.ojashealing.family.data.practice.StreakSummary?,
+    onOpenGuided: (ContentSection) -> Unit
 ) {
     var locked by remember { mutableStateOf<Access.Locked?>(null) }
     val guidedCards = guided.orEmpty()

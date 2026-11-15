@@ -74,12 +74,19 @@ interface ModerationActions {
     val goalSubmissions: Flow<List<GoalSubmission>>
     val goals: Flow<List<Goal>>
     suspend fun reviewGoal(uid: String, goalId: String, approve: Boolean): Result<Unit>
+    /** Face photos for the opening animation, waiting for review. */
+    val faceSubmissions: Flow<List<com.ojashealing.family.data.user.FacePhoto>> get() = kotlinx.coroutines.flow.flowOf(emptyList())
+    suspend fun reviewFace(uid: String, approve: Boolean): Result<Unit> = Result.success(Unit)
 }
 
 /** A member's goal photo next to the goal it is for (null if the goal was deleted). */
 data class GoalReview(val submission: GoalSubmission, val goal: Goal?)
 
-fun ModerationRepository.asActions(goalRepo: GoalRepository) = object : ModerationActions {
+fun ModerationRepository.asActions(
+    goalRepo: GoalRepository, faceRepo: com.ojashealing.family.data.user.FacePhotoRepository? = null
+) = object : ModerationActions {
+    override val faceSubmissions = faceRepo?.observeSubmissions() ?: kotlinx.coroutines.flow.flowOf(emptyList())
+    override suspend fun reviewFace(uid: String, approve: Boolean) = faceRepo?.review(uid, approve) ?: Result.success(Unit)
     override val pending = observePending()
     override val reports = observeReports()
     override val reportsHasMore = this@asActions.reportsHasMore
@@ -102,6 +109,14 @@ class ModerationViewModel(private val actions: ModerationActions) : ViewModel() 
         val byId = goals.associateBy { it.id }
         subs.map { GoalReview(it, byId[it.goalId]) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val faceReviews: StateFlow<List<com.ojashealing.family.data.user.FacePhoto>> =
+        actions.faceSubmissions.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    // An approved face photo shows in that member's own opening animation
+    fun reviewFace(uid: String, approve: Boolean) {
+        viewModelScope.launch { actions.reviewFace(uid, approve) }
+    }
 
     // Approval makes the server award the goal's points, once
     fun reviewGoal(submission: GoalSubmission, approve: Boolean) {
@@ -146,6 +161,7 @@ fun ModerationScreen(vm: ModerationViewModel, onBack: () -> Unit) {
     }
     val reportsMore by vm.reportsHasMore.collectAsStateWithLifecycle()
     val goalReviews by vm.goalReviews.collectAsStateWithLifecycle()
+    val faceReviews by vm.faceReviews.collectAsStateWithLifecycle()
     val lang = goalLanguage()
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
         val reportState = rememberLazyListState()
@@ -196,6 +212,22 @@ fun ModerationScreen(vm: ModerationViewModel, onBack: () -> Unit) {
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                         OutlinedButton(onClick = { vm.reviewGoal(review.submission, approve = true) }) { Text(stringResource(R.string.moderation_approve)) }
                         TextButton(onClick = { vm.reviewGoal(review.submission, approve = false) }) { Text(stringResource(R.string.moderation_reject), color = MaterialTheme.colorScheme.error) }
+                    }
+                }
+            }
+            if (faceReviews.isNotEmpty()) {
+                item(key = "facesTitle", contentType = "title") { Text(stringResource(R.string.moderation_face_photos), style = MaterialTheme.typography.titleLarge) }
+                items(faceReviews, key = { "face:${it.uid}" }, contentType = { "face" }) { face ->
+                    OjasCard {
+                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s), verticalAlignment = Alignment.CenterVertically) {
+                            MemberAvatar(face.memberPhotoUrl)
+                            Text(face.memberName.ifEmpty { stringResource(R.string.moderation_unknown_member) }, style = MaterialTheme.typography.titleMedium)
+                        }
+                        com.ojashealing.family.ui.components.PostImage(face.photoUrl)
+                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
+                            OutlinedButton(onClick = { vm.reviewFace(face.uid, approve = true) }) { Text(stringResource(R.string.moderation_approve)) }
+                            TextButton(onClick = { vm.reviewFace(face.uid, approve = false) }) { Text(stringResource(R.string.moderation_reject), color = MaterialTheme.colorScheme.error) }
+                        }
                     }
                 }
             }

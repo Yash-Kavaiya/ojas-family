@@ -73,8 +73,12 @@ data class DailyPost(
     val createdAt: Long,
     val likeCount: Int,
     val replyCount: Int,
-    val status: PostStatus
-)
+    val status: PostStatus,
+    /** Set when the post is a goal photo from Freedom Practice: the goal's name by language ("en", "hi", "gu"). */
+    val goalTitle: Map<String, String> = emptyMap()
+) {
+    fun goalTitleIn(lang: String) = goalTitle[lang] ?: goalTitle["en"].orEmpty()
+}
 
 data class Question(
     val id: String,

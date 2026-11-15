@@ -6,6 +6,7 @@ import com.ojashealing.family.data.shrunkJpeg
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageMetadata
 import kotlinx.coroutines.channels.awaitClose
@@ -16,13 +17,32 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.tasks.await
 
+/**
+ * Freedom Practice has two parts. Activities ([Photo]): do it and share a photo, which is posted in
+ * Community > Activity. Sadhana ([Check], and the two 21-day practice goals): done every day; [Check]
+ * goals are ticked by the member, the practice goals complete from the morning/night practice log.
+ */
 enum class GoalKind(val id: String) {
-    Photo("photo"), MorningPractice21("practice_morning_21"), BothPractices21("practice_both_21");
+    Photo("photo"), Check("check"), MorningPractice21("practice_morning_21"), BothPractices21("practice_both_21");
+
+    val isSadhana get() = this != Photo
 
     companion object {
         fun fromId(id: String?) = entries.firstOrNull { it.id == id }
     }
 }
+
+/** How hard a goal is, easiest first. A goal with no level counts as easy. */
+enum class GoalLevel(val id: String) {
+    Easy("easy"), Medium("medium"), Hard("hard");
+
+    companion object {
+        fun fromId(id: String?) = entries.firstOrNull { it.id == id } ?: Easy
+    }
+}
+
+/** Sadhana goals of the next level open after this many of the level before are achieved (server: goals.ts). */
+const val UNLOCK_AFTER = 2
 
 /** An admin-defined goal; [title] and [description] are keyed by language ("en", "hi", "gu"). */
 data class Goal(
@@ -32,15 +52,46 @@ data class Goal(
     val kind: GoalKind,
     val reward: Int,
     val order: Int,
-    val active: Boolean
+    val active: Boolean,
+    val level: GoalLevel = GoalLevel.Easy,
+    /** Days in a row a [GoalKind.Check] goal needs; 21 for the practice goals. */
+    val days: Int = 21
 ) {
     fun titleIn(lang: String) = title[lang] ?: title["en"].orEmpty()
     fun descriptionIn(lang: String) = description[lang] ?: description["en"].orEmpty()
 }
 
-enum class GoalStatus { Submitted, Approved, Rejected }
+/** [Active]: a daily sadhana goal the member has started ticking. */
+enum class GoalStatus { Submitted, Approved, Rejected, Active }
 
-data class GoalProgress(val goalId: String, val status: GoalStatus, val photoUrl: String, val updatedAt: Long)
+data class GoalProgress(
+    val goalId: String,
+    val status: GoalStatus,
+    val photoUrl: String,
+    val updatedAt: Long,
+    /** Days in a row ticked up to [lastDay] ("yyyy-MM-dd", IST), for daily sadhana goals. */
+    val streak: Int = 0,
+    val lastDay: String = ""
+) {
+    fun tickedOn(today: String) = lastDay == today
+
+    /** The count still running on [today]: zero once a day has been missed. */
+    fun streakOn(today: String, yesterday: String) = if (lastDay == today || lastDay == yesterday) streak else 0
+}
+
+/**
+ * The sadhana levels a member may work on: easy always, then each later level once [UNLOCK_AFTER]
+ * goals of the level before are achieved (or all of them, if that level has fewer).
+ */
+fun unlockedLevels(goals: List<Goal>, achievedIds: Set<String>): Set<GoalLevel> {
+    val open = mutableSetOf<GoalLevel>()
+    for (level in GoalLevel.entries) {
+        open += level
+        val here = goals.filter { it.active && it.kind.isSadhana && it.level == level }
+        if (here.count { it.id in achievedIds } < minOf(UNLOCK_AFTER, here.size)) break
+    }
+    return open
+}
 
 /** A member's photo waiting for an admin. */
 data class GoalSubmission(
@@ -69,8 +120,15 @@ private fun DocumentSnapshot.stringMap(field: String) = (get(field) as? Map<Stri
 class GoalRepository(
     private val db: FirebaseFirestore,
     private val storage: FirebaseStorage,
-    private val resolver: ContentResolver
+    private val resolver: ContentResolver,
+    private val functions: FirebaseFunctions
 ) {
+
+    /** Ticks today for a daily sadhana goal. The server counts the days in a row and completes the goal. */
+    suspend fun tick(goalId: String): Result<Boolean> = runCatching {
+        val data = functions.getHttpsCallable("tickGoal").call(mapOf("goalId" to goalId)).await().getData() as? Map<*, *>
+        data?.get("completed") == true
+    }
 
     fun observeGoals(): Flow<List<Goal>> = callbackFlow {
         val reg = db.collection("goals").limit(200).addSnapshotListener { snap, _ ->
@@ -78,7 +136,8 @@ class GoalRepository(
             trySend(snap.documents.mapNotNull { d ->
                 val kind = GoalKind.fromId(d.getString("kind")) ?: return@mapNotNull null
                 Goal(d.id, d.stringMap("title"), d.stringMap("description"), kind,
-                    d.getLong("reward")?.toInt() ?: 0, d.getLong("order")?.toInt() ?: 0, d.getBoolean("active") ?: true)
+                    d.getLong("reward")?.toInt() ?: 0, d.getLong("order")?.toInt() ?: 0, d.getBoolean("active") ?: true,
+                    GoalLevel.fromId(d.getString("level")), d.getLong("days")?.toInt()?.coerceIn(1, 400) ?: 21)
             })
         }
         awaitClose { reg.remove() }
@@ -91,10 +150,12 @@ class GoalRepository(
                 val status = when (d.getString("status")) {
                     "approved" -> GoalStatus.Approved
                     "rejected" -> GoalStatus.Rejected
+                    "active" -> GoalStatus.Active
                     else -> GoalStatus.Submitted
                 }
                 val at = (d.getTimestamp("reviewedAt") ?: d.getTimestamp("submittedAt"))?.toDate()?.time ?: 0
-                d.id to GoalProgress(d.id, status, d.getString("photoUrl").orEmpty(), at)
+                d.id to GoalProgress(d.id, status, d.getString("photoUrl").orEmpty(), at,
+                    d.getLong("streak")?.toInt() ?: 0, d.getString("lastDay").orEmpty())
             })
         }
         awaitClose { reg.remove() }

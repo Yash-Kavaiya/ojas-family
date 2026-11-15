@@ -15,7 +15,11 @@ data class AboutLink(val title: String, val url: String)
 data class AboutInfo(
     val ojasFamily: String = "",
     val swamiji: String = "",
-    val links: List<AboutLink> = emptyList()
+    val links: List<AboutLink> = emptyList(),
+    /** App help: how to use the app. */
+    val help: String = "",
+    /** Legal: the disclaimer. */
+    val legal: String = ""
 )
 
 const val OJAS_YOUTUBE = "https://www.youtube.com/@OjasHealing"
@@ -29,7 +33,7 @@ fun DocumentSnapshot.toAbout(language: String): AboutInfo {
         val title = (m["title"] as? String)?.trim().orEmpty()
         if (url.startsWith("https://") && title.isNotEmpty()) AboutLink(title, url) else null
     }
-    return AboutInfo(text("ojasFamily"), text("swamiji"), links)
+    return AboutInfo(text("ojasFamily"), text("swamiji"), links, text("help"), text("legal"))
 }
 
 class AboutRepository(private val db: FirebaseFirestore) {

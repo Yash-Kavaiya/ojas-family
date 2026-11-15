@@ -269,11 +269,16 @@ fun MainShell(container: AppContainer) {
         initializer {
             ProfileGoalsViewModel(
                 container.goals.observeGoals(),
-                container.auth.currentUid.flatMapLatest { uid -> uid?.let(container.goals::observeProgress) ?: flowOf(emptyMap()) }
+                container.auth.currentUid.flatMapLatest { uid -> uid?.let(container.goals::observeProgress) ?: flowOf(emptyMap()) },
+                tickGoal = container.goals::tick
             )
         }
     })
     val goals by goalsVm.state.collectAsStateWithLifecycle()
+    val goalTicking by goalsVm.ticking.collectAsStateWithLifecycle()
+    val goalTickFailed by goalsVm.tickFailed.collectAsStateWithLifecycle()
+    // Daily Practice or Freedom Practice inside the Practice tab; held here so the profile can open the goals
+    var practicePart by rememberSaveable { mutableStateOf(0) }
     val staffContact by remember { container.chat.observeStaffContact().catch { emit(null) } }.collectAsStateWithLifecycle(null)
     val myThread by remember {
         container.auth.currentUid.flatMapLatest { uid -> uid?.let { container.chat.observeThread(it).catch { emit(null) } } ?: flowOf(null) }
@@ -314,7 +319,7 @@ fun MainShell(container: AppContainer) {
     // Held above the NavHost so sub-screens keep the tab, but not saved: every fresh open starts on Home
     var tab by rememberSaveable { mutableStateOf(MainTab.Home) }
     // Q&A, Daily or Announcements inside Community; held here so notifications can pick it
-    var communityTab by rememberSaveable { mutableStateOf(0) }
+    var communityTab by rememberSaveable { mutableStateOf(com.ojashealing.family.ui.community.CommunityTab.DAILY) }
     var communityJump by rememberSaveable { mutableStateOf<String?>(null) }
     var askJump by rememberSaveable { mutableStateOf<String?>(null) }
     val appLanguage = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language
@@ -334,6 +339,17 @@ fun MainShell(container: AppContainer) {
 
     // Keep push topics, the FCM token and practice reminders in step with the profile and Settings
     val p = profile
+    // Face photo for the opening animation: Member Level 3 uploads, an admin approves, then the intro shows it
+    val canFacePhoto = p != null && Permissions.canUploadFacePhoto(p.viewer)
+    var facePhoto by remember { mutableStateOf<com.ojashealing.family.data.user.FacePhoto?>(null) }
+    LaunchedEffect(p?.uid, canFacePhoto) {
+        val uid = p?.uid ?: return@LaunchedEffect
+        container.facePhotos.observe(uid).catch { }.collect { photo ->
+            facePhoto = photo
+            val approved = photo?.takeIf { canFacePhoto && it.status == com.ojashealing.family.data.user.FacePhotoStatus.Approved }
+            container.settings.setIntroFace(uid, approved?.photoUrl.orEmpty())
+        }
+    }
     LaunchedEffect(p?.uid, p?.notificationPrefs, p?.viewer?.memberLevel, p?.viewer?.role) {
         if (p == null) return@LaunchedEffect
         PushTopics.registerToken()
@@ -585,6 +601,19 @@ fun MainShell(container: AppContainer) {
                                         guided = guided,
                                         streak = practiceStreak,
                                         onOpenGuided = { nav.navigate(PracticeSessionRoute(it.id)) },
+                                        part = practicePart,
+                                        onPart = { practicePart = it },
+                                        freedom = {
+                                            com.ojashealing.family.ui.goals.FreedomPractice(
+                                                state = goals,
+                                                canSharePhoto = p != null && Permissions.canViewDailyActivities(p.viewer),
+                                                ticking = goalTicking,
+                                                tickFailed = goalTickFailed,
+                                                onSubmit = { nav.navigate(GoalSubmitRoute(it.id)) },
+                                                onTick = goalsVm::tick,
+                                                onMembership = { openPlans(PaidAccess.Membership) },
+                                            )
+                                        },
                                     )
                                     MainTab.Home -> HomeScreen(
                                         thoughtVm,
@@ -653,7 +682,10 @@ fun MainShell(container: AppContainer) {
                                         onOpenAdmin = { nav.navigate(AdminContentRoute) },
                                         onOpenModeration = { nav.navigate(ModerationRoute) },
                                         goals = goals,
-                                        onSubmitGoal = { nav.navigate(GoalSubmitRoute(it.id)) },
+                                        onOpenGoals = { practicePart = 1; tab = MainTab.Spiritual },
+                                        showFacePhoto = canFacePhoto,
+                                        facePhoto = facePhoto,
+                                        onUploadFacePhoto = { uri -> p?.uid?.let { container.facePhotos.submit(it, uri) } ?: Result.failure(IllegalStateException("signed out")) },
                                         onPickPhoto = vm::changePhoto,
                                         photoUploading = photoUploading,
                                         photoError = photoError,
@@ -699,7 +731,7 @@ fun MainShell(container: AppContainer) {
             }
             composable<ModerationRoute> {
                 val moderationVm: ModerationViewModel = viewModel(factory = viewModelFactory {
-                    initializer { ModerationViewModel(container.moderation.asActions(container.goals)) }
+                    initializer { ModerationViewModel(container.moderation.asActions(container.goals, container.facePhotos)) }
                 })
                 ModerationScreen(moderationVm, onBack = { nav.popBackStack() })
             }
