@@ -5,7 +5,6 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -34,8 +33,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -116,14 +115,15 @@ fun Roadmap(steps: List<RoadStep>, modifier: Modifier = Modifier, action: (@Comp
 
 @Composable
 private fun StepDot(step: RoadStep) {
-    val ring by loopingFloat(1f, 1.18f, infiniteRepeatable(tween(900), RepeatMode.Reverse), rest = 1f, label = "ring")
+    // Only the current step pulses; the others run no animation at all
+    val ring = loopingFloat(1f, 1.18f, infiniteRepeatable(tween(900), RepeatMode.Reverse), rest = 1f, label = "ring", active = step.state == StepState.Current)
     when (step.state) {
         StepState.Done -> Box(
             Modifier.size(32.dp).clip(CircleShape).background(Brush.linearGradient(OjasGradients.saffron)),
             contentAlignment = Alignment.Center
         ) { Icon(step.icon ?: Icons.Filled.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp)) }
         StepState.Current -> Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) {
-            Box(Modifier.size(32.dp).scale(ring).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)))
+            Box(Modifier.size(32.dp).graphicsLayer { scaleX = ring.value; scaleY = ring.value }.clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)))
             Box(
                 Modifier.size(26.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surface)
                     .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape),

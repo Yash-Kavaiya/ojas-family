@@ -203,7 +203,7 @@ private fun StatusLine(icon: ImageVector, text: String) {
 /** One goal: its name, level, what to do and the reward, then [action] (its state or button). */
 @Composable
 private fun GoalCard(goal: Goal, lang: String, action: @Composable () -> Unit) {
-    OjasCard {
+    OjasCard(tintKey = goal.order) {
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s), verticalAlignment = Alignment.CenterVertically) {
             Text(goal.titleIn(lang), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
             LevelChip(goal.level)
@@ -224,7 +224,7 @@ private fun GoalCard(goal: Goal, lang: String, action: @Composable () -> Unit) {
 fun ProfileGoalsCard(state: ProfileGoalsState, onOpen: () -> Unit) {
     val lang = goalLanguage()
     val (today, yesterday) = istTodayAndYesterday()
-    OjasCard {
+    OjasCard(tintKey = 5) {
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.m), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Outlined.Flag, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             Text(stringResource(R.string.practice_tab_freedom), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })

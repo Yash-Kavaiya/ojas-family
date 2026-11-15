@@ -194,6 +194,9 @@
     <string name="goal_review_note">आपकी फ़ोटो समुदाय › गतिविधि में पोस्ट होती है। एडमिन के स्वीकृत करने पर पॉइंट जुड़ते हैं।</string>
     <string name="moderation_goal_photos">लक्ष्य फ़ोटो</string>
     <string name="moderation_reject">अस्वीकार करें</string>
+    <string name="moderation_later">बाद में</string>
+    <string name="moderation_more_waiting">%1$d और प्रतीक्षा में</string>
+    <string name="posted_ago">%1$s पोस्ट किया</string>
     <string name="action_back">वापस</string>
     <string name="error_photo_upload">फ़ोटो अपलोड नहीं हो सकी। कृपया फिर से प्रयास करें।</string>
     <string name="profile_change_photo">फ़ोटो जोड़ें या बदलें</string>
@@ -560,8 +563,6 @@
     <string name="call_poor_connection">कमज़ोर कनेक्शन</string>
     <string name="call_quality">कनेक्शन की गुणवत्ता: 3 में से %1$d</string>
     <string name="a11y_loading">लोड हो रहा है</string>
-    <string name="session_show_video">वीडियो दिखाएँ</string>
-    <string name="session_sound_only">केवल आवाज़</string>
     <plurals name="streak_days_in_row">
         <item quantity="one">लगातार %d दिन</item>
         <item quantity="other">लगातार %d दिन</item>

@@ -195,6 +195,9 @@
     <string name="goal_review_note">Your photo is posted in Community › Activity. Points are added once an admin approves it.</string>
     <string name="moderation_goal_photos">Goal photos</string>
     <string name="moderation_reject">Reject</string>
+    <string name="moderation_later">Later</string>
+    <string name="moderation_more_waiting">%1$d more waiting</string>
+    <string name="posted_ago">Posted %1$s</string>
     <string name="action_back">Back</string>
     <string name="error_photo_upload">Could not upload the photo. Please try again.</string>
     <string name="profile_change_photo">Add or change photo</string>
@@ -561,8 +564,6 @@
     <string name="call_poor_connection">Poor connection</string>
     <string name="call_quality">Connection quality: %1$d of 3</string>
     <string name="a11y_loading">Loading</string>
-    <string name="session_show_video">Show video</string>
-    <string name="session_sound_only">Sound only</string>
     <plurals name="streak_days_in_row">
         <item quantity="one">%d day in a row</item>
         <item quantity="other">%d days in a row</item>

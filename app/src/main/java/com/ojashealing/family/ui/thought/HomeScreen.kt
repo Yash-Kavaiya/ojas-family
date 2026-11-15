@@ -114,7 +114,16 @@ fun HomeScreen(
     /** Today's practice streak and whether today is done, for the practice nudge; null hides it. */
     streak: com.ojashealing.family.data.practice.StreakSummary? = null,
     onOpenPractice: () -> Unit = {},
+    /** The Blue Healing Light and Quick Protection practices, shown as boxes on Home; empty hides them. */
+    quickPractices: List<com.ojashealing.family.ui.content.GuidedCard> = emptyList(),
+    practiceStatus: com.ojashealing.family.data.practice.PracticeStatus? = null,
+    onOpenGuided: (com.ojashealing.family.ui.content.GuidedCard) -> Unit = {},
+    /** The same two practices as coloured boxes of videos, for the ones that have no guided practice yet. */
+    quickSections: List<com.ojashealing.family.ui.content.SectionUi> = emptyList(),
+    onPlay: (com.ojashealing.family.domain.ContentItem) -> Unit = {},
 ) {
+    var locked by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<com.ojashealing.family.domain.Access.Locked?>(null) }
+    locked?.let { com.ojashealing.family.ui.content.LockedDialog(it) { locked = null } }
     val ui by vm.ui.collectAsStateWithLifecycle()
     val liked by vm.liked.collectAsStateWithLifecycle()
     val summary by vm.scheduleSummary.collectAsStateWithLifecycle()
@@ -127,6 +136,22 @@ fun HomeScreen(
                 item(key = "practiceNudge", contentType = "practiceNudge") {
                     PracticeNudge(s, onOpenPractice, Modifier.padding(horizontal = Spacing.l).staggeredEntrance(1, key = "practiceNudge"))
                 }
+            }
+            items(quickPractices, key = { "quick_" + it.section.id }, contentType = { "quickPractice" }) { card ->
+                com.ojashealing.family.ui.content.GuidedPracticeCard(
+                    card, practiceStatus,
+                    onOpen = {
+                        if (card.locked) locked = com.ojashealing.family.domain.Access.Locked(needsUserLevel = com.ojashealing.family.domain.UserLevel.L4.rank, needsMemberLevel = 1)
+                        else onOpenGuided(card)
+                    },
+                    modifier = Modifier.padding(horizontal = Spacing.l).staggeredEntrance(2, key = "quick_" + card.section.id),
+                )
+            }
+            items(quickSections, key = { "quickRow_" + it.section.id }, contentType = { "quickSection" }) { section ->
+                com.ojashealing.family.ui.content.PracticeSectionBox(
+                    section, onPlay, onLocked = { locked = it },
+                    modifier = Modifier.padding(horizontal = Spacing.l).staggeredEntrance(2, key = "quickRow_" + section.section.id),
+                )
             }
             item(key = "header", contentType = "header") { SectionHeader(stringResource(R.string.notif_thought), Modifier.staggeredEntrance(2, key = "header")) }
             summary?.let { sum ->
@@ -284,7 +309,7 @@ fun ScheduledThoughtsScreen(vm: ThoughtViewModel, onEdit: (String) -> Unit, onBa
                 items.isEmpty() -> EmptyState(Icons.Outlined.Event, stringResource(R.string.home_scheduled_none), "")
                 else -> LazyColumn(contentPadding = PaddingValues(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
                     items(items, key = { it.id }, contentType = { "thought" }) { t ->
-                        OjasCard(onClick = { onEdit(t.id) }) {
+                        OjasCard(onClick = { onEdit(t.id) }, tintKey = t.id) {
                             Text(dayLabel(t.id), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                             Text(t.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                             Text(t.text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
@@ -309,7 +334,7 @@ fun ThoughtCard(
     modifier: Modifier = Modifier,
     showBanner: Boolean = true,
 ) {
-    OjasCard(modifier = modifier, onClick = onOpen) {
+    OjasCard(modifier = modifier, onClick = onOpen, tintKey = thought.id) {
         if (showBanner) {
             Row(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
@@ -546,17 +571,28 @@ fun AuthorAvatar(author: Author, size: Int = 36) {
 
 // Role tick (gold Swamiji, blue admin, teal senior) and level coin, so trusted voices stand out
 @Composable
-fun AuthorLine(author: Author) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-        Text(
-            author.name,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f, fill = false)
+fun AuthorLine(author: Author, postedAt: Long = 0) {
+    Column {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+            Text(
+                author.name,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
+            )
+            NameBadges(author.role, author.userLevel, author.memberLevel)
+        }
+        // "4 days ago", or the date once it is older than a week
+        if (postedAt > 0) Text(
+            stringResource(
+                R.string.posted_ago,
+                android.text.format.DateUtils.getRelativeTimeSpanString(postedAt, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS).toString()
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        NameBadges(author.role, author.userLevel, author.memberLevel)
     }
 }
 

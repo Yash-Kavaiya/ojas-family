@@ -244,7 +244,7 @@ fun MembersScreen(vm: MembersViewModel, onBack: () -> Unit) {
                 list.isEmpty() -> Text(stringResource(R.string.members_empty), modifier = Modifier.padding(Spacing.l), style = MaterialTheme.typography.bodyLarge)
                 else -> LazyColumn(contentPadding = PaddingValues(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
                     items(list, key = { it.uid }, contentType = { "member" }) { m ->
-                        OjasCard(onClick = { vm.select(m) }) {
+                        OjasCard(onClick = { vm.select(m) }, tintKey = m.uid) {
                             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.m), verticalAlignment = Alignment.CenterVertically) {
                                 Avatar(m.photoUrl, 40)
                                 Column(Modifier.weight(1f)) {

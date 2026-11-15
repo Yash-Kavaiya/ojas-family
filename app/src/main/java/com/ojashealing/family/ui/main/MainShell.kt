@@ -546,6 +546,13 @@ fun MainShell(container: AppContainer) {
                 // Back on any other tab returns to Home first; Back on Home then leaves the app. Declared
                 // before the tab content, so a screen open inside a tab still handles Back before this does.
                 androidx.activity.compose.BackHandler(enabled = tab != MainTab.Home) { tab = MainTab.Home }
+                // People who can moderate are told once, here on the tabs, when something new waits for approval
+                if (profile?.viewer?.let { com.ojashealing.family.ui.admin.showAdminEntry(it) } == true) {
+                    val popupVm: ModerationViewModel = viewModel(key = "moderationPopup", factory = viewModelFactory {
+                        initializer { ModerationViewModel(container.moderation.asActions(container.goals, container.facePhotos)) }
+                    })
+                    com.ojashealing.family.ui.admin.ModerationPopup(popupVm, onOpenQueue = { nav.navigate(ModerationRoute) })
+                }
                 NavigationSuiteScaffold(
                     layoutType = if (chrome.primaryNav == PrimaryNav.BottomBar) NavigationSuiteType.NavigationBar else NavigationSuiteType.NavigationRail,
                     navigationSuiteItems = {
@@ -623,6 +630,12 @@ fun MainShell(container: AppContainer) {
                                         firstName = profile?.displayName.orEmpty().trim().substringBefore(' '),
                                         streak = practiceStreak,
                                         onOpenPractice = { practicePart = 0; tab = MainTab.Spiritual },
+                                        quickPractices = guided.orEmpty().filter { it.section in com.ojashealing.family.ui.content.HomePracticeSections },
+                                        practiceStatus = practiceStatus,
+                                        onOpenGuided = { nav.navigate(PracticeSessionRoute(it.section.id)) },
+                                        quickSections = com.ojashealing.family.ui.content.practiceRows(practice, guided.orEmpty().map { it.section }.toSet())
+                                            .orEmpty().filter { it.section in com.ojashealing.family.ui.content.HomePracticeSections },
+                                        onPlay = play,
                                         onSchedule = { nav.navigate(ScheduleThoughtRoute()) },
                                         onOpenThought = { nav.navigate(ThoughtRoute(it)) },
                                         about = about,

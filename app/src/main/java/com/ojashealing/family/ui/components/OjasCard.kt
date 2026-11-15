@@ -24,18 +24,29 @@ import com.ojashealing.family.ui.theme.pressScale
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.remember
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.luminance
 
 // The one card used across screens so padding, corner radius and elevation stay consistent
 @Composable
 fun OjasCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
-    containerColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.surface,
-    borderColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.outlineVariant,
+    containerColor: androidx.compose.ui.graphics.Color = androidx.compose.ui.graphics.Color.Unspecified,
+    borderColor: androidx.compose.ui.graphics.Color = androidx.compose.ui.graphics.Color.Unspecified,
+    /**
+     * Picks the card's colour. A post passes its id, so it keeps one colour in the list and when opened; a
+     * screen with a fixed set of cards passes 0, 1, 2... so neighbours always differ. Without it each place
+     * a card is used gets a colour of its own.
+     */
+    tintKey: Any? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val shape = RoundedCornerShape(20.dp)
-    val colors = CardDefaults.cardColors(containerColor = containerColor)
+    val tint = cardTint(tintKey ?: androidx.compose.runtime.currentCompositeKeyHashCode)
+    val dark = isDarkTheme()
+    val containerColor = if (containerColor != androidx.compose.ui.graphics.Color.Unspecified) containerColor else if (dark) tint.cardDark else tint.cardLight
+    val borderColor = if (borderColor != androidx.compose.ui.graphics.Color.Unspecified) borderColor else if (dark) tint.borderDark else tint.borderLight
+    val colors = CardDefaults.cardColors(containerColor = containerColor, contentColor = MaterialTheme.colorScheme.onSurface)
     // Depth comes from a soft, low shadow rather than a heavy outline; the hairline stays only
     // as a faint edge so white cards still read on the ivory background
     val elevation = CardDefaults.cardElevation(defaultElevation = 0.dp, pressedElevation = 0.dp)
@@ -63,6 +74,18 @@ fun OjasCard(
         Card(modifier = lifted, shape = shape, colors = colors, elevation = elevation, border = border, content = inner)
     }
 }
+
+@Composable
+private fun isDarkTheme(): Boolean = MaterialTheme.colorScheme.background.luminance() < 0.5f
+
+private fun cardTint(key: Any): com.ojashealing.family.ui.theme.NoticeTint {
+    val tints = com.ojashealing.family.ui.theme.NoticeTints
+    return tints[Math.floorMod(key.hashCode(), tints.size)]
+}
+
+/** The same pastel (light) or deep (dark) colours the cards use, for a row or box that is not an [OjasCard]. */
+@Composable
+fun tintedCardColor(key: Any): androidx.compose.ui.graphics.Color = cardTint(key).let { if (isDarkTheme()) it.cardDark else it.cardLight }
 
 @Composable
 fun SectionHeader(

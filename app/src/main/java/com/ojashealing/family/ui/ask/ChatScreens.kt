@@ -5,7 +5,6 @@ import android.widget.Toast
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -116,6 +115,7 @@ import com.ojashealing.family.ui.adaptive.loadOlderRow
 import com.ojashealing.family.ui.adaptive.ownedInsets
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -648,15 +648,23 @@ private fun DayChip(label: String) {
 /** Three dots that rise in turn while the other side types. */
 @Composable
 private fun TypingBubble() {
-    val t = rememberInfiniteTransition(label = "typing")
-    val phase by loopingFloat(0f, 3f, infiniteRepeatable(tween(900, easing = LinearEasing)), rest = 1f, label = "p")
+    val phase = loopingFloat(0f, 1f, infiniteRepeatable(tween(1200, easing = LinearEasing)), rest = 0.25f, label = "p")
+    val liftPx = with(androidx.compose.ui.platform.LocalDensity.current) { 3.dp.toPx() }
     Row(
         Modifier.padding(vertical = 2.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(16.dp)).padding(horizontal = 14.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         repeat(3) { i ->
-            val lift = if (phase.toInt() == i) 1f else 0.4f
-            Box(Modifier.size(7.dp).alpha(lift).background(MaterialTheme.colorScheme.onSurfaceVariant, CircleShape))
+            // Each dot rises and brightens a moment after the one before it: a soft wave, drawn without recomposing
+            Box(
+                Modifier.size(7.dp)
+                    .graphicsLayer {
+                        val wave = kotlin.math.sin((phase.value - i * 0.16f) * 2f * Math.PI.toFloat()).coerceAtLeast(0f)
+                        alpha = 0.4f + 0.6f * wave
+                        translationY = -liftPx * wave
+                    }
+                    .background(MaterialTheme.colorScheme.onSurfaceVariant, CircleShape)
+            )
         }
     }
 }
@@ -874,7 +882,7 @@ fun InboxScreen(
                         Box {
                             Surface(
                                 shape = RoundedCornerShape(16.dp),
-                                color = MaterialTheme.colorScheme.surface,
+                                color = com.ojashealing.family.ui.components.tintedCardColor(t.memberUid),
                                 modifier = Modifier.fillMaxWidth()
                                     .combinedClickable(onClick = { onOpen(t.memberUid, channel) }, onLongClick = { menuFor = t.memberUid })
                             ) {

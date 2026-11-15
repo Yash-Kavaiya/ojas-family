@@ -29,7 +29,23 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.ojashealing.family.R
 import com.ojashealing.family.ui.theme.Spacing
-import com.ojashealing.family.ui.theme.ShimmerBlock
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import com.ojashealing.family.ui.theme.HealingBlue
+import com.ojashealing.family.ui.theme.HealingCyan
+import com.ojashealing.family.ui.theme.OjasEasing
+import com.ojashealing.family.ui.theme.loopingFloat
 import com.ojashealing.family.ui.theme.staggeredEntrance
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -38,33 +54,54 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 
 /**
- * Loading shows the shape of what's coming (cards with a soft sheen) instead of a bare spinner,
- * so the screen doesn't jump when content arrives.
+ * Loading: soft blue healing light pours from the top of the area to the bottom, again and again, with
+ * the lotus resting in the middle. It fills whatever space it is given, on any screen size, and has no
+ * background of its own. With animations off the light rests as a still glow.
  */
 @Composable
 fun LoadingState(modifier: Modifier = Modifier) {
     val loadingLabel = stringResource(R.string.a11y_loading)
-    Column(
-        modifier = modifier.fillMaxSize().padding(Spacing.l).semantics { contentDescription = loadingLabel },
-        verticalArrangement = Arrangement.spacedBy(Spacing.m),
+    val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val travel = loopingFloat(0f, 1f, infiniteRepeatable(tween(1900, easing = OjasEasing.Standard), RepeatMode.Restart), rest = 0.5f, label = "loadingLight")
+    val breathe = loopingFloat(0.92f, 1.06f, infiniteRepeatable(tween(1900, easing = OjasEasing.Standard), RepeatMode.Reverse), rest = 1f, label = "loadingLotus")
+    // Stronger on the light theme, where pale blue would be lost on the purple page
+    val strength = if (dark) 0.55f else 0.42f
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .semantics { contentDescription = loadingLabel }
+            .drawBehind {
+                val band = size.height * 0.5f
+                // The band's centre travels from above the top edge to below the bottom edge
+                val centre = -band / 2 + travel.value * (size.height + band)
+                drawRect(
+                    brush = Brush.verticalGradient(
+                        0f to Color.Transparent,
+                        0.3f to HealingCyan.copy(alpha = 0.28f * strength),
+                        0.5f to HealingBlue.copy(alpha = strength),
+                        0.7f to HealingCyan.copy(alpha = 0.28f * strength),
+                        1f to Color.Transparent,
+                        startY = centre - band / 2,
+                        endY = centre + band / 2,
+                    ),
+                    topLeft = Offset(0f, centre - band / 2),
+                    size = Size(size.width, band),
+                )
+                // A thin bright line at the front of the light
+                drawRect(
+                    brush = Brush.horizontalGradient(listOf(Color.Transparent, Color(0xFFBFE9FF).copy(alpha = if (dark) 0.9f else 0.7f), Color.Transparent)),
+                    topLeft = Offset(0f, centre - 1.dp.toPx()),
+                    size = Size(size.width, 2.dp.toPx()),
+                )
+            },
+        contentAlignment = Alignment.Center,
     ) {
-        repeat(3) { i ->
-            Column(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                    .padding(Spacing.l),
-                verticalArrangement = Arrangement.spacedBy(Spacing.s + 2.dp),
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.m)) {
-                    ShimmerBlock(Modifier.size(40.dp), CircleShape)
-                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                        ShimmerBlock(Modifier.width(140.dp).height(14.dp), RoundedCornerShape(7.dp))
-                        ShimmerBlock(Modifier.width(90.dp).height(10.dp), RoundedCornerShape(5.dp))
-                    }
-                }
-                ShimmerBlock(Modifier.fillMaxWidth().height(if (i == 0) 120.dp else 56.dp), RoundedCornerShape(14.dp))
-            }
-        }
+        Image(
+            painter = painterResource(R.drawable.ojas_lotus),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.size(72.dp).graphicsLayer { scaleX = breathe.value; scaleY = breathe.value }.clip(CircleShape),
+        )
     }
 }
 

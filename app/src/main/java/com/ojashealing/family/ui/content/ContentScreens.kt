@@ -167,9 +167,16 @@ fun PracticeTab(
                 )
             }
         }
-        Box(Modifier.weight(1f)) {
-            if (part == 1) freedom()
-            else DailyPractice(sections, onPlay, practice, practiceBusy, onMarkPractice, guided, streak, onOpenGuided)
+        androidx.compose.animation.AnimatedContent(
+            targetState = part,
+            modifier = Modifier.weight(1f),
+            transitionSpec = { com.ojashealing.family.ui.theme.sectionSwitch(targetState > initialState) },
+            label = "practicePart",
+        ) { shown ->
+            Box(Modifier.fillMaxSize()) {
+                if (shown == 1) freedom()
+                else DailyPractice(sections, onPlay, practice, practiceBusy, onMarkPractice, guided, streak, onOpenGuided)
+            }
         }
     }
 }
@@ -223,44 +230,61 @@ private fun DailyPractice(
                 }
             }
             items(rows.orEmpty(), key = { it.section.id }, contentType = { "section" }) { section ->
-                val tint = section.section.tint()
-                val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-                // The whole box carries the section's colour, not just its title
-                Surface(
-                    color = if (dark) tint.boxDark else tint.boxLight,
-                    shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.l)
-                ) {
-                Column(modifier = Modifier.padding(vertical = Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
-                    Text(
-                        stringResource(section.section.label()),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = if (dark) tint.titleDark else tint.titleLight,
-                        modifier = Modifier.padding(horizontal = Spacing.l).semantics { heading() }
-                    )
+                PracticeSectionBox(section, onPlay, onLocked = { locked = it }, modifier = Modifier.padding(horizontal = Spacing.l)) {
                     // Morning and night: the 21-day streak and today's check-in (spec 2.3, 2.4, Goals)
                     val kind = section.section.practiceKind()
                     if (kind != null && practice != null) PracticeBar(kind, practice, practiceBusy, { onMarkPractice(kind) })
-                    LazyRow(
-                        contentPadding = PaddingValues(horizontal = Spacing.l),
-                        horizontalArrangement = Arrangement.spacedBy(Spacing.m)
-                    ) {
-                        items(section.items, key = { it.first.id }, contentType = { "video" }) { (item, access) ->
-                            VideoTile(
-                                item = item,
-                                access = access,
-                                onClick = { if (access is Access.Locked) locked = access else onPlay(item) },
-                                modifier = Modifier.width(220.dp)
-                            )
-                        }
-                    }
-                }
                 }
             }
         }
     }
     locked?.let { LockedDialog(it) { locked = null } }
 }
+
+/** One practice section in its own colour: the title, anything in [bar], then its videos in a row. */
+@Composable
+fun PracticeSectionBox(
+    section: SectionUi,
+    onPlay: (ContentItem) -> Unit,
+    onLocked: (Access.Locked) -> Unit,
+    modifier: Modifier = Modifier,
+    bar: @Composable () -> Unit = {},
+) {
+    val tint = section.section.tint()
+    val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    // The whole box carries the section's colour, not just its title
+    Surface(
+        color = if (dark) tint.boxDark else tint.boxLight,
+        shape = RoundedCornerShape(20.dp),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(vertical = Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
+            Text(
+                stringResource(section.section.label()),
+                style = MaterialTheme.typography.titleMedium,
+                color = if (dark) tint.titleDark else tint.titleLight,
+                modifier = Modifier.padding(horizontal = Spacing.l).semantics { heading() }
+            )
+            bar()
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = Spacing.l),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.m)
+            ) {
+                items(section.items, key = { it.first.id }, contentType = { "video" }) { (item, access) ->
+                    VideoTile(
+                        item = item,
+                        access = access,
+                        onClick = { if (access is Access.Locked) onLocked(access) else onPlay(item) },
+                        modifier = Modifier.width(220.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** The two practices Home shows as boxes. */
+val HomePracticeSections = setOf(ContentSection.BlueLight, ContentSection.QuickProtection)
 
 @Composable
 fun UnderstandingTab(items: List<Pair<ContentItem, Access>>?, onPlay: (ContentItem) -> Unit) {

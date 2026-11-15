@@ -149,7 +149,7 @@ private fun IdentityCard(
         com.ojashealing.family.ui.components.PhotoCropDialog(src, onDismiss = { cropping = null }, onCropped = { cropping = null; onPickPhoto(it) })
     }
     val changePhoto = stringResource(R.string.profile_change_photo)
-    OjasCard {
+    OjasCard(tintKey = 3) {
         Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
             // Tapping the picture changes it; the camera badge says so
             Box(
@@ -224,18 +224,19 @@ private fun IdentityCard(
 @Composable
 private fun StatsRow(profile: UserProfile) {
     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.l)) {
-        StatCard(value = profile.mokshaPoints.toString(), label = stringResource(R.string.profile_points), modifier = Modifier.weight(1f))
+        StatCard(value = profile.mokshaPoints.toString(), label = stringResource(R.string.profile_points), modifier = Modifier.weight(1f), tint = 0)
         StatCard(
             value = profile.activeDays.toString(),
             label = stringResource(R.string.profile_days_label),
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
+            tint = 2
         )
     }
 }
 
 @Composable
-private fun StatCard(value: String, label: String, modifier: Modifier = Modifier) {
-    OjasCard(modifier = modifier) {
+private fun StatCard(value: String, label: String, modifier: Modifier = Modifier, tint: Int = 0) {
+    OjasCard(modifier = modifier, tintKey = tint) {
         Text(value, style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.primary)
         Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
@@ -276,7 +277,7 @@ private fun MembershipRoadmap(level: Int, paidDays: Int, active: Boolean, onPlan
 @Composable
 private fun MembershipCard(profile: UserProfile, entitlements: com.ojashealing.family.data.paid.Entitlements, onPlans: () -> Unit) {
     val m = entitlements[PaidAccess.Membership]?.takeIf { it.isActive() }
-    OjasCard {
+    OjasCard(tintKey = 1) {
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.m), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Outlined.WorkspacePremium, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             Text(stringResource(R.string.membership_title), style = MaterialTheme.typography.titleLarge)

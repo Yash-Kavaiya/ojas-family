@@ -32,7 +32,7 @@ fun LanguageScreen(onChoose: (String) -> Unit) {
         subtitle = stringResource(R.string.onboarding_language_subtitle)
     ) {
         languages.forEach { (tag, native, english) ->
-            OjasCard(onClick = { onChoose(tag) }, modifier = Modifier.testTag("language_$tag")) {
+            OjasCard(onClick = { onChoose(tag) }, modifier = Modifier.testTag("language_$tag"), tintKey = tag) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                         Text(native, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)

@@ -217,7 +217,7 @@ private fun HistoryRow(c: Call, myUid: String, onCallBack: (Call) -> Unit) {
     val other = (if (outgoing) c.calleeName else c.callerName).ifEmpty { stringResource(if (c.channel == "admin") R.string.chat_tab_admin else R.string.role_swamiji) }
     val missed = outcome == "missed" || outcome == "declined"
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surface)
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(com.ojashealing.family.ui.components.tintedCardColor(c.id))
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp)).padding(Spacing.m),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Spacing.m)
@@ -421,7 +421,7 @@ private fun statusLabel(s: RequestStatus): Pair<String, Color> = when (s) {
 @Composable
 private fun RequestCard(r: CallRequest, staffView: Boolean, onOpen: () -> Unit) {
     val (label, color) = statusLabel(r.status)
-    OjasCard(onClick = onOpen) {
+    OjasCard(onClick = onOpen, tintKey = r.id) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.m)) {
             if (staffView) AuthorAvatar(Author(r.memberUid, r.memberName, r.memberPhoto, Role.Member))
             else Icon(if (r.video) Icons.Outlined.Videocam else Icons.Outlined.Call, contentDescription = null, tint = MaterialTheme.colorScheme.primary)

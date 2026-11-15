@@ -87,7 +87,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -160,9 +159,7 @@ data class SessionUi(
     /** Points the server gave for this session (practice plus any bonuses). */
     val pointsEarned: Int = 0,
     /** Days in a row with at least one practice, after this one; 0 when unknown. */
-    val streak: Int = 0,
-    /** Video files start as sound only (eyes closed); the member can bring the picture back. */
-    val showVideo: Boolean = false
+    val streak: Int = 0
 )
 
 /** What the session asks the embedded YouTube player to do. */
@@ -259,8 +256,6 @@ class PracticeSessionViewModel(
             }
             ytPositionMs = pos
             if (media.type != MediaType.YouTube) {
-                // Eyes closed: a video practice starts as sound only
-                if (media.type == MediaType.Video) setVideoTrack(false)
                 player.setMediaItem(MediaItem.fromUri(media.url), pos)
                 player.prepare()
             }
@@ -310,20 +305,6 @@ class PracticeSessionViewModel(
 
     private fun seekTo(ms: Long) {
         if (isYouTube) { ytPositionMs = ms; _youTube.tryEmit(YouTubeCommand.SeekTo(ms)) } else player.seekTo(ms)
-    }
-
-    @androidx.annotation.OptIn(UnstableApi::class)
-    private fun setVideoTrack(on: Boolean) {
-        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
-            .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, !on)
-            .build()
-    }
-
-    /** Brings the picture back (or hides it again) without stopping the sound. */
-    fun toggleVideo() {
-        val show = !_ui.value.showVideo
-        setVideoTrack(show)
-        _ui.update { it.copy(showVideo = show) }
     }
 
     /** The embedded YouTube player's latest state. */
@@ -492,8 +473,9 @@ fun PracticeSessionScreen(vm: PracticeSessionViewModel, onClose: () -> Unit) {
                         TimerRing(progress, ui, colors, Modifier.size(150.dp))
                     }
                 } else {
+                    // A video practice always shows its picture; a sound-only practice shows the breathing light
                     AnimatedContent(
-                        targetState = ui.showVideo,
+                        targetState = media.type == MediaType.Video,
                         transitionSpec = {
                             (fadeIn(tween(Durations.Base, easing = OjasEasing.Emphasized)) + scaleIn(tween(Durations.Base, easing = OjasEasing.Emphasized), initialScale = 0.96f)) togetherWith
                                 fadeOut(tween(Durations.Quick))
@@ -527,13 +509,6 @@ fun PracticeSessionScreen(vm: PracticeSessionViewModel, onClose: () -> Unit) {
 
             Controls(ui, colors, onToggle = vm::togglePlay, onSeek = vm::seekBy)
             Spacer(Modifier.height(Spacing.s))
-            if (media.type == MediaType.Video) {
-                TextButton(onClick = vm::toggleVideo) {
-                    Icon(if (ui.showVideo) Icons.Outlined.Headphones else Icons.Outlined.Videocam, null, tint = Color.White.copy(alpha = 0.85f), modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.size(6.dp))
-                    Text(stringResource(if (ui.showVideo) R.string.session_sound_only else R.string.session_show_video), color = Color.White.copy(alpha = 0.85f))
-                }
-            }
             Text(
                 if (ui.doneToday) stringResource(R.string.session_done_hint) else stringResource(R.string.session_watch_hint, PRACTICE_POINTS),
                 style = MaterialTheme.typography.bodySmall,
@@ -720,12 +695,15 @@ private fun TimerRing(progress: Float, ui: SessionUi, colors: SessionColors, mod
 private fun BreathingOrb(playing: Boolean, colors: SessionColors, modifier: Modifier, level: () -> Float = { 0f }) {
     val reduced = LocalReducedMotion.current
     val t = rememberInfiniteTransition(label = "breath")
-    val breath by t.animateFloat(0f, 1f, infiniteRepeatable(tween(BREATH_MS, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "b")
-    val b = if (playing && !reduced) breath else 0.4f
+    val breath = t.animateFloat(0f, 1f, infiniteRepeatable(tween(BREATH_MS, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "b")
+    // Read while drawing only; the words flip between in and out twice per breath, not every frame
+    val b: () -> Float = { if (playing && !reduced) breath.value else 0.4f }
+    val breathingIn by remember { androidx.compose.runtime.derivedStateOf { breath.value < 0.5f } }
     Box(modifier, contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize().padding(18.dp)) {
             val r = size.minDimension / 2
             val voice = level().coerceIn(0f, 1f)
+            val b = b()
             // Outer halo that follows the sound
             drawCircle(
                 Brush.radialGradient(
@@ -741,14 +719,15 @@ private fun BreathingOrb(playing: Boolean, colors: SessionColors, modifier: Modi
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Image(
                 painterResource(R.drawable.ojas_lotus), contentDescription = null, contentScale = ContentScale.Crop,
-                modifier = Modifier.size(104.dp).scale(0.9f + 0.15f * b).clip(CircleShape)
+                modifier = Modifier.size(104.dp).graphicsLayer { val s = 0.9f + 0.15f * b(); scaleX = s; scaleY = s }.clip(CircleShape)
             )
             if (playing) {
                 Spacer(Modifier.height(Spacing.s))
                 Text(
-                    stringResource(if (breath < 0.5f) R.string.session_breathe_in else R.string.session_breathe_out),
+                    stringResource(if (breathingIn) R.string.session_breathe_in else R.string.session_breathe_out),
                     style = MaterialTheme.typography.labelLarge,
-                    color = Color.White.copy(alpha = 0.6f + 0.4f * b)
+                    color = Color.White,
+                    modifier = Modifier.graphicsLayer { alpha = 0.6f + 0.4f * b() }
                 )
             }
         }
@@ -759,13 +738,14 @@ private const val BREATH_MS = 4000
 
 @Composable
 private fun Controls(ui: SessionUi, colors: SessionColors, onToggle: () -> Unit, onSeek: (Long) -> Unit) {
-    val halo = rememberInfiniteTransition(label = "halo")
-    val pulse by halo.animateFloat(1f, 1.18f, infiniteRepeatable(tween(1400, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "p")
+    val pulse = com.ojashealing.family.ui.theme.loopingFloat(
+        1f, 1.18f, infiniteRepeatable(tween(1400, easing = FastOutSlowInEasing), RepeatMode.Reverse), rest = 1f, label = "p", active = !ui.playing,
+    )
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.xl)) {
         RoundControl(Icons.Outlined.Replay10, stringResource(R.string.session_rewind), enabled = ui.positionMs > 0) { onSeek(-10_000) }
         Box(contentAlignment = Alignment.Center) {
             // A soft halo breathes around the button while paused, inviting a tap
-            if (!ui.playing) Box(Modifier.size(84.dp).scale(pulse).clip(CircleShape).background(colors.accent.copy(alpha = 0.18f)))
+            if (!ui.playing) Box(Modifier.size(84.dp).graphicsLayer { scaleX = pulse.value; scaleY = pulse.value }.clip(CircleShape).background(colors.accent.copy(alpha = 0.18f)))
             Box(
                 Modifier.size(76.dp).clip(CircleShape).background(Brush.linearGradient(OjasGradients.saffron))
                     .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onToggle),
@@ -874,7 +854,8 @@ private fun StreakBadge(days: Int) {
         shown.animateTo(1f, tween(Durations.Slow, easing = OjasEasing.Emphasized))
     }
     // The day just added ticks over once the badge has mostly arrived
-    val count = if (shown.value >= 0.6f) days else (days - 1).coerceAtLeast(0)
+    val arrived by remember { androidx.compose.runtime.derivedStateOf { shown.value >= 0.6f } }
+    val count = if (arrived) days else (days - 1).coerceAtLeast(0)
     Row(
         Modifier
             .graphicsLayer { alpha = shown.value.coerceAtLeast(0.001f); scaleX = 0.8f + 0.2f * shown.value; scaleY = scaleX }

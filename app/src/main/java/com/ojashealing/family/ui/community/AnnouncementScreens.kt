@@ -108,7 +108,7 @@ fun AnnouncementCard(
                 Text(stringResource(R.string.announcement_label), style = MaterialTheme.typography.labelLarge, color = accent)
                 if (n.createdAt > 0) {
                     Text(
-                        DateUtils.getRelativeTimeSpanString(n.createdAt, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString(),
+                        stringResource(R.string.posted_ago, DateUtils.getRelativeTimeSpanString(n.createdAt, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString()),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

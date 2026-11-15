@@ -86,6 +86,8 @@ object CommunityTab {
     const val QA = 2
 }
 
+private fun sectionOrder(tab: Int) = when (tab) { CommunityTab.DAILY -> 0; CommunityTab.NOTICES -> 1; else -> 2 }
+
 @Composable
 fun CommunityScreen(
     vm: CommunityViewModel,
@@ -115,39 +117,47 @@ fun CommunityScreen(
                 Tab(selected = tab == CommunityTab.NOTICES, onClick = { onTab(CommunityTab.NOTICES) }, text = { com.ojashealing.family.ui.components.FitText(stringResource(R.string.community_notices), MaterialTheme.typography.labelLarge) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
                 Tab(selected = tab == CommunityTab.QA, onClick = { onTab(CommunityTab.QA) }, text = { com.ojashealing.family.ui.components.FitText(stringResource(R.string.community_qa), MaterialTheme.typography.labelLarge) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            if (tab == CommunityTab.DAILY) {
-                Box(Modifier.weight(1f)) { daily(p.canPostDaily) }
-            } else if (tab == CommunityTab.QA) {
-                val list = questions
-                when {
-                    list == null -> LoadingState()
-                    list.isEmpty() -> EmptyState(Icons.Outlined.Forum, stringResource(R.string.community_empty_qa), stringResource(R.string.empty_community_body))
-                    else -> {
-                        val qaState = rememberLazyListState()
-                        LoadOlderWhenEnd(qaState, questionsMore, list.size) { vm.loadOlderQuestions() }
-                        LazyColumn(state = qaState, contentPadding = PaddingValues(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
-                            if (!p.canAsk) item(key = "lock", contentType = "lock") { LockHint(stringResource(R.string.community_ask_locked)) }
-                            items(list, key = { it.id }, contentType = { "question" }) { q -> Box(Modifier.animateItem()) { QuestionCard(q) { onOpenQuestion(q.id) } } }
-                            loadOlderRow(questionsMore) { vm.loadOlderQuestions() }
-                        }
-                    }
-                }
-            } else {
-                val list = notices
-                when {
-                    list == null -> LoadingState()
-                    list.isEmpty() -> EmptyState(Icons.Outlined.Campaign, stringResource(R.string.community_empty_notices), stringResource(R.string.empty_community_body))
-                    else -> {
-                        val noticeState = rememberLazyListState()
-                        LoadOlderWhenEnd(noticeState, noticesMore, list.size) { vm.loadOlderAnnouncements() }
-                        LazyColumn(state = noticeState, contentPadding = PaddingValues(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
-                        items(list, key = { it.id }, contentType = { "notice" }) { n ->
-                            val liked by remember(n.id) { vm.announcementLiked(n.id) }.collectAsStateWithLifecycle(false)
-                            Box(Modifier.animateItem()) {
-                                AnnouncementCard(n, liked, p.canLike, onLike = { vm.setAnnouncementLiked(n.id, !liked) }, onOpen = { onOpenAnnouncement(n.id) })
+            // The order on screen is Activity, Notices, Q&A; the slide follows that order
+            androidx.compose.animation.AnimatedContent(
+                targetState = tab,
+                modifier = Modifier.weight(1f),
+                transitionSpec = { com.ojashealing.family.ui.theme.sectionSwitch(sectionOrder(targetState) > sectionOrder(initialState)) },
+                label = "communitySection",
+            ) { shown ->
+                if (shown == CommunityTab.DAILY) {
+                    Box(Modifier.fillMaxSize()) { daily(p.canPostDaily) }
+                } else if (shown == CommunityTab.QA) {
+                    val list = questions
+                    when {
+                        list == null -> LoadingState()
+                        list.isEmpty() -> EmptyState(Icons.Outlined.Forum, stringResource(R.string.community_empty_qa), stringResource(R.string.empty_community_body))
+                        else -> {
+                            val qaState = rememberLazyListState()
+                            LoadOlderWhenEnd(qaState, questionsMore, list.size) { vm.loadOlderQuestions() }
+                            LazyColumn(state = qaState, contentPadding = PaddingValues(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
+                                if (!p.canAsk) item(key = "lock", contentType = "lock") { LockHint(stringResource(R.string.community_ask_locked)) }
+                                items(list, key = { it.id }, contentType = { "question" }) { q -> Box(Modifier.animateItem()) { QuestionCard(q) { onOpenQuestion(q.id) } } }
+                                loadOlderRow(questionsMore) { vm.loadOlderQuestions() }
                             }
                         }
-                        loadOlderRow(noticesMore) { vm.loadOlderAnnouncements() }
+                    }
+                } else {
+                    val list = notices
+                    when {
+                        list == null -> LoadingState()
+                        list.isEmpty() -> EmptyState(Icons.Outlined.Campaign, stringResource(R.string.community_empty_notices), stringResource(R.string.empty_community_body))
+                        else -> {
+                            val noticeState = rememberLazyListState()
+                            LoadOlderWhenEnd(noticeState, noticesMore, list.size) { vm.loadOlderAnnouncements() }
+                            LazyColumn(state = noticeState, contentPadding = PaddingValues(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
+                            items(list, key = { it.id }, contentType = { "notice" }) { n ->
+                                val liked by remember(n.id) { vm.announcementLiked(n.id) }.collectAsStateWithLifecycle(false)
+                                Box(Modifier.animateItem()) {
+                                    AnnouncementCard(n, liked, p.canLike, onLike = { vm.setAnnouncementLiked(n.id, !liked) }, onOpen = { onOpenAnnouncement(n.id) })
+                                }
+                            }
+                            loadOlderRow(noticesMore) { vm.loadOlderAnnouncements() }
+                            }
                         }
                     }
                 }
@@ -164,10 +174,10 @@ fun CommunityScreen(
 
 @Composable
 private fun QuestionCard(q: Question, onClick: () -> Unit) {
-    OjasCard(onClick = onClick) {
+    OjasCard(onClick = onClick, tintKey = q.id) {
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s), verticalAlignment = Alignment.CenterVertically) {
             AuthorAvatar(q.author, size = 28)
-            AuthorLine(q.author)
+            AuthorLine(q.author, q.createdAt)
         }
         Text(q.title, style = MaterialTheme.typography.titleLarge, maxLines = 3, overflow = TextOverflow.Ellipsis)
         Text(
@@ -216,10 +226,10 @@ fun QuestionDetailScreen(
                 return@LazyColumn
             }
             item(key = "question", contentType = "question") {
-                OjasCard(modifier = Modifier.padding(horizontal = Spacing.l)) {
+                OjasCard(modifier = Modifier.padding(horizontal = Spacing.l), tintKey = q.id) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                         AuthorAvatar(q.author)
-                        Box(Modifier.weight(1f)) { AuthorLine(q.author) }
+                        Box(Modifier.weight(1f)) { AuthorLine(q.author, q.createdAt) }
                         PostMenu(q.author, onReport = { reportTarget = "questions/${q.id}" }, onBlock = { vm.block(q.author.uid); notice = R.string.community_blocked; onBack() })
                     }
                     Text(q.title, style = MaterialTheme.typography.titleLarge)

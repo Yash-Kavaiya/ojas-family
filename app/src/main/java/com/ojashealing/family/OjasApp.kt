@@ -11,7 +11,7 @@ import com.ojashealing.family.data.auth.signingSha1
 import com.ojashealing.family.di.AppContainer
 import com.ojashealing.family.push.Channels
 
-class OjasApp : Application() {
+class OjasApp : Application(), coil.ImageLoaderFactory {
 
     lateinit var container: AppContainer
         private set
@@ -31,4 +31,7 @@ class OjasApp : Application() {
         container = AppContainer(this)
         Channels.create(this)
     }
+
+    /** One image loader for the whole app: pictures fade in over 200ms instead of popping in. */
+    override fun newImageLoader(): coil.ImageLoader = coil.ImageLoader.Builder(this).crossfade(200).build()
 }

@@ -292,7 +292,7 @@ private fun HistoryRow(item: PointHistoryItem) {
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surface)
+            .background(com.ojashealing.family.ui.components.tintedCardColor(item.key))
             .padding(horizontal = Spacing.m, vertical = Spacing.m),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Spacing.m)

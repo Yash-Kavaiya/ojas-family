@@ -28,6 +28,8 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Shape
@@ -76,6 +78,17 @@ internal fun rememberReducedMotion(): Boolean {
 
 fun <T> enterSpec(delay: Int = 0): FiniteAnimationSpec<T> = tween(Durations.Base, delay, OjasEasing.Emphasized)
 fun <T> exitSpec(): FiniteAnimationSpec<T> = tween(Durations.Quick, easing = OjasEasing.Exit)
+/**
+ * Switching between the sections inside a tab (Daily Practice / Freedom Practice, Activity / Notices / Q&A):
+ * the old one fades out quickly, the new one fades in with a small slide from the side it sits on.
+ */
+fun sectionSwitch(forward: Boolean): androidx.compose.animation.ContentTransform {
+    val dir = if (forward) 1 else -1
+    val enter = androidx.compose.animation.fadeIn(tween(Durations.Base - 80, delayMillis = 40, easing = OjasEasing.Emphasized)) +
+        androidx.compose.animation.slideInHorizontally(tween(Durations.Base, easing = OjasEasing.Emphasized)) { dir * (it / 40).coerceAtMost(48) }
+    return androidx.compose.animation.ContentTransform(enter, androidx.compose.animation.fadeOut(tween(Durations.Quick - 30, easing = OjasEasing.Exit)))
+}
+
 /** Springs never bounce here: motion should feel calm, not playful. */
 fun <T> calmSpring() = spring<T>(dampingRatio = 1f, stiffness = 500f)
 
@@ -123,28 +136,35 @@ fun ShimmerBlock(modifier: Modifier = Modifier, shape: Shape = RoundedCornerShap
     val shine = MaterialTheme.colorScheme.surfaceContainerHighest
     val reduced = LocalReducedMotion.current
     val t = rememberInfiniteTransition(label = "shimmer")
-    val x by t.animateFloat(
+    val x = t.animateFloat(
         initialValue = -1f, targetValue = 2f,
         animationSpec = infiniteRepeatable(tween(1300, easing = OjasEasing.Standard), RepeatMode.Restart),
         label = "shimmerX",
     )
+    // The sheen's position is read while drawing, so a loading screen full of these never recomposes per frame
     Box(
         modifier
             .clip(shape)
-            .background(
-                if (reduced) Brush.linearGradient(listOf(base, base))
-                else Brush.linearGradient(
-                    colors = listOf(base, shine, base),
-                    start = Offset(x * 600f, 0f),
-                    end = Offset(x * 600f + 400f, 200f),
+            .background(base)
+            .drawBehind {
+                if (reduced) return@drawBehind
+                val start = x.value * size.width
+                val band = size.width * 0.6f
+                drawRect(
+                    Brush.linearGradient(
+                        colors = listOf(Color.Transparent, shine, Color.Transparent),
+                        start = Offset(start, 0f),
+                        end = Offset(start + band, size.height),
+                    )
                 )
-            )
+            }
     )
 }
 
 /**
  * A value that loops between [from] and [to] for ambient motion (a glow, typing dots). When the
- * system asks for reduced motion it holds still at [rest], so nothing pulses or blinks.
+ * system asks for reduced motion, or while it is not [active], it holds still at [rest], so nothing
+ * pulses or blinks and no animation runs in the background.
  */
 @Composable
 fun loopingFloat(
@@ -153,8 +173,9 @@ fun loopingFloat(
     spec: androidx.compose.animation.core.InfiniteRepeatableSpec<Float>,
     rest: Float = to,
     label: String = "loop",
+    active: Boolean = true,
 ): androidx.compose.runtime.State<Float> =
-    if (LocalReducedMotion.current) {
+    if (LocalReducedMotion.current || !active) {
         androidx.compose.runtime.remember(rest) { androidx.compose.runtime.mutableFloatStateOf(rest) }
     } else {
         androidx.compose.animation.core.rememberInfiniteTransition(label = label).animateFloat(from, to, spec, label = label)

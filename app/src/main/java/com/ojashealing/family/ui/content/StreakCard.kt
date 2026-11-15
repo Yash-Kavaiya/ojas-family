@@ -2,10 +2,8 @@ package com.ojashealing.family.ui.content
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -32,8 +30,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
@@ -75,9 +73,11 @@ fun StreakCard(streak: StreakSummary, modifier: Modifier = Modifier) {
         if (reduced) count.snapTo(streak.current.toFloat())
         else count.animateTo(streak.current.toFloat(), tween(Durations.Slow + 200, easing = OjasEasing.Emphasized))
     }
-    val flame = rememberInfiniteTransition(label = "flame")
-    val flicker by flame.animateFloat(0.94f, 1.06f, infiniteRepeatable(tween(1100, easing = OjasEasing.Standard), RepeatMode.Reverse), label = "flicker")
     val lit = streak.current > 0
+    // Read only while drawing (graphicsLayer below), so the card is not recomposed on every frame
+    val flicker = com.ojashealing.family.ui.theme.loopingFloat(
+        0.94f, 1.06f, infiniteRepeatable(tween(1100, easing = OjasEasing.Standard), RepeatMode.Reverse), rest = 1f, label = "flicker", active = lit,
+    )
     val target = nextMilestone(streak.current)
     val toGoal by animateFloatAsState((streak.current.toFloat() / target).coerceIn(0f, 1f), tween(Durations.Slow, easing = OjasEasing.Emphasized), label = "goal")
     val description = pluralStringResource(R.plurals.streak_days_in_row, streak.current, streak.current)
@@ -94,20 +94,22 @@ fun StreakCard(streak: StreakSummary, modifier: Modifier = Modifier) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.m)) {
             Box(Modifier.size(64.dp), contentAlignment = Alignment.Center) {
                 if (lit) {
-                    Canvas(Modifier.size(64.dp).scale(if (reduced) 1f else flicker)) {
+                    Canvas(Modifier.size(64.dp).graphicsLayer { scaleX = flicker.value; scaleY = flicker.value }) {
                         drawCircle(Brush.radialGradient(listOf(FlameOrange.copy(alpha = 0.45f), Color.Transparent)))
                     }
                 }
                 Icon(
                     Icons.Filled.LocalFireDepartment, null,
                     tint = if (lit) FlameOrange else Color.White.copy(alpha = 0.35f),
-                    modifier = Modifier.size(44.dp).scale(if (lit && !reduced) flicker else 1f),
+                    modifier = Modifier.size(44.dp).graphicsLayer { scaleX = flicker.value; scaleY = flicker.value },
                 )
             }
             Column(Modifier.weight(1f)) {
                 if (lit) {
                     Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("${count.value.toInt()}", style = com.ojashealing.family.ui.theme.BrandNumberLargeStyle, color = Color.White)
+                        // Changes only when the whole number does, not on every frame of the count-up
+                        val shownCount by remember { androidx.compose.runtime.derivedStateOf { count.value.toInt() } }
+                        Text("$shownCount", style = com.ojashealing.family.ui.theme.BrandNumberLargeStyle, color = Color.White)
                         Text(
                             pluralStringResource(R.plurals.streak_days_label, streak.current),
                             style = MaterialTheme.typography.titleSmall, color = Color.White.copy(alpha = 0.85f),

@@ -84,15 +84,15 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit) {
                     .padding(horizontal = Spacing.l, vertical = Spacing.s),
                 verticalArrangement = Arrangement.spacedBy(Spacing.l)
             ) {
-                Section(stringResource(R.string.settings_appearance)) { ThemeSelector(state.themeMode, vm::setTheme) }
+                Section(stringResource(R.string.settings_appearance), tint = 0) { ThemeSelector(state.themeMode, vm::setTheme) }
 
-                Section(stringResource(R.string.settings_language)) {
+                Section(stringResource(R.string.settings_language), tint = 1) {
                     languageNames.forEach { (tag, name) ->
                         RadioRow(name, selected = state.language == tag) { vm.setLanguage(tag) }
                     }
                 }
 
-                Section(stringResource(R.string.settings_privacy)) {
+                Section(stringResource(R.string.settings_privacy), tint = 2) {
                     // Turning hiding off always works; turning it on waits for User Level 3
                     SwitchRow(stringResource(R.string.settings_hide_profile), state.hideProfile,
                         enabled = state.canHideProfile || state.hideProfile, onChange = vm::setHideProfile)
@@ -106,12 +106,12 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit) {
                 // Which notifications to get: here with the other settings, not on the Home tab
                 NotificationControls(prefs = state.notificationPrefs, onChange = vm::setNotificationPrefs)
 
-                Section(stringResource(R.string.settings_reminders)) {
+                Section(stringResource(R.string.settings_reminders), tint = 3) {
                     ValueRow(stringResource(R.string.settings_morning_reminder), state.morningReminder) { editingReminder = true }
                     ValueRow(stringResource(R.string.settings_night_reminder), state.nightReminder) { editingReminder = false }
                 }
 
-                Section(stringResource(R.string.settings_account)) {
+                Section(stringResource(R.string.settings_account), tint = 4) {
                     OutlinedButton(onClick = vm::signOutNow, modifier = Modifier.fillMaxWidth()) {
                         Text(stringResource(R.string.action_sign_out))
                     }
@@ -120,7 +120,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit) {
                     }
                 }
 
-                Section(stringResource(R.string.settings_about)) {
+                Section(stringResource(R.string.settings_about), tint = 5) {
                     Text("Ojas Family ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodyLarge)
                     Text(stringResource(R.string.settings_attribution), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -164,7 +164,7 @@ fun NotificationControls(
         onChange(prefs + nextPending)
     }
     Box(modifier) {
-        Section(stringResource(R.string.settings_notifications)) {
+        Section(stringResource(R.string.settings_notifications), tint = 6) {
             SwitchRow(stringResource(R.string.notif_all), allOn) { set(NotificationKeys.ALL, it) }
             NotificationKeys.categories.forEach { (key, label) ->
                 SwitchRow(stringResource(label), (shown[key] ?: true), enabled = allOn) { set(key, it) }
@@ -174,8 +174,8 @@ fun NotificationControls(
 }
 
 @Composable
-private fun Section(title: String, content: @Composable () -> Unit) {
-    OjasCard {
+private fun Section(title: String, tint: Int = 0, content: @Composable () -> Unit) {
+    OjasCard(tintKey = tint) {
         Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.semantics { heading() })
         content()
     }

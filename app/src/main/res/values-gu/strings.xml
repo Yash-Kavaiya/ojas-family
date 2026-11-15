@@ -194,6 +194,9 @@
     <string name="goal_review_note">તમારો ફોટો સમુદાય › પ્રવૃત્તિમાં પોસ્ટ થાય છે. એડમિન મંજૂર કરે એટલે પોઇન્ટ ઉમેરાય છે.</string>
     <string name="moderation_goal_photos">લક્ષ્ય ફોટા</string>
     <string name="moderation_reject">નામંજૂર કરો</string>
+    <string name="moderation_later">પછી</string>
+    <string name="moderation_more_waiting">બીજા %1$d રાહ જુએ છે</string>
+    <string name="posted_ago">%1$s પોસ્ટ કર્યું</string>
     <string name="action_back">પાછા</string>
     <string name="error_photo_upload">ફોટો અપલોડ થઈ શક્યો નહીં. કૃપા કરીને ફરી પ્રયાસ કરો.</string>
     <string name="profile_change_photo">ફોટો ઉમેરો અથવા બદલો</string>
@@ -560,8 +563,6 @@
     <string name="call_poor_connection">નબળું કનેક્શન</string>
     <string name="call_quality">કનેક્શનની ગુણવત્તા: 3 માંથી %1$d</string>
     <string name="a11y_loading">લોડ થઈ રહ્યું છે</string>
-    <string name="session_show_video">વિડિયો બતાવો</string>
-    <string name="session_sound_only">ફક્ત અવાજ</string>
     <plurals name="streak_days_in_row">
         <item quantity="one">સતત %d દિવસ</item>
         <item quantity="other">સતત %d દિવસ</item>

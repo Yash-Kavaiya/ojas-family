@@ -42,7 +42,6 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
@@ -105,6 +104,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -600,10 +600,10 @@ private fun share(context: Context, text: String) {
 
 @Composable
 private fun AiAvatar(size: Int, glowing: Boolean = false) {
-    val t = rememberInfiniteTransition(label = "aiGlow")
-    val glow by loopingFloat(0.4f, 1f, infiniteRepeatable(tween(900, easing = OjasEasing.Standard), RepeatMode.Reverse), rest = 1f, label = "g")
+    // The glow loop runs only for the avatar that is answering, not for every reply in the list
+    val glow = loopingFloat(0.4f, 1f, infiniteRepeatable(tween(900, easing = OjasEasing.Standard), RepeatMode.Reverse), rest = 1f, label = "g", active = glowing)
     Box(contentAlignment = Alignment.Center) {
-        if (glowing) Box(Modifier.size((size + 8).dp).alpha(glow * 0.5f).clip(CircleShape).background(Brush.radialGradient(listOf(Color(0xFF7CC4FF), Color.Transparent))))
+        if (glowing) Box(Modifier.size((size + 8).dp).graphicsLayer { alpha = glow.value * 0.5f; val s = 0.92f + 0.12f * glow.value; scaleX = s; scaleY = s }.clip(CircleShape).background(Brush.radialGradient(listOf(Color(0xFF7CC4FF), Color.Transparent))))
         Box(
             Modifier.size(size.dp).clip(CircleShape).background(Brush.linearGradient(OjasGradients.sunrise)),
             contentAlignment = Alignment.Center

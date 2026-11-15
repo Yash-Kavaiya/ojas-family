@@ -114,7 +114,7 @@ fun ProfileCompletionCard(
         )
     }
 
-    OjasCard(modifier = modifier.animateContentSize(tween(Durations.Base, easing = OjasEasing.Emphasized))) {
+    OjasCard(modifier = modifier.animateContentSize(tween(Durations.Base, easing = OjasEasing.Emphasized)), tintKey = 4) {
         AnimatedContent(
             targetState = c.complete,
             transitionSpec = { fadeIn(tween(Durations.Base)) togetherWith fadeOut(tween(Durations.Quick)) },

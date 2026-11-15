@@ -358,14 +358,8 @@ private fun StarFlyToCounter(
     }
 
     // A lifted arc, with a soft sideways drift that settles as the star reaches the counter
-    val t = flight.value
+    // The flight is read in the layout and draw steps below, so the star moves without recomposing
     val control = Offset((start.x + end.x) / 2f, minOf(start.y, end.y) - starPx * 4)
-    val along = quad(start, control, end, t)
-    val wobble = (sin(t * Math.PI * 2) * starPx * 0.85f * (1f - t)).toFloat()
-    val tangent = quad(start, control, end, (t + 0.02f).coerceAtMost(1f)) - along
-    val len = kotlin.math.hypot(tangent.x.toDouble(), tangent.y.toDouble()).toFloat().coerceAtLeast(1f)
-    val side = Offset(-tangent.y / len, tangent.x / len)
-    val at = along + side * wobble
 
     Box(modifier = Modifier.fillMaxSize()) {
         Text(
@@ -374,13 +368,19 @@ private fun StarFlyToCounter(
             fontWeight = FontWeight.ExtraBold,
             color = Color(0xFF4FC3F7),
             modifier = Modifier
-                .offset { IntOffset(start.x.roundToInt() - starPx.roundToInt(), (start.y - starPx * (1.8f + t)).roundToInt()) }
-                .graphicsLayer { alpha = (pop.value * (1f - t)).coerceIn(0f, 1f) }
+                .offset { IntOffset(start.x.roundToInt() - starPx.roundToInt(), (start.y - starPx * (1.8f + flight.value)).roundToInt()) }
+                .graphicsLayer { alpha = (pop.value * (1f - flight.value)).coerceIn(0f, 1f) }
         )
 
         Canvas(Modifier.fillMaxSize()) {
-            val trail = listOf(0.22f, 0.14f, 0.07f)
-            for (back in trail) {
+            val t = flight.value
+            val along = quad(start, control, end, t)
+            val wobble = (sin(t * Math.PI * 2) * starPx * 0.85f * (1f - t)).toFloat()
+            val tangent = quad(start, control, end, (t + 0.02f).coerceAtMost(1f)) - along
+            val len = kotlin.math.hypot(tangent.x.toDouble(), tangent.y.toDouble()).toFloat().coerceAtLeast(1f)
+            val side = Offset(-tangent.y / len, tangent.x / len)
+            val at = along + side * wobble
+            for (back in RewardTrail) {
                 val u = t - back
                 if (u <= 0f) continue
                 val p = quad(start, control, end, u)
@@ -391,6 +391,8 @@ private fun StarFlyToCounter(
         }
     }
 }
+
+private val RewardTrail = floatArrayOf(0.22f, 0.14f, 0.07f)
 
 private fun quad(a: Offset, b: Offset, c: Offset, t: Float): Offset {
     val u = 1f - t

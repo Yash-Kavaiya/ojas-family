@@ -217,10 +217,10 @@ private fun GoalLabel(post: DailyPost) {
 
 @Composable
 private fun DailyCard(post: DailyPost, onClick: () -> Unit) {
-    OjasCard(onClick = onClick) {
+    OjasCard(onClick = onClick, tintKey = post.id) {
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s), verticalAlignment = Alignment.CenterVertically) {
             AuthorAvatar(post.author, size = 28)
-            AuthorLine(post.author)
+            AuthorLine(post.author, post.createdAt)
         }
         com.ojashealing.family.ui.components.ResponsiveImage(post.imageUrl, maxHeight = 400.dp)
         GoalLabel(post)
@@ -255,10 +255,10 @@ fun DailyPostScreen(vm: DailyViewModel, postId: String, onBack: () -> Unit, show
                 return@LazyColumn
             }
             item(key = "post") {
-                OjasCard(modifier = Modifier.padding(horizontal = Spacing.l)) {
+                OjasCard(modifier = Modifier.padding(horizontal = Spacing.l), tintKey = post.id) {
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s), verticalAlignment = Alignment.CenterVertically) {
                         AuthorAvatar(post.author, size = 32)
-                        Box(Modifier.weight(1f)) { AuthorLine(post.author) }
+                        Box(Modifier.weight(1f)) { AuthorLine(post.author, post.createdAt) }
                         ReportMenu(post.author, "dailyPosts/${post.id}", onBlocked = onBack)
                     }
                     PostImage(post.imageUrl)

@@ -69,33 +69,42 @@ fun Wavefront(level: () -> Float, playing: Boolean, modifier: Modifier = Modifie
             WaveLayer(0.8f, 0.35f, 0.85f, 0.28f, 1.2f),
         )
     }
+    // Built once: the gradients do not depend on size, and the taper is the same for every frame
+    val brushes = remember(accent) {
+        layers.map { layer ->
+            Brush.horizontalGradient(
+                listOf(Color.Transparent, accent.copy(alpha = layer.alpha), Color.White.copy(alpha = layer.alpha), accent.copy(alpha = layer.alpha), Color.Transparent)
+            )
+        }
+    }
+    val envelopes = remember { FloatArray(WAVE_STEPS + 1) { i -> sin(PI.toFloat() * i / WAVE_STEPS).coerceAtLeast(0f).pow(1.6f) } }
     Canvas(modifier.clearAndSetSemantics { }) {
         val t = phase.floatValue
         val mid = size.height / 2
         // A floor so the wave never goes fully flat while the practice plays
         val loud = (0.12f + 0.88f * level().coerceIn(0f, 1f)) * idle
         val maxAmp = size.height * 0.42f
-        val steps = 72
+        val steps = WAVE_STEPS
         layers.forEachIndexed { k, layer ->
-            path.reset()
+            path.rewind()
             for (i in 0..steps) {
                 val x = i / steps.toFloat()
                 // Taper both ends so it reads as one travelling front of light, not a cut-off line
-                val envelope = sin(PI.toFloat() * x).coerceAtLeast(0f).pow(1.6f)
+                val envelope = envelopes[i]
                 val y = mid + maxAmp * loud * layer.amp * envelope *
                     sin(2f * PI.toFloat() * (layer.freq * x) + t * layer.speed * 2.2f + k * 1.3f)
                 val px = x * size.width
                 if (i == 0) path.moveTo(px, y) else path.lineTo(px, y)
             }
-            val brush = Brush.horizontalGradient(
-                listOf(Color.Transparent, accent.copy(alpha = layer.alpha), Color.White.copy(alpha = layer.alpha), accent.copy(alpha = layer.alpha), Color.Transparent)
-            )
+            val brush = brushes[k]
             // A wide faint stroke under a thin bright one gives each wave a glow
             drawPath(path, brush, alpha = 0.25f, style = Stroke(width = layer.stroke * 5f * density, cap = StrokeCap.Round))
             drawPath(path, brush, style = Stroke(width = layer.stroke * density, cap = StrokeCap.Round))
         }
     }
 }
+
+private const val WAVE_STEPS = 72
 
 private data class WaveLayer(val freq: Float, val speed: Float, val amp: Float, val alpha: Float, val stroke: Float)
 

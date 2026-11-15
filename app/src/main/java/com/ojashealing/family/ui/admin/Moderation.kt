@@ -181,7 +181,7 @@ fun ModerationScreen(vm: ModerationViewModel, onBack: () -> Unit) {
             item(key = "pendingTitle", contentType = "title") { Text(stringResource(R.string.moderation_pending), style = MaterialTheme.typography.titleLarge) }
             if (pending.isEmpty()) item(key = "pendingEmpty", contentType = "empty") { EmptyLine() }
             items(pending, key = { it.path }, contentType = { "pending" }) { item ->
-                OjasCard {
+                OjasCard(tintKey = item.path) {
                     Text(item.author, style = MaterialTheme.typography.labelLarge)
                     Text(item.text, style = MaterialTheme.typography.bodyLarge)
                     if (item.imageUrl.isNotEmpty()) {
@@ -196,7 +196,7 @@ fun ModerationScreen(vm: ModerationViewModel, onBack: () -> Unit) {
             item(key = "goalsTitle", contentType = "title") { Text(stringResource(R.string.moderation_goal_photos), style = MaterialTheme.typography.titleLarge) }
             if (goalReviews.isEmpty()) item(key = "goalsEmpty", contentType = "empty") { EmptyLine() }
             items(goalReviews, key = { "goal:${it.submission.uid}/${it.submission.goalId}" }, contentType = { "goal" }) { review ->
-                OjasCard {
+                OjasCard(tintKey = review.submission.uid + review.submission.goalId) {
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s), verticalAlignment = Alignment.CenterVertically) {
                         MemberAvatar(review.submission.memberPhotoUrl)
                         Column {
@@ -218,7 +218,7 @@ fun ModerationScreen(vm: ModerationViewModel, onBack: () -> Unit) {
             if (faceReviews.isNotEmpty()) {
                 item(key = "facesTitle", contentType = "title") { Text(stringResource(R.string.moderation_face_photos), style = MaterialTheme.typography.titleLarge) }
                 items(faceReviews, key = { "face:${it.uid}" }, contentType = { "face" }) { face ->
-                    OjasCard {
+                    OjasCard(tintKey = face.uid) {
                         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s), verticalAlignment = Alignment.CenterVertically) {
                             MemberAvatar(face.memberPhotoUrl)
                             Text(face.memberName.ifEmpty { stringResource(R.string.moderation_unknown_member) }, style = MaterialTheme.typography.titleMedium)
