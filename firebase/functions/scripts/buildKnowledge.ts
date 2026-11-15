@@ -9,6 +9,10 @@
 // Every passage is embedded with NVIDIA's embedding model (nvidia/nemotron-3.5-embed-8b) and the
 // vectors are published beside the passages as ai/knowledge.vectors.bin. No Google AI service is used.
 //      To add a new video, add passages for it to a knowledge/*.md file.
+//   4. With --course <folder>: the course book of the first playlist (book/chapters/*.tex in Hindi,
+//      book_en/chapters/*.tex in English; one chapter per video). The book is not in this repository.
+// Passages from the videos in knowledge/first-playlist.json are marked "first": the AI answers from
+// them first and turns to the other videos only when they do not cover the question.
 //
 // Run (an owner of the project):
 //   gcloud auth application-default login
@@ -22,6 +26,7 @@ import { getStorage } from "firebase-admin/storage";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { DEFAULT_AI } from "../src/ai";
 import { EMBED_DIM, EMBED_MODEL, embed, vectorsPath } from "../src/aiNvidia";
+import { chapterPassages, SPEAKER_EN, SPEAKER_HI } from "./courseBook";
 
 const EMBED_BATCH = 32;
 
@@ -33,6 +38,10 @@ const db = getFirestore();
 const args = process.argv.slice(2);
 const PUBLISH_ONLY = args.includes("--publish-only");
 const OUT_DIR = args.includes("--out") ? args[args.indexOf("--out") + 1] : "";
+const COURSE_DIR = args.includes("--course") ? args[args.indexOf("--course") + 1] : "";
+const FIRST_VIDEOS = new Set<string>(
+  JSON.parse(readFileSync(join(__dirname, "..", "knowledge", "first-playlist.json"), "utf8")).videoIds as string[],
+);
 // The phone model reads only a few hundred words per passage well
 const MAX_PASSAGE_CHARS = 900;
 
@@ -48,22 +57,31 @@ interface Chunk {
 
 const idFor = (s: string) => createHash("sha1").update(s).digest("hex").slice(0, 24);
 
+// Firestore takes at most 500 writes in one batch
+const BATCH = 400;
+
 async function writeChunks(sourceId: string, chunks: Chunk[]) {
   // Replace this source's old passages so edits don't leave stale ones behind
-  const old = await db.collection("knowledge").where("sourceId", "==", sourceId).get();
-  const batch = db.batch();
-  old.forEach((d) => batch.delete(d.ref));
-  await batch.commit();
-  const write = db.batch();
-  for (const c of chunks.flatMap(splitLong)) {
-    // Firestore refuses undefined values: leave missing fields out
-    const clean = Object.fromEntries(Object.entries(c).filter(([, v]) => v !== undefined));
-    write.set(db.collection("knowledge").doc(idFor(`${sourceId}|${c.lang ?? ""}|${c.startSec ?? 0}|${c.text.slice(0, 60)}`)), {
-      ...clean, sourceId, updatedAt: FieldValue.serverTimestamp(),
-    });
+  const old = (await db.collection("knowledge").where("sourceId", "==", sourceId).get()).docs;
+  for (let i = 0; i < old.length; i += BATCH) {
+    const batch = db.batch();
+    old.slice(i, i + BATCH).forEach((d) => batch.delete(d.ref));
+    await batch.commit();
   }
-  await write.commit();
-  console.log(`  ${chunks.length} passages from ${sourceId}`);
+  const pieces = chunks.flatMap(splitLong);
+  for (let i = 0; i < pieces.length; i += BATCH) {
+    const write = db.batch();
+    for (const c of pieces.slice(i, i + BATCH)) {
+      // Firestore refuses undefined values: leave missing fields out
+      const clean = Object.fromEntries(Object.entries(c).filter(([, v]) => v !== undefined));
+      // The whole text names the passage: the pieces of one long section share a title and a start time
+      write.set(db.collection("knowledge").doc(idFor(`${sourceId}|${c.lang ?? ""}|${c.startSec ?? 0}|${c.text}`)), {
+        ...clean, sourceId, updatedAt: FieldValue.serverTimestamp(),
+      });
+    }
+    await write.commit();
+  }
+  console.log(`  ${pieces.length} passages from ${sourceId}`);
 }
 
 /** Long passages become several, cut at sentence ends, each starting with the passage title. */
@@ -112,6 +130,23 @@ async function docs() {
   if (chunks.length) await writeChunks("about", chunks);
 }
 
+/** The course book: every section of every chapter, in Hindi and in English, tied to its video and the moment in it. */
+async function course(dir: string) {
+  for (const [folder, lang, speaker] of [["book_en", "en", SPEAKER_EN], ["book", "hi", SPEAKER_HI]] as const) {
+    const chapters = join(dir, folder, "chapters");
+    const chunks: Chunk[] = [];
+    for (const f of readdirSync(chapters).filter((n) => n.endsWith(".tex")).sort()) {
+      for (const p of chapterPassages(readFileSync(join(chapters, f), "utf8"), speaker)) {
+        chunks.push({
+          text: p.text, title: p.title, sourceType: "video", videoId: p.videoId, startSec: p.startSec, lang,
+          url: `https://www.youtube.com/watch?v=${p.videoId}${p.startSec ? `&t=${p.startSec}s` : ""}`,
+        });
+      }
+    }
+    await writeChunks(`course:${lang}`, chunks);
+  }
+}
+
 /** Publishes every passage as ai/knowledge.json, the file the app searches on the phone. */
 async function publish() {
   const snap = await db.collection("knowledge").get();
@@ -121,6 +156,7 @@ async function publish() {
       id: d.id, title: String(x.title ?? ""), text: String(x.text ?? ""), url: String(x.url ?? ""),
       ...(x.videoId ? { videoId: String(x.videoId) } : {}), ...(x.startSec ? { startSec: Number(x.startSec) } : {}),
       sourceType: String(x.sourceType ?? ""), lang: String(x.lang ?? "en"),
+      ...(x.videoId && FIRST_VIDEOS.has(String(x.videoId)) ? { first: true } : {}),
     };
   });
   // Stable order, so the vectors file lines up with the passages
@@ -158,11 +194,13 @@ async function publish() {
   await bucket.file(DEFAULT_AI.knowledgePath).save(body, {
     contentType: "application/json", resumable: false, metadata: { cacheControl: "no-cache" },
   });
+  console.log(`${passages.filter((p) => "first" in p).length} of them are from the first playlist`);
   console.log(`Published ${passages.length} passages (${Math.round(body.length / 1024)} KB) and their vectors (${Math.round(vectors.byteLength / 1024)} KB) to ${DEFAULT_AI.knowledgePath}`);
 }
 
 async function main() {
   if (!PUBLISH_ONLY) await docs();
+  if (COURSE_DIR) await course(COURSE_DIR);
   await publish();
   console.log("Knowledge base ready.");
 }

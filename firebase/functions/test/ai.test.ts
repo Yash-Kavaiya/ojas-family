@@ -4,6 +4,7 @@ import {
 } from "../src/ai";
 import { KnowledgeSearch, type Passage, questionLanguage, searchWords, unit } from "../src/knowledgeSearch";
 import { clearDb, testDb } from "./emulator";
+import { chapterPassages, clockSeconds, SPEAKER_EN } from "../scripts/courseBook";
 
 const db = testDb();
 const now = new Date("2026-11-12T06:00:00Z");
@@ -123,4 +124,53 @@ test("meaning search finds a teaching asked in other words, and nothing for an u
   expect(search.hybrid("blue light", unit([1, 0, 0]), vectors, 3, "hi").map((p) => p.id)).toEqual(["4"]);
   // Vectors that don't fit the passages fall back to keyword search
   expect(search.hybrid("blue light meditation", unit([1, 0, 0]), { dim: 3, data: new Float32Array(3) }, 3, "en")[0].id).toBe("1");
+});
+
+test("the first playlist leads when it covers the question, and steps aside when it does not", () => {
+  const mixed: Passage[] = [
+    { id: "other", title: "Chakras", text: "Chakras\nThe seven chakras and how to balance them with breath.", videoId: "x", lang: "en" },
+    { id: "course", title: "Seven Chakras", text: "Seven Chakras\nThe seven chakras are a map of desires and emotions.", videoId: "c", lang: "en", first: true },
+    { id: "sleep", title: "Sleep", text: "Sleep\nBefore sleeping, relax each part of the body.", videoId: "s", lang: "en" },
+    { id: "courseDeath", title: "Bardo", text: "Bardo\nHow to pray for a peaceful death.", videoId: "d", lang: "en", first: true },
+  ];
+  const s = new KnowledgeSearch(mixed);
+  // Directions: chakras, chakras (a little further), sleep, death
+  const vectors = { dim: 3, data: new Float32Array([...unit([1, 0, 0]), ...unit([0.95, 0.3, 0]), ...unit([0, 1, 0]), ...unit([0, 0, 1])]) };
+  // Both cover chakras and the other video is slightly closer: the playlist still comes first, the other follows
+  expect(s.hybrid("what are the seven chakras", unit([1, 0, 0]), vectors, 3, "en").map((p) => p.id).slice(0, 2)).toEqual(["course", "other"]);
+  // Only another video covers sleep: the playlist does not push in
+  expect(s.hybrid("how to relax before sleeping", unit([0, 1, 0]), vectors, 3, "en")[0].id).toBe("sleep");
+  // Keyword search alone follows the same rule
+  expect(s.search("seven chakras", 3, "en")[0].id).toBe("course");
+  expect(s.search("relax before sleeping", 3, "en")[0].id).toBe("sleep");
+});
+
+test("a chapter of the course book becomes one passage per section, with its video and time", () => {
+  const tex = [
+    "% a comment that must not show",
+    "\\videochapter{10}{The Seven Chakras}{Oya4SPvC_QY}{33:37}",
+    "\\chapteropening{There are many \\textbf{misconceptions} about the chakras, more than about any other subject.}",
+    "\\videoframe{ch10/img00.jpg}{Video 10: a caption}{00:14}",
+    "\\section{Common Misconceptions}",
+    "\\begin{caution}[Wrong Notions]",
+    "\\begin{itemize}",
+    "  \\item Once the chakras awaken, we will perform miracles.",
+    "\\end{itemize}",
+    "According to the speaker, these beliefs are \\textbf{completely wrong}.",
+    "\\end{caution}",
+    "\\videoframe{ch10/img04.jpg}{Two sides}{05:24}",
+    "\\begin{figure}[H]\\begin{tikzpicture}\\node at (0,0) {Dark energy};\\end{tikzpicture}\\caption{A drawing}\\end{figure}",
+    "\\section{What Are the Chakras?}",
+    "The speaker's definition is simple: desires and emotions divided into seven categories.",
+  ].join("\n");
+  const out = chapterPassages(tex, SPEAKER_EN);
+  expect(out.map((p) => [p.title, p.videoId, p.startSec])).toEqual([
+    ["The Seven Chakras", "Oya4SPvC_QY", 0],
+    ["The Seven Chakras: Common Misconceptions", "Oya4SPvC_QY", 14],
+    ["The Seven Chakras: What Are the Chakras?", "Oya4SPvC_QY", 324],
+  ]);
+  expect(out[1].text).toBe("The Seven Chakras: Common Misconceptions\nWrong Notions:\n- Once the chakras awaken, we will perform miracles.\nAccording to Swamiji, these beliefs are completely wrong.");
+  expect(out[2].text).toContain("Swamiji's definition is simple");
+  expect(out.map((p) => p.text).join(" ")).not.toMatch(/caption|Dark energy|comment|\\\\/);
+  expect(clockSeconds("1:02:03")).toBe(3723);
 });

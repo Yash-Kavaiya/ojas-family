@@ -8,6 +8,8 @@ export interface Passage {
   startSec?: number;
   sourceType?: string;
   lang?: string;
+  /** From the playlist the AI looks in first (knowledge/first-playlist.json). */
+  first?: boolean;
 }
 
 /** Words too common to tell passages apart, in English, Hindi and Gujarati. */
@@ -107,13 +109,25 @@ export class KnowledgeSearch {
     return out;
   }
 
+  /**
+   * The first playlist leads: passages from it that answer the question well enough ([good]) go to the
+   * front in their own order, and the other videos fill whatever places are left. When the playlist
+   * does not cover the question nothing moves, so the other videos answer as before.
+   */
+  private firstPlaylistFirst(order: number[], good: (i: number) => boolean): number[] {
+    const front = order.filter((i) => this.passages[i].first && good(i));
+    if (!front.length) return order;
+    const lead = new Set(front);
+    return [...front, ...order.filter((i) => !lead.has(i))];
+  }
+
   /** Keyword search alone: the best [k] passages, best first; none when no word of the question matches. */
   search(question: string, k: number, lang?: string): Passage[] {
     const scores = this.keywordScores(question, lang);
     if (!scores.size) return [];
     const best = Math.max(...scores.values());
     const order = [...scores].filter(([, s]) => s >= best * MIN_SHARE_OF_BEST).sort((a, b) => b[1] - a[1]).map(([i]) => i);
-    return this.pick(order, k, lang);
+    return this.pick(this.firstPlaylistFirst(order, (i) => (scores.get(i) ?? 0) >= best * FIRST_KEYWORD_SHARE), k, lang);
   }
 
   /**
@@ -150,7 +164,10 @@ export class KnowledgeSearch {
     const fused = new Map<number, number>();
     meaningOrder.forEach((i, rank) => fused.set(i, (fused.get(i) ?? 0) + MEANING_WEIGHT / (RRF_K + rank)));
     keywordOrder.forEach((i, rank) => fused.set(i, (fused.get(i) ?? 0) + 1 / (RRF_K + rank)));
-    return this.pick([...fused].sort((x, y) => y[1] - x[1]).map(([i]) => i), k, lang);
+    const order = [...fused].sort((x, y) => y[1] - x[1]).map(([i]) => i);
+    // A playlist passage leads when it is about the question and not far behind the closest passage anywhere
+    const goodEnough = Math.max(minCosine, closest - FIRST_COSINE_MARGIN);
+    return this.pick(this.firstPlaylistFirst(order, (i) => likeness[i] >= goodEnough), k, lang);
   }
 }
 
@@ -165,6 +182,14 @@ const RRF_K = 60;
 const SAME_LANGUAGE_BONUS = 0.02;
 const MEANING_WEIGHT = 2;
 const KEYWORD_COSINE_SHARE = 0.85;
+/**
+ * How far behind the closest passage a first-playlist passage may be and still lead. Likeness runs
+ * from about 0.3 (barely related) to 0.5 (the very teaching), so 0.08 lets the playlist win ties and
+ * near ties, but not with a passage that only touches the subject.
+ */
+const FIRST_COSINE_MARGIN = 0.08;
+/** The same idea for keyword search alone: at least this share of the best passage's score. */
+const FIRST_KEYWORD_SHARE = 0.6;
 /**
  * Below this likeness a passage is not about the question. Measured 2026-11-13 with
  * nvidia/nemotron-3.5-embed-8b at 1024 numbers: questions the teachings cover scored 0.41 to 0.51
