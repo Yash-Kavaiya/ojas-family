@@ -1,7 +1,7 @@
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { assertFails, assertSucceeds, initializeTestEnvironment, RulesTestEnvironment } from "@firebase/rules-unit-testing";
-import { doc, getDoc, serverTimestamp, setDoc, Timestamp, updateDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, limit, query, serverTimestamp, setDoc, Timestamp, updateDoc, where } from "firebase/firestore";
 
 let env: RulesTestEnvironment;
 const FUTURE = Timestamp.fromDate(new Date(Date.now() + 7 * 24 * 3600 * 1000));
@@ -129,6 +129,14 @@ describe("calls", () => {
     await assertFails(getDoc(doc(as("m3"), "calls", "c2")));
     await assertSucceeds(updateDoc(doc(as("free"), "calls", "c2"), { status: "active", answer: { sdp: "y", type: "answer" } }));
     await assertFails(updateDoc(doc(as("free"), "calls", "c2"), { calleeUid: "m3" }));
+  });
+
+  test("the callee can list the calls ringing for them, and nobody else's", async () => {
+    await assertSucceeds(setDoc(doc(as("sw"), "calls", "c4"), call("sw", "free", "free", "sw")));
+    const ringingFor = (who: string, uid: string) =>
+      getDocs(query(collection(as(who), "calls"), where("calleeUid", "==", uid), where("status", "==", "ringing"), limit(20)));
+    await assertSucceeds(ringingFor("free", "free"));
+    await assertFails(ringingFor("m3", "free"));
   });
 
   test("only the callee's phone marks a call as ringing; both may send a reconnect offer", async () => {

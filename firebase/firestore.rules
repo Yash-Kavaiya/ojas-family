@@ -570,7 +570,9 @@ service cloud.firestore {
     }
 
     function inCall(call) {
-      return signedIn() && request.auth.uid in [call.callerUid, call.calleeUid];
+      // Written as two comparisons, not "uid in [caller, callee]": a query for "calls ringing for me"
+      // (calleeUid == me) is only allowed when the rule can be proved from that one field
+      return signedIn() && (call.callerUid == request.auth.uid || call.calleeUid == request.auth.uid);
     }
 
     match /calls/{callId} {
