@@ -143,7 +143,8 @@ fun FreedomPractice(
             }
         }
         if (nextLocked != null) item(key = "locked", contentType = "locked") {
-            val before = GoalLevel.entries[nextLocked.ordinal - 1]
+            // The level that still has goals to finish: the hardest one already open
+            val before = GoalLevel.entries.last { it in open }
             val need = minOf(UNLOCK_AFTER, sadhana.count { it.level == before })
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.Lock, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)

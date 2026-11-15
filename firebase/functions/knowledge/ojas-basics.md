@@ -30,6 +30,9 @@ Protection Vidhi is Swamiji's series of spiritual protection meditations on the 
 ## Practice streak
 The Practice tab shows a streak: the number of days in a row on which you finished at least one guided practice. Missing today doesn't break it until the day is over. Every 7 days in a row gives bonus Freedom Points, and practising morning (or morning and night) for 21 days in a row completes a goal.
 
+## Freedom Practice: goals
+The Practice tab has two sections: Daily Practice (the guided morning, night and meditation practices) and Freedom Practice (the goals). Goals come in two parts, each from Easy to Medium to Hard. Sadhana goals: you choose a goal, such as a warm breakfast every morning or yoga every day, and tick it each day; the days must be in a row, and a missed day starts the count again from 1. Completing the days earns Freedom Points, and achieving goals opens the next level. Activities: you do the activity, such as cooking a meal with awareness, and share a photo; the photo is posted in Community, Activity, and the points are added once an admin approves it. Photo activities are for members. Your profile shows on its own which sadhana you are doing and for how many days.
+
 ## Freedom Points: how they work
 Freedom Points are the app's way of counting your practice and participation. You earn them by: opening the app each day; finishing guided practices (each once a day), with a bonus for all four in a day and for every 7-day streak; liking, commenting, asking questions and answering in the community (with daily limits); filling in each part of your profile, with a bonus at 100%; asking Ask Swamiji AI your first question of the day; completing goals; and gifts from Swamiji or admins. Exact amounts are shown in the app under Freedom Points, How it works.
 

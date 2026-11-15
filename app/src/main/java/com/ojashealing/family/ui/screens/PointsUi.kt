@@ -62,7 +62,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -311,9 +311,9 @@ private fun BulletRow(icon: ImageVector, text: String) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SendPointsSheet(vm: PointsActionsViewModel, balance: Int, myLevel: Int, frozen: Boolean, onDismiss: () -> Unit) {
-    val config by vm.config.collectAsState()
-    val results by vm.results.collectAsState()
-    val action by vm.action.collectAsState()
+    val config by vm.config.collectAsStateWithLifecycle()
+    val results by vm.results.collectAsStateWithLifecycle()
+    val action by vm.action.collectAsStateWithLifecycle()
     var query by rememberSaveable { mutableStateOf("") }
     var to by remember { mutableStateOf<GiftRecipient?>(null) }
     var amount by rememberSaveable { mutableIntStateOf(5) }
@@ -445,9 +445,9 @@ private fun RecipientRow(m: GiftRecipient, onClick: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManagePointsSheet(vm: PointsActionsViewModel, uid: String, name: String, onDismiss: () -> Unit) {
-    val action by vm.action.collectAsState()
-    val transfers by vm.transfers.collectAsState()
-    val frozen by vm.frozen.collectAsState()
+    val action by vm.action.collectAsStateWithLifecycle()
+    val transfers by vm.transfers.collectAsStateWithLifecycle()
+    val frozen by vm.frozen.collectAsStateWithLifecycle()
     var mode by rememberSaveable { mutableStateOf("add") }
     var amountText by rememberSaveable { mutableStateOf("") }
     var note by rememberSaveable { mutableStateOf("") }
@@ -530,8 +530,8 @@ fun ManagePointsSheet(vm: PointsActionsViewModel, uid: String, name: String, onD
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PointsAmountsSheet(vm: PointsActionsViewModel, onDismiss: () -> Unit) {
-    val config by vm.config.collectAsState()
-    val action by vm.action.collectAsState()
+    val config by vm.config.collectAsStateWithLifecycle()
+    val action by vm.action.collectAsStateWithLifecycle()
     val values = remember(config) { mutableStateMapOf<String, String>().apply { config.numbers().forEach { (k, v) -> put(k, "$v") } } }
     var enabled by remember(config) { mutableStateOf(config.transfersEnabled) }
     LaunchedEffect(Unit) { vm.reset() }

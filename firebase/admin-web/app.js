@@ -346,7 +346,7 @@ async function content() {
 // ---------- moderation ----------
 async function moderation() {
   const pend = (q) => getDocs(q).then((s) => s.docs);
-  const [c, a, r, q, d, goals, reports, goalDefs] = await Promise.all([
+  const [c, a, r, q, d, goals, reports, goalDefs, faces] = await Promise.all([
     pend(query(collectionGroup(db, "comments"), where("status", "==", "pending"))),
     pend(query(collectionGroup(db, "answers"), where("status", "==", "pending"))),
     pend(query(collectionGroup(db, "replies"), where("status", "==", "pending"))),
@@ -355,11 +355,11 @@ async function moderation() {
     pend(query(collectionGroup(db, "goalProgress"), where("status", "==", "submitted"))),
     pend(query(collection(db, "reports"), orderBy("createdAt", "desc"))),
     getDocs(collection(db, "goals")).then((s) => Object.fromEntries(s.docs.map((x) => [x.id, x.data()]))),
+    pend(query(collection(db, "facePhotos"), where("status", "==", "submitted"))),
   ]);
   const posts = [...c, ...a, ...r, ...q, ...d];
   const names = {};
-  await Promise.all(goals.map(async (g) => {
-    const uid = g.ref.parent.parent.id;
+  await Promise.all([...goals.map((g) => g.ref.parent.parent.id), ...faces.map((f) => f.id)].map(async (uid) => {
     names[uid] = (await getDoc(doc(db, "users", uid))).data()?.displayName || uid;
   }));
   view().innerHTML = `
@@ -374,6 +374,11 @@ async function moderation() {
     <div class="stack">${goals.map((g) => { const x = g.data(); const uid = g.ref.parent.parent.id; return `<div class="card pending" data-path="${esc(g.ref.path)}">
       <b>${esc(names[uid])}</b> · ${esc(goalDefs[g.id]?.title?.en || g.id)}<p>${esc(x.note || "")}</p>${x.photoUrl ? `<img src="${esc(x.photoUrl)}" alt="">` : ""}
       <div class="row"><button class="primary g-ok">Approve</button><button class="danger g-no">Reject</button></div></div>`; }).join("") || '<p class="muted">No goal photos to review.</p>'}</div>
+    <h2>Face photos for the opening animation (${faces.length})</h2>
+    <p class="muted">Member Level 3 members upload a photo of their face. Once approved it shows in that member's own opening animation.</p>
+    <div class="stack">${faces.map((f) => { const x = f.data(); return `<div class="card pending" data-path="${esc(f.ref.path)}">
+      <b>${esc(names[f.id])}</b>${x.photoUrl ? `<img src="${esc(x.photoUrl)}" alt="">` : ""}
+      <div class="row"><button class="primary f-ok">Approve</button><button class="danger f-no">Reject</button></div></div>`; }).join("") || '<p class="muted">No face photos to review.</p>'}</div>
     <h2>Reports (${reports.length})</h2>
     <div class="stack">${reports.map((rp) => { const x = rp.data(); return `<div class="card" data-id="${esc(rp.id)}" data-target="${esc(x.targetPath)}">
       <span class="muted">${fmt(x.createdAt)} · ${esc(x.targetPath)}</span><p>${esc(x.reason)}</p>
@@ -385,6 +390,9 @@ async function moderation() {
     if (del) del.onclick = (e) => run(e.target, () => deleteDoc(doc(db, path)), "Removed").then(() => el.remove());
     if (gok) gok.onclick = (e) => run(e.target, () => updateDoc(doc(db, path), { status: "approved", reviewedAt: serverTimestamp() }), "Approved: points added").then(() => el.remove());
     if (gno) gno.onclick = (e) => run(e.target, () => updateDoc(doc(db, path), { status: "rejected", reviewedAt: serverTimestamp() }), "Rejected").then(() => el.remove());
+    const fok = $(".f-ok", el), fno = $(".f-no", el);
+    if (fok) fok.onclick = (e) => run(e.target, () => updateDoc(doc(db, path), { status: "approved", reviewedAt: serverTimestamp() }), "Approved").then(() => el.remove());
+    if (fno) fno.onclick = (e) => run(e.target, () => updateDoc(doc(db, path), { status: "rejected", reviewedAt: serverTimestamp() }), "Rejected").then(() => el.remove());
   });
   $$("[data-target]").forEach((el) => {
     $(".r-remove", el).onclick = (e) => confirm("Delete the reported post?") && run(e.target, async () => {

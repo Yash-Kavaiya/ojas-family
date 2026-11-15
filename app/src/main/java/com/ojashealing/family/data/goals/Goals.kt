@@ -131,8 +131,12 @@ class GoalRepository(
     }
 
     fun observeGoals(): Flow<List<Goal>> = callbackFlow {
-        val reg = db.collection("goals").limit(200).addSnapshotListener { snap, _ ->
-            if (snap == null) return@addSnapshotListener
+        val reg = db.collection("goals").limit(200).addSnapshotListener { snap, error ->
+            if (snap == null) {
+                // No access or no connection to start from: end the flow so the screen stops waiting
+                if (error != null) close(error)
+                return@addSnapshotListener
+            }
             trySend(snap.documents.mapNotNull { d ->
                 val kind = GoalKind.fromId(d.getString("kind")) ?: return@mapNotNull null
                 Goal(d.id, d.stringMap("title"), d.stringMap("description"), kind,
@@ -144,8 +148,11 @@ class GoalRepository(
     }
 
     fun observeProgress(uid: String): Flow<Map<String, GoalProgress>> = callbackFlow {
-        val reg = db.collection("users/$uid/goalProgress").limit(200).addSnapshotListener { snap, _ ->
-            if (snap == null) return@addSnapshotListener
+        val reg = db.collection("users/$uid/goalProgress").limit(200).addSnapshotListener { snap, error ->
+            if (snap == null) {
+                if (error != null) close(error)
+                return@addSnapshotListener
+            }
             trySend(snap.documents.associate { d ->
                 val status = when (d.getString("status")) {
                     "approved" -> GoalStatus.Approved

@@ -41,7 +41,7 @@ const goalPostId = (uid: string, goalId: string) => `goal_${uid}_${goalId}`;
 async function mirrorGoalPhoto(db: Firestore, uid: string, goalId: string, before: Data, after: Data): Promise<void> {
   const post = db.doc(`dailyPosts/${goalPostId(uid, goalId)}`);
   if (after?.status === "rejected" && before?.status !== "rejected") {
-    await post.delete();
+    await db.recursiveDelete(post);
     return;
   }
   const photoUrl = typeof after?.photoUrl === "string" ? after.photoUrl : "";

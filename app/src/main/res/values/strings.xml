@@ -46,7 +46,6 @@
     <string name="action_cancel">Cancel</string>
     <string name="action_edit_profile">Edit profile</string>
     <string name="action_sign_out">Sign out</string>
-    <string name="empty_community_title">Community opens soon</string>
     <string name="empty_community_body">Questions, daily seva and announcements from the Ojas family will appear here.</string>
     <string name="empty_spiritual_title">Practices are on their way</string>
     <string name="empty_spiritual_body">Protection, meditation and yoga sessions by Swamiji will appear here.</string>
@@ -79,12 +78,10 @@
     <string name="profile_points">Freedom Points</string>
     <string name="profile_level">Level %1$d</string>
     <string name="profile_member_level">Member %1$d</string>
-    <string name="profile_days_active">%1$d days active</string>
     <string name="profile_days_label">Days active</string>
     <string name="reward_daily">Daily presence</string>
     <string name="reward_points">+%1$d Freedom Points</string>
     <string name="profile_location_unset">Location not set</string>
-    <string name="profile_goals_title">Goals</string>
     <string name="profile_goals_empty">Swamiji’s suggested goals will appear here.</string>
     <string name="section_blue_light">Blue Healing Light Meditation</string>
     <string name="section_quick_protection">Quick Protection</string>
@@ -111,7 +108,6 @@
     <string name="admin_import">Import</string>
     <string name="admin_imported">%1$d new videos added</string>
     <string name="admin_videos_title">Videos in the app</string>
-    <string name="admin_published">Visible to members</string>
     <string name="admin_delete">Remove</string>
     <string name="admin_delete_confirm">Remove this video from the app?</string>
     <string name="home_today">Today</string>
@@ -126,7 +122,6 @@
     <string name="field_title">Title</string>
     <string name="field_message">Message</string>
     <string name="field_date">Date</string>
-    <string name="home_scheduled">Thought scheduled</string>
     <string name="action_like">Like</string>
     <string name="community_qa">Q&amp;A</string>
     <string name="community_notices">Announcements</string>
@@ -188,10 +183,8 @@
     <string name="settings_about">About</string>
     <string name="settings_attribution">Location data: countries-states-cities-database (ODbL). Fonts: Noto (OFL).</string>
     <string name="goal_photo_required">Choose a photo first</string>
-    <string name="goal_all_done">You have completed every goal for now. New goals will appear here.</string>
     <string name="goal_waiting">Waiting for review</string>
     <string name="goal_achieved">Achieved</string>
-    <string name="goal_suggested">Suggested goal</string>
     <string name="goal_reward">Earn %1$d Freedom Points</string>
     <string name="goal_rejected_retry">Your last photo was not approved. Please try again.</string>
     <string name="goal_submit_photo">Share a photo</string>
@@ -234,7 +227,6 @@
     <string name="practice_streak_hint">Keep going for 21 days in a row to complete your goal.</string>
     <string name="practice_logged">Practice recorded. Well done!</string>
     <string name="practice_goal_done">21-day goal complete! Points added.</string>
-    <string name="practice_locked">Daily practices open at Level 4 or with membership.</string>
     <string name="community_daily">Activity</string>
     <string name="daily_locked_title">Daily Activities are for members</string>
     <string name="daily_locked_body">Members share their daily seva (cooking, cleaning, exercise, yoga) with photos. Become a member to see, like and reply.</string>
@@ -256,7 +248,6 @@
     <string name="membership_title">Membership</string>
     <string name="membership_benefits">Daily practices, Daily Activities, photos in posts and higher member levels.</string>
     <string name="membership_active_until">Member until %1$s</string>
-    <string name="membership_level_progress">Paid days: %1$d · Member Level %2$d</string>
     <string name="membership_join">Become a member</string>
     <string name="membership_plans">Plans</string>
     <string name="plan_membership">Monthly membership</string>
@@ -279,12 +270,6 @@
     <string name="purchase_failed">The payment did not go through. If money was taken, it will be refunded by Google.</string>
     <string name="ask_understanding">Swamiji\'s understanding</string>
     <string name="ask_personal">One-to-one with Swamiji</string>
-    <string name="ask_chat">Personal chat</string>
-    <string name="ask_chat_desc">Write to Swamiji or a senior member he assigns.</string>
-    <string name="ask_call">Personal call</string>
-    <string name="ask_call_desc">Talk to Swamiji in an app call.</string>
-    <string name="ask_open_chat">Open chat</string>
-    <string name="ask_call_now">Call now</string>
     <string name="ask_calls_left">%1$d calls left</string>
     <string name="ask_see_plans">See plans</string>
     <string name="ask_staff_inbox">Member chats</string>
@@ -294,13 +279,11 @@
     <string name="chat_title">Chat with Swamiji</string>
     <string name="chat_hint">Write a message</string>
     <string name="chat_empty">Say Hari Om. Swamiji or a senior member will reply here.</string>
-    <string name="chat_expired">Your chat pack has ended. Renew it to send messages.</string>
     <string name="chat_assign">Assign</string>
     <string name="chat_assigned_to">Answered by %1$s</string>
     <string name="chat_assign_title">Who answers this member?</string>
     <string name="chat_assign_swamiji">Swamiji (no assignment)</string>
     <string name="chat_inbox_empty">No member chats yet.</string>
-    <string name="chat_call_member">Call</string>
     <string name="call_calling">Calling…</string>
     <string name="call_incoming">Incoming call</string>
     <string name="call_connecting">Connecting…</string>
@@ -317,7 +300,6 @@
     <string name="call_speaker">Speaker</string>
     <string name="call_mic_needed">Allow the microphone so you can talk.</string>
     <string name="call_no_swamiji">Swamiji\'s account is not set up in the app yet. Please try again later.</string>
-    <string name="call_no_credits">No calls left in your pack.</string>
     <string name="profile_view_title">Member profile</string>
     <string name="profile_hidden">This member keeps their profile private.</string>
     <string name="profile_achieved">Goals achieved</string>
@@ -412,7 +394,6 @@
     <string name="road_member_3_detail">Share your own Daily Activities and see other members’ profiles.</string>
     <string name="road_days_progress">%1$d of %2$d membership days</string>
     <string name="road_paused">Your membership has ended, so the days are paused. Renew to keep counting.</string>
-    <string name="road_goals_progress">%1$d of %2$d goals complete</string>
     <string name="celebrate_ok">Jai ho! 🙏</string>
     <string name="celebrate_goal_title">Goal complete!</string>
     <string name="celebrate_goal_body">%1$s · +%2$d Freedom Points</string>
@@ -672,7 +653,6 @@
     <string name="points_cfg_max_gift">Largest single gift</string>
     <string name="points_cfg_daily_cap">Most a member can gift a day</string>
     <string name="points_cfg_min_level">Level needed to gift</string>
-    <string name="points_balance">Balance</string>
     <string name="points_earned">Earned (counts for Level)</string>
     <string name="points_src_practice_bonus">All four practices</string>
     <string name="points_src_streak">Practice streak bonus</string>

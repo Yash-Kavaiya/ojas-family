@@ -278,7 +278,7 @@ fun MainShell(container: AppContainer) {
     val goalTicking by goalsVm.ticking.collectAsStateWithLifecycle()
     val goalTickFailed by goalsVm.tickFailed.collectAsStateWithLifecycle()
     // Daily Practice or Freedom Practice inside the Practice tab; held here so the profile can open the goals
-    var practicePart by rememberSaveable { mutableStateOf(0) }
+    var practicePart by rememberSaveable { androidx.compose.runtime.mutableIntStateOf(0) }
     val staffContact by remember { container.chat.observeStaffContact().catch { emit(null) } }.collectAsStateWithLifecycle(null)
     val myThread by remember {
         container.auth.currentUid.flatMapLatest { uid -> uid?.let { container.chat.observeThread(it).catch { emit(null) } } ?: flowOf(null) }
@@ -319,7 +319,7 @@ fun MainShell(container: AppContainer) {
     // Held above the NavHost so sub-screens keep the tab, but not saved: every fresh open starts on Home
     var tab by rememberSaveable { mutableStateOf(MainTab.Home) }
     // Q&A, Daily or Announcements inside Community; held here so notifications can pick it
-    var communityTab by rememberSaveable { mutableStateOf(com.ojashealing.family.ui.community.CommunityTab.DAILY) }
+    var communityTab by rememberSaveable { androidx.compose.runtime.mutableIntStateOf(com.ojashealing.family.ui.community.CommunityTab.DAILY) }
     var communityJump by rememberSaveable { mutableStateOf<String?>(null) }
     var askJump by rememberSaveable { mutableStateOf<String?>(null) }
     val appLanguage = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language
@@ -619,7 +619,7 @@ fun MainShell(container: AppContainer) {
                                         thoughtVm,
                                         firstName = profile?.displayName.orEmpty().trim().substringBefore(' '),
                                         streak = practiceStreak,
-                                        onOpenPractice = { tab = MainTab.Spiritual },
+                                        onOpenPractice = { practicePart = 0; tab = MainTab.Spiritual },
                                         onSchedule = { nav.navigate(ScheduleThoughtRoute()) },
                                         onOpenThought = { nav.navigate(ThoughtRoute(it)) },
                                         about = about,

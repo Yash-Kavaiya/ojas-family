@@ -45,7 +45,6 @@
     <string name="action_cancel">रद्द करें</string>
     <string name="action_edit_profile">प्रोफ़ाइल बदलें</string>
     <string name="action_sign_out">साइन आउट</string>
-    <string name="empty_community_title">समुदाय जल्द खुलेगा</string>
     <string name="empty_community_body">ओजस परिवार के प्रश्न, दैनिक सेवा और घोषणाएँ यहाँ दिखेंगी।</string>
     <string name="empty_spiritual_title">साधनाएँ जल्द आ रही हैं</string>
     <string name="empty_spiritual_body">स्वामीजी के प्रोटेक्शन, ध्यान और योग सत्र यहाँ दिखेंगे।</string>
@@ -78,12 +77,10 @@
     <string name="profile_points">मुक्ति पॉइंट</string>
     <string name="profile_level">स्तर %1$d</string>
     <string name="profile_member_level">सदस्य %1$d</string>
-    <string name="profile_days_active">%1$d दिन सक्रिय</string>
     <string name="profile_days_label">सक्रिय दिन</string>
     <string name="reward_daily">दैनिक उपस्थिति</string>
     <string name="reward_points">+%1$d मुक्ति पॉइंट</string>
     <string name="profile_location_unset">स्थान नहीं दिया</string>
-    <string name="profile_goals_title">लक्ष्य</string>
     <string name="profile_goals_empty">स्वामीजी के सुझाए लक्ष्य यहाँ दिखेंगे।</string>
     <string name="section_blue_light">ब्लू हीलिंग लाइट ध्यान</string>
     <string name="section_quick_protection">क्विक प्रोटेक्शन</string>
@@ -110,7 +107,6 @@
     <string name="admin_import">इम्पोर्ट</string>
     <string name="admin_imported">%1$d नए वीडियो जोड़े गए</string>
     <string name="admin_videos_title">ऐप में वीडियो</string>
-    <string name="admin_published">सदस्यों को दिखे</string>
     <string name="admin_delete">हटाएँ</string>
     <string name="admin_delete_confirm">क्या यह वीडियो ऐप से हटाना है?</string>
     <string name="home_today">आज</string>
@@ -125,7 +121,6 @@
     <string name="field_title">शीर्षक</string>
     <string name="field_message">संदेश</string>
     <string name="field_date">तारीख</string>
-    <string name="home_scheduled">विचार शेड्यूल हो गया</string>
     <string name="action_like">लाइक</string>
     <string name="community_qa">प्रश्नोत्तर</string>
     <string name="community_notices">घोषणाएँ</string>
@@ -187,10 +182,8 @@
     <string name="settings_about">जानकारी</string>
     <string name="settings_attribution">स्थान डेटा: countries-states-cities-database (ODbL)। फ़ॉन्ट: Noto (OFL)।</string>
     <string name="goal_photo_required">पहले एक फ़ोटो चुनें</string>
-    <string name="goal_all_done">आपने अभी के सभी लक्ष्य पूरे कर लिए हैं। नए लक्ष्य यहाँ दिखेंगे।</string>
     <string name="goal_waiting">समीक्षा की प्रतीक्षा में</string>
     <string name="goal_achieved">पूरे किए</string>
-    <string name="goal_suggested">सुझाया गया लक्ष्य</string>
     <string name="goal_reward">%1$d मुक्ति पॉइंट पाएँ</string>
     <string name="goal_rejected_retry">आपकी पिछली फ़ोटो स्वीकृत नहीं हुई। कृपया फिर से प्रयास करें।</string>
     <string name="goal_submit_photo">फ़ोटो साझा करें</string>
@@ -233,7 +226,6 @@
     <string name="practice_streak_hint">लक्ष्य पूरा करने के लिए लगातार 21 दिन करते रहें।</string>
     <string name="practice_logged">साधना दर्ज हो गई। बहुत अच्छे!</string>
     <string name="practice_goal_done">21 दिन का लक्ष्य पूरा! पॉइंट जुड़ गए।</string>
-    <string name="practice_locked">दैनिक साधना लेवल 4 पर या सदस्यता से खुलती है।</string>
     <string name="community_daily">गतिविधि</string>
     <string name="daily_locked_title">दैनिक गतिविधियाँ सदस्यों के लिए हैं</string>
     <string name="daily_locked_body">सदस्य अपनी दैनिक सेवा (खाना बनाना, सफ़ाई, व्यायाम, योग) फ़ोटो के साथ साझा करते हैं। देखने, लाइक और जवाब देने के लिए सदस्य बनें।</string>
@@ -255,7 +247,6 @@
     <string name="membership_title">सदस्यता</string>
     <string name="membership_benefits">दैनिक साधना, दैनिक गतिविधियाँ, पोस्ट में फ़ोटो और ऊँचे सदस्य लेवल।</string>
     <string name="membership_active_until">%1$s तक सदस्य</string>
-    <string name="membership_level_progress">भुगतान दिन: %1$d · सदस्य लेवल %2$d</string>
     <string name="membership_join">सदस्य बनें</string>
     <string name="membership_plans">प्लान</string>
     <string name="plan_membership">मासिक सदस्यता</string>
@@ -278,12 +269,6 @@
     <string name="purchase_failed">भुगतान नहीं हो पाया। यदि पैसे कटे हैं तो Google उन्हें लौटा देगा।</string>
     <string name="ask_understanding">स्वामीजी की समझ</string>
     <string name="ask_personal">स्वामीजी से निजी बात</string>
-    <string name="ask_chat">निजी चैट</string>
-    <string name="ask_chat_desc">स्वामीजी या उनके नियुक्त वरिष्ठ सदस्य को लिखें।</string>
-    <string name="ask_call">निजी कॉल</string>
-    <string name="ask_call_desc">ऐप कॉल में स्वामीजी से बात करें।</string>
-    <string name="ask_open_chat">चैट खोलें</string>
-    <string name="ask_call_now">अभी कॉल करें</string>
     <string name="ask_calls_left">%1$d कॉल बाकी</string>
     <string name="ask_see_plans">प्लान देखें</string>
     <string name="ask_staff_inbox">सदस्यों की चैट</string>
@@ -293,13 +278,11 @@
     <string name="chat_title">स्वामीजी से चैट</string>
     <string name="chat_hint">संदेश लिखें</string>
     <string name="chat_empty">हरि ओम कहें। स्वामीजी या कोई वरिष्ठ सदस्य यहाँ जवाब देंगे।</string>
-    <string name="chat_expired">आपका चैट पैक समाप्त हो गया है। संदेश भेजने के लिए नवीनीकरण करें।</string>
     <string name="chat_assign">नियुक्त करें</string>
     <string name="chat_assigned_to">%1$s जवाब देंगे</string>
     <string name="chat_assign_title">इस सदस्य को कौन जवाब देगा?</string>
     <string name="chat_assign_swamiji">स्वामीजी (कोई नियुक्ति नहीं)</string>
     <string name="chat_inbox_empty">अभी सदस्यों की कोई चैट नहीं।</string>
-    <string name="chat_call_member">कॉल</string>
     <string name="call_calling">कॉल हो रही है…</string>
     <string name="call_incoming">आने वाली कॉल</string>
     <string name="call_connecting">जुड़ रहा है…</string>
@@ -316,7 +299,6 @@
     <string name="call_speaker">स्पीकर</string>
     <string name="call_mic_needed">बात करने के लिए माइक्रोफ़ोन की अनुमति दें।</string>
     <string name="call_no_swamiji">स्वामीजी का खाता अभी ऐप में सेट नहीं है। कृपया बाद में प्रयास करें।</string>
-    <string name="call_no_credits">आपके पैक में कोई कॉल बाकी नहीं।</string>
     <string name="profile_view_title">सदस्य प्रोफ़ाइल</string>
     <string name="profile_hidden">इस सदस्य ने अपनी प्रोफ़ाइल निजी रखी है।</string>
     <string name="profile_achieved">पूरे किए लक्ष्य</string>
@@ -411,7 +393,6 @@
     <string name="road_member_3_detail">अपनी दैनिक गतिविधियाँ साझा करें और अन्य सदस्यों की प्रोफ़ाइल देखें।</string>
     <string name="road_days_progress">%2$d में से %1$d सदस्यता दिन</string>
     <string name="road_paused">आपकी सदस्यता समाप्त हो गई है, इसलिए दिन रुके हैं। गिनती जारी रखने के लिए नवीनीकरण करें।</string>
-    <string name="road_goals_progress">%2$d में से %1$d लक्ष्य पूरे</string>
     <string name="celebrate_ok">जय हो! 🙏</string>
     <string name="celebrate_goal_title">लक्ष्य पूरा!</string>
     <string name="celebrate_goal_body">%1$s · +%2$d मुक्ति पॉइंट</string>
@@ -671,7 +652,6 @@
     <string name="points_cfg_max_gift">एक भेंट में अधिकतम</string>
     <string name="points_cfg_daily_cap">एक सदस्य दिन में अधिकतम</string>
     <string name="points_cfg_min_level">भेंट के लिए आवश्यक स्तर</string>
-    <string name="points_balance">शेष</string>
     <string name="points_earned">कमाए (स्तर में गिने)</string>
     <string name="points_src_practice_bonus">चारों अभ्यास</string>
     <string name="points_src_streak">अभ्यास सिलसिला बोनस</string>
