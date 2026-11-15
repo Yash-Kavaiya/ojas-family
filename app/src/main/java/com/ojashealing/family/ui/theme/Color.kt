@@ -22,11 +22,11 @@ val LotusRose = Color(0xFFE91E63)
 val SpiritualTeal = Color(0xFF00897B)
 val ChakraGreen = Color(0xFF43A047)
 
-// Light Palette: white cards on warm ivory, deep text, every text colour at least 4.5:1 on white
-val BackgroundLight = Color(0xFFFBF4EA) // warm ivory
-val SurfaceLight = Color(0xFFFFFFFF)
-val CardBorderLight = Color(0xFFDCC8AA)
-val CardBorderSoftLight = Color(0xFFEDE1CF)
+// Light Palette: pale lavender cards on light purple, deep text
+val BackgroundLight = Color(0xFFF1E9FC) // light purple
+val SurfaceLight = Color(0xFFFAF6FF) // pale lavender
+val CardBorderLight = Color(0xFFC9B8E3)
+val CardBorderSoftLight = Color(0xFFE2D6F3)
 val TextPrimaryLight = Color(0xFF1C1326)
 val TextSecondaryLight = Color(0xFF54476A)
 val SaffronDeep = Color(0xFFC94A00) // primary on light: 4.7:1 on white

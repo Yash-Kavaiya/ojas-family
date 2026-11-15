@@ -543,6 +543,9 @@ fun MainShell(container: AppContainer) {
             composable<TabsRoute> {
                 val chrome = rememberWindowChrome()
                 val beside = chrome.detail == DetailMode.BesideList
+                // Back on any other tab returns to Home first; Back on Home then leaves the app. Declared
+                // before the tab content, so a screen open inside a tab still handles Back before this does.
+                androidx.activity.compose.BackHandler(enabled = tab != MainTab.Home) { tab = MainTab.Home }
                 NavigationSuiteScaffold(
                     layoutType = if (chrome.primaryNav == PrimaryNav.BottomBar) NavigationSuiteType.NavigationBar else NavigationSuiteType.NavigationRail,
                     navigationSuiteItems = {
