@@ -37,7 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ojashealing.family.R
 import com.ojashealing.family.data.about.AboutLink
-import com.ojashealing.family.data.about.OJAS_YOUTUBE
+import com.ojashealing.family.data.about.OJAS_SOCIAL
 import com.ojashealing.family.ui.theme.Spacing
 
 /** The places Ojas Healing can be followed, in the order the icons are shown. */
@@ -60,12 +60,12 @@ fun socialOf(url: String): Social? {
 
 /**
  * One link per platform, in the fixed order, from the links admins set in About (the first link of each
- * platform wins). YouTube is always there: the channel is known without any setting.
+ * platform wins). Ojas Healing's own pages ([OJAS_SOCIAL]) fill in any platform not set there.
  */
 fun socialLinks(links: List<AboutLink>): List<Pair<Social, String>> {
     val found = LinkedHashMap<Social, String>()
     for (l in links) socialOf(l.url)?.let { found.putIfAbsent(it, l.url) }
-    found.putIfAbsent(Social.YouTube, OJAS_YOUTUBE)
+    for (url in OJAS_SOCIAL) socialOf(url)?.let { found.putIfAbsent(it, url) }
     return Social.entries.mapNotNull { s -> found[s]?.let { s to it } }
 }
 

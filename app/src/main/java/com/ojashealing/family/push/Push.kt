@@ -47,13 +47,37 @@ object Channels {
     }
 }
 
+/**
+ * The number on the app icon comes from the notifications in the tray, so it is kept in step with the
+ * app: a line read inside the app takes its notification away, and when nothing is left unread the
+ * rest go too. Ringing calls and practice reminders are never touched.
+ */
+object AppBadge {
+    /** The notification for [target] (same id as [OjasMessagingService] gives it). */
+    fun clear(context: Context, target: String) {
+        if (target.isNotEmpty()) NotificationManagerCompat.from(context).cancel(target.hashCode())
+    }
+
+    /** Every notification on these channels, e.g. when the bell has nothing unread. */
+    fun clearChannels(context: Context, vararg channels: String) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val nm = context.getSystemService(NotificationManager::class.java) ?: return
+        runCatching { nm.activeNotifications.filter { it.notification.channelId in channels }.forEach { nm.cancel(it.tag, it.id) } }
+    }
+}
+
 /** Extra on the launch intent: a Firestore path to open ("questions/x", "chats/uid", "calls/id", "practice/morning"). */
 const val EXTRA_TARGET = "ojas.target"
 
 fun canNotify(context: Context) = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
     ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
 
-fun showNotification(context: Context, id: Int, channel: String, title: String, body: String, target: String?, urgent: Boolean = false) {
+/**
+ * [count]: how many things this one notification stands for ("Meera and 2 others liked…" is 3). Launchers
+ * that show a number on the app icon (Samsung, Xiaomi, OnePlus, Oppo, Vivo…) add these up, like WhatsApp;
+ * others show a dot.
+ */
+fun showNotification(context: Context, id: Int, channel: String, title: String, body: String, target: String?, urgent: Boolean = false, count: Int = 1) {
     if (!canNotify(context)) return
     val intent = Intent(context, MainActivity::class.java).apply {
         flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -67,6 +91,8 @@ fun showNotification(context: Context, id: Int, channel: String, title: String, 
         .setStyle(NotificationCompat.BigTextStyle().bigText(body))
         .setContentIntent(pending)
         .setAutoCancel(true)
+        .setNumber(count.coerceAtLeast(1))
+        .setBadgeIconType(NotificationCompat.BADGE_ICON_SMALL)
         .setPriority(if (urgent) NotificationCompat.PRIORITY_MAX else NotificationCompat.PRIORITY_DEFAULT)
         .apply {
             if (urgent) {
@@ -120,7 +146,7 @@ class OjasMessagingService : FirebaseMessagingService() {
             else -> Channels.COMMUNITY
         }
         val target = d["target"]
-        showNotification(this, (target ?: d["type"]).hashCode(), channel, title, body, target, urgent = d["type"] == "call" || d["type"] == "callReminder_now")
+        showNotification(this, (target ?: d["type"]).hashCode(), channel, title, body, target, urgent = d["type"] == "call" || d["type"] == "callReminder_now", count = count)
     }
 }
 

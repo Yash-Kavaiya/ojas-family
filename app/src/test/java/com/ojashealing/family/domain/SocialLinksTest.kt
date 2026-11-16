@@ -1,6 +1,7 @@
 package com.ojashealing.family.domain
 
 import com.ojashealing.family.data.about.AboutLink
+import com.ojashealing.family.data.about.OJAS_SOCIAL
 import com.ojashealing.family.data.about.OJAS_YOUTUBE
 import com.ojashealing.family.ui.thought.Social
 import com.ojashealing.family.ui.thought.socialLinks
@@ -27,16 +28,23 @@ class SocialLinksTest {
     }
 
     @Test
-    fun `icons come in a fixed order, one per platform, and YouTube is always there`() {
-        assertEquals(listOf(Social.YouTube to OJAS_YOUTUBE), socialLinks(emptyList()))
+    fun `all eight Ojas Healing pages show, in a fixed order, without any setting`() {
+        val shown = socialLinks(emptyList())
+        assertEquals(Social.entries.toList(), shown.map { it.first })
+        assertEquals(OJAS_SOCIAL.map { socialOf(it) }, Social.entries.toList())
+        assertEquals(OJAS_YOUTUBE, shown.first { it.first == Social.YouTube }.second)
+    }
+
+    @Test
+    fun `a link set in About replaces that platform's page, the first one wins`() {
         val links = listOf(
             AboutLink("Telegram", "https://t.me/ojas"), AboutLink("Book", "https://ojashealing.com/book"),
             AboutLink("WhatsApp", "https://wa.me/1"), AboutLink("WhatsApp group", "https://chat.whatsapp.com/2"),
-            AboutLink("Our channel", "https://youtube.com/@Other"),
         )
-        assertEquals(
-            listOf(Social.WhatsApp to "https://wa.me/1", Social.YouTube to "https://youtube.com/@Other", Social.Telegram to "https://t.me/ojas"),
-            socialLinks(links),
-        )
+        val shown = socialLinks(links).toMap()
+        assertEquals("https://t.me/ojas", shown[Social.Telegram])
+        assertEquals("https://wa.me/1", shown[Social.WhatsApp])
+        assertEquals(OJAS_YOUTUBE, shown[Social.YouTube])
+        assertEquals(8, shown.size)
     }
 }

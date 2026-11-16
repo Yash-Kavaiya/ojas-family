@@ -24,6 +24,18 @@ data class AboutInfo(
 
 const val OJAS_YOUTUBE = "https://www.youtube.com/@OjasHealing"
 
+/** Ojas Healing's own pages, shown as icons at the bottom of Home. A link of the same platform set in About replaces one. */
+val OJAS_SOCIAL: List<String> = listOf(
+    "https://whatsapp.com/channel/0029Va5vLlx2ER6oRfdZ2d3Q",
+    OJAS_YOUTUBE,
+    "https://www.facebook.com/OjasHealing/",
+    "https://www.instagram.com/ojas_healing/",
+    "https://www.threads.net/@ojas_healing",
+    "https://t.me/OjasHealing",
+    "https://www.reddit.com/r/OjasHealing/",
+    "https://ojas-healing.quora.com/",
+)
+
 /** Text in the app language: "ojasFamily_gu" / "ojasFamily_hi" when set, else the plain field. */
 fun DocumentSnapshot.toAbout(language: String): AboutInfo {
     fun text(field: String) = getString("${field}_$language")?.takeIf { it.isNotBlank() } ?: getString(field).orEmpty()

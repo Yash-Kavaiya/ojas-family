@@ -313,6 +313,9 @@ fun MainShell(container: AppContainer) {
         else container.inbox.observe(p0.uid, inboxPaid, p0.notificationPrefs).catch { emit(emptyList()) }
     }.collectAsStateWithLifecycle(null)
     val unreadByGroup = remember(inboxItems) { com.ojashealing.family.data.notify.unreadByGroup(inboxItems.orEmpty()) }
+    // The app icon's number comes from tray notifications: once the bell has nothing unread, they go
+    val bellEmpty = inboxItems != null && unreadByGroup.values.sum() == 0
+    LaunchedEffect(bellEmpty) { if (bellEmpty) com.ojashealing.family.push.AppBadge.clearChannels(context, com.ojashealing.family.push.Channels.COMMUNITY) }
     val inboxScope = androidx.compose.runtime.rememberCoroutineScope()
     /** A group's new posts were looked at: only written when some of them were still new. */
     val markGroupSeen: (com.ojashealing.family.data.notify.NotifGroup) -> Unit = { g ->
@@ -467,6 +470,7 @@ fun MainShell(container: AppContainer) {
         val t = target ?: return@LaunchedEffect
         if (p == null) return@LaunchedEffect
         DeepLinks.consume()
+        com.ojashealing.family.push.AppBadge.clear(context, t)
         com.ojashealing.family.data.analytics.Analytics.notificationOpen(t.substringBefore('/'))
         openTarget(
             nav, t, p.uid,
@@ -984,6 +988,7 @@ fun MainShell(container: AppContainer) {
                         val uid = profile?.uid
                         if (uid != null) {
                             inboxScope.launch { container.inbox.markRead(uid, item, inboxItems.orEmpty()) }
+                            com.ojashealing.family.push.AppBadge.clear(context, item.target)
                             openTarget(
                                 nav, item.target, uid,
                                 selectCommunityTab = { communityTab = it },
