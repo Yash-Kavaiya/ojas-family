@@ -92,7 +92,7 @@ export async function onCallCreated(db: Firestore, m: Messenger, callId: string,
   if (data?.status !== "ringing") return;
   const caller = str(data?.callerUid);
   const name = str((await db.doc(`users/${caller}`).get()).get("displayName"));
-  await notifyUser(db, m, str(data?.calleeUid), "call", {
+  await notifyUser(db, m, str(data?.calleeUid), "ring", {
     type: "call", title: name, target: `calls/${callId}`, fromUid: caller, callId, video: data?.video === true ? "1" : "0",
   });
 }
@@ -153,7 +153,7 @@ export async function onCallUpdated(db: Firestore, callId: string, before: Data,
   if (m && seconds === 0 && str(fresh.status) !== "declined") {
     const caller = str(fresh.callerUid);
     const callerName = str((await db.doc(`users/${caller}`).get()).get("displayName")) || str(fresh.callerName);
-    await notifyUser(db, m, str(fresh.calleeUid), "call", {
+    await notifyUser(db, m, str(fresh.calleeUid), { group: "critical" }, {
       type: "missedCall", title: callerName, target: `${chatCollection(channel)}/${memberUid}`, fromUid: caller,
       video: fresh.video === true ? "1" : "0",
     });

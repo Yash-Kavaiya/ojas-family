@@ -309,6 +309,30 @@ service cloud.firestore {
       allow read, write: if signedIn() && request.auth.uid == uid;
     }
 
+    // ---- The bell list: written by the server; the member reads it and marks lines read ----
+
+    match /users/{uid}/notifications/{id} {
+      allow read, delete: if signedIn() && request.auth.uid == uid;
+      allow update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
+        && request.resource.data.read == true;
+    }
+
+    // Which shared lines the member has seen: a time per group, and lines opened one by one
+    match /users/{uid}/notificationState/{doc} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if signedIn() && request.auth.uid == uid && doc == 'main'
+        && request.resource.data.keys().hasOnly(['seen', 'opened'])
+        && (!('seen' in request.resource.data) || request.resource.data.seen is map)
+        && (!('opened' in request.resource.data) || (request.resource.data.opened is list && request.resource.data.opened.size() <= 300));
+    }
+
+    // New posts everyone may get (a thought, an announcement, a question): one line each
+    match /broadcasts/{id} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
     match /users/{uid}/counters/{day} {
       allow read: if signedIn() && request.auth.uid == uid;
       allow write: if false;
@@ -367,6 +391,12 @@ service cloud.firestore {
       return signedIn() && (isStaff() || rank('memberLevel') >= 1);
     }
 
+    // New Activity posts for the bell: only for those who may see Activity
+    match /paidBroadcasts/{id} {
+      allow read: if isPaid();
+      allow write: if false;
+    }
+
     match /dailyPosts/{postId} {
       allow read: if isPaid()
         && (resource.data.status == 'visible' || resource.data.authorUid == request.auth.uid || isAdmin());
@@ -375,8 +405,9 @@ service cloud.firestore {
         && request.resource.data.authorRole == role()
         && request.resource.data.authorName is string && request.resource.data.authorName.size() <= 80
         && request.resource.data.text is string && request.resource.data.text.size() <= 1000
-        && request.resource.data.imageUrl is string && request.resource.data.imageUrl.size() > 0
-        && request.resource.data.imageUrl.size() < 1000
+        // A photo, words, or both: never an empty post
+        && request.resource.data.imageUrl is string && request.resource.data.imageUrl.size() < 1000
+        && (request.resource.data.imageUrl.size() > 0 || request.resource.data.text.size() > 0)
         && validMentions(request.resource.data) && validBadges(request.resource.data)
         && request.resource.data.status == (hasLink(request.resource.data.text) ? 'pending' : 'visible');
       allow update: if isAdmin();

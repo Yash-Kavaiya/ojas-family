@@ -97,8 +97,13 @@ fun CommunityScreen(
     daily: @Composable (canPost: Boolean) -> Unit = {},
     onOpenAnnouncement: (String) -> Unit = {},
     tab: Int = CommunityTab.DAILY,
-    onTab: (Int) -> Unit = {}
+    onTab: (Int) -> Unit = {},
+    /** New lines per section, for the red counts on the section tabs. */
+    badges: Map<Int, Int> = emptyMap(),
+    /** The section now on screen: its new posts count as seen. */
+    onSectionShown: (Int) -> Unit = {},
 ) {
+    androidx.compose.runtime.LaunchedEffect(tab) { onSectionShown(tab) }
     val perms by vm.permissions.collectAsStateWithLifecycle()
     val questions by vm.questions.collectAsStateWithLifecycle()
     val notices by vm.announcements.collectAsStateWithLifecycle()
@@ -113,9 +118,9 @@ fun CommunityScreen(
                 containerColor = MaterialTheme.colorScheme.surface,
                 contentColor = MaterialTheme.colorScheme.primary
             ) {
-                Tab(selected = tab == CommunityTab.DAILY, onClick = { onTab(CommunityTab.DAILY) }, text = { com.ojashealing.family.ui.components.FitText(stringResource(R.string.community_daily), MaterialTheme.typography.labelLarge) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
-                Tab(selected = tab == CommunityTab.NOTICES, onClick = { onTab(CommunityTab.NOTICES) }, text = { com.ojashealing.family.ui.components.FitText(stringResource(R.string.community_notices), MaterialTheme.typography.labelLarge) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
-                Tab(selected = tab == CommunityTab.QA, onClick = { onTab(CommunityTab.QA) }, text = { com.ojashealing.family.ui.components.FitText(stringResource(R.string.community_qa), MaterialTheme.typography.labelLarge) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
+                Tab(selected = tab == CommunityTab.DAILY, onClick = { onTab(CommunityTab.DAILY) }, text = { SectionLabel(stringResource(R.string.community_daily), badges[CommunityTab.DAILY] ?: 0) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
+                Tab(selected = tab == CommunityTab.NOTICES, onClick = { onTab(CommunityTab.NOTICES) }, text = { SectionLabel(stringResource(R.string.community_notices), badges[CommunityTab.NOTICES] ?: 0) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
+                Tab(selected = tab == CommunityTab.QA, onClick = { onTab(CommunityTab.QA) }, text = { SectionLabel(stringResource(R.string.community_qa), badges[CommunityTab.QA] ?: 0) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             // The order on screen is Activity, Notices, Q&A; the slide follows that order
             androidx.compose.animation.AnimatedContent(
@@ -367,6 +372,17 @@ fun ComposePostScreen(
                 Text(stringResource(R.string.post_add_photo))
             }
             if (photo != null) Text(stringResource(R.string.post_photo_review), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+/** A section's name, with a red count of what is new in it. */
+@Composable
+private fun SectionLabel(label: String, count: Int) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Box(Modifier.weight(1f, fill = false)) { com.ojashealing.family.ui.components.FitText(label, MaterialTheme.typography.labelLarge) }
+        if (count > 0) androidx.compose.material3.Badge(containerColor = androidx.compose.ui.graphics.Color(0xFFE11D48), contentColor = androidx.compose.ui.graphics.Color.White) {
+            Text(if (count > 99) "99+" else "$count")
         }
     }
 }

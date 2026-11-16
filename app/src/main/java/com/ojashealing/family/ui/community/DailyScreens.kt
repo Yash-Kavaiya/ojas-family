@@ -152,7 +152,8 @@ class DailyViewModel(
         }
     }
 
-    fun post(text: String, photo: Uri, onDone: () -> Unit) =
+    /** A photo, words, or both. */
+    fun post(text: String, photo: Uri?, onDone: () -> Unit) =
         send(photo, { p, url -> repo.post(p.asAuthor(), text, url, emptyList()) }, onDone)
 
     fun reply(postId: String, text: String, photo: Uri?, mentions: List<String>, reply: ReplyTo?, onDone: () -> Unit) =
@@ -222,9 +223,15 @@ private fun DailyCard(post: DailyPost, onClick: () -> Unit) {
             AuthorAvatar(post.author, size = 28)
             AuthorLine(post.author, post.createdAt)
         }
-        com.ojashealing.family.ui.components.ResponsiveImage(post.imageUrl, maxHeight = 400.dp)
+        val wordsOnly = post.imageUrl.isEmpty()
+        if (!wordsOnly) com.ojashealing.family.ui.components.ResponsiveImage(post.imageUrl, maxHeight = 400.dp)
         GoalLabel(post)
-        if (post.text.isNotBlank()) Text(post.text, style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        // Without a photo the words are the post: larger, and more of them
+        if (post.text.isNotBlank()) Text(
+            post.text,
+            style = if (wordsOnly) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodyMedium,
+            maxLines = if (wordsOnly) 8 else 3, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+        )
         Text(
             listOf(pluralStringResource(R.plurals.likes_plural, post.likeCount, post.likeCount), stringResource(R.string.replies_count, post.replyCount)).joinToString(" · "),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -261,9 +268,9 @@ fun DailyPostScreen(vm: DailyViewModel, postId: String, onBack: () -> Unit, show
                         Box(Modifier.weight(1f)) { AuthorLine(post.author, post.createdAt) }
                         ReportMenu(post.author, "dailyPosts/${post.id}", onBlocked = onBack)
                     }
-                    PostImage(post.imageUrl)
+                    if (post.imageUrl.isNotEmpty()) PostImage(post.imageUrl)
                     GoalLabel(post)
-                    if (post.text.isNotBlank()) Text(post.text, style = MaterialTheme.typography.bodyMedium)
+                    if (post.text.isNotBlank()) Text(post.text, style = if (post.imageUrl.isEmpty()) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodyMedium)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         LikeButton(liked = liked, enabled = true, onToggle = { vm.setLiked(post.id, !liked) })
                         Text(pluralStringResource(R.plurals.likes_plural, post.likeCount, post.likeCount), style = MaterialTheme.typography.labelMedium)
@@ -299,7 +306,7 @@ fun DailyPostScreen(vm: DailyViewModel, postId: String, onBack: () -> Unit, show
     }
 }
 
-/** Member Level 3: share a photo of today's seva. */
+/** Member Level 3: share today's seva as a photo, as words, or both. */
 @Composable
 fun ComposeDailyScreen(vm: DailyViewModel, onBack: () -> Unit) {
     var text by rememberSaveable { mutableStateOf("") }
@@ -312,7 +319,7 @@ fun ComposeDailyScreen(vm: DailyViewModel, onBack: () -> Unit) {
         subtitle = null,
         onBack = onBack,
         bottom = {
-            PrimaryButton(stringResource(R.string.action_send), onClick = { photo?.let { vm.post(text, it, onBack) } }, busy = busy, enabled = photo != null)
+            PrimaryButton(stringResource(R.string.action_send), onClick = { vm.post(text, photo, onBack) }, busy = busy, enabled = photo != null || text.isNotBlank())
         }
     ) {
         val p = photo
@@ -325,7 +332,7 @@ fun ComposeDailyScreen(vm: DailyViewModel, onBack: () -> Unit) {
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
                 Icon(Icons.Outlined.AddAPhoto, contentDescription = null)
-                Text(stringResource(R.string.daily_photo_required), style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.daily_add_photo), style = MaterialTheme.typography.labelLarge)
             }
         }
         OutlinedTextField(value = text, onValueChange = { text = it.take(1000) }, label = { Text(stringResource(R.string.daily_caption)) },

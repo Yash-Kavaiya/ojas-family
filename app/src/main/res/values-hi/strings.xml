@@ -163,14 +163,7 @@
     <string name="settings_hide_goals">मेरे पूरे लक्ष्य छिपाएँ</string>
     <string name="settings_notifications">सूचनाएँ</string>
     <string name="notif_all">सभी सूचनाएँ</string>
-    <string name="notif_announcements">घोषणाएँ</string>
     <string name="notif_thought">आज का विचार</string>
-    <string name="notif_community_posts">नई सामुदायिक पोस्ट</string>
-    <string name="notif_community_interactions">मेरी पोस्ट पर जवाब और लाइक</string>
-    <string name="notif_community_mentions">समुदाय में उल्लेख</string>
-    <string name="notif_daily_posts">नई दैनिक गतिविधि पोस्ट</string>
-    <string name="notif_daily_replies">मेरी दैनिक गतिविधि पर जवाब</string>
-    <string name="notif_daily_mentions">दैनिक गतिविधियों में उल्लेख</string>
     <string name="settings_reminders">साधना रिमाइंडर</string>
     <string name="settings_morning_reminder">सुबह की साधना</string>
     <string name="settings_night_reminder">रात की साधना</string>
@@ -234,8 +227,9 @@
     <string name="daily_locked_body">सदस्य अपनी दैनिक सेवा (खाना बनाना, सफ़ाई, व्यायाम, योग) फ़ोटो के साथ साझा करते हैं। देखने, लाइक और जवाब देने के लिए सदस्य बनें।</string>
     <string name="daily_post_locked">पोस्ट करना सदस्यता के 6 महीने बाद खुलता है (सदस्य लेवल 3)।</string>
     <string name="daily_new">आज की गतिविधि साझा करें</string>
-    <string name="daily_photo_required">अपनी गतिविधि की फ़ोटो जोड़ें</string>
-    <string name="daily_caption">आज आपने क्या किया? (वैकल्पिक)</string>
+    <string name="daily_add_photo">फ़ोटो जोड़ें (वैकल्पिक)</string>
+    <string name="daily_caption">आज आपने क्या किया?</string>
+    <string name="social_follow">ओजस हीलिंग से जुड़ें</string>
     <string name="daily_empty_title">अभी कोई गतिविधि नहीं</string>
     <string name="daily_empty_body">सदस्यों की दैनिक सेवा की फ़ोटो यहाँ दिखेंगी।</string>
     <string name="daily_replies">जवाब</string>
@@ -768,5 +762,41 @@
     <string name="face_photo_rejected">यह फ़ोटो स्वीकृत नहीं हुई। कृपया दूसरी अपलोड करें।</string>
     <string name="face_photo_upload">चेहरे की फ़ोटो अपलोड करें</string>
     <string name="face_photo_change">फ़ोटो बदलें</string>
+    <string name="face_remove_background">बैकग्राउंड हटाएँ</string>
+    <string name="face_remove_background_failed">इस फ़ोटो में कोई व्यक्ति नहीं मिला। दूसरी फ़ोटो आज़माएँ।</string>
     <string name="moderation_face_photos">चेहरे की फ़ोटो</string>
+    <string name="notif_title">सूचनाएँ</string>
+    <string name="notif_mark_all">सब पढ़ा हुआ करें</string>
+    <string name="notif_filter_all">सभी</string>
+    <string name="notif_empty_title">कोई सूचना नहीं</string>
+    <string name="notif_empty_body">जवाब, लाइक, मेंशन, नई पोस्ट और आपके कॉल व लक्ष्यों की खबर यहाँ दिखेगी।</string>
+    <string name="notif_group_critical">ज़रूरी</string>
+    <string name="notif_group_thought">आज का विचार</string>
+    <string name="notif_group_activity">गतिविधि</string>
+    <string name="notif_group_announcement">घोषणाएँ</string>
+    <string name="notif_group_qa">प्रश्नोत्तर</string>
+    <string name="notif_action_post">नई पोस्ट</string>
+    <string name="notif_action_like_reply">लाइक और जवाब</string>
+    <string name="notif_action_mention">मेंशन</string>
+    <string name="notif_critical_desc">बुक किए कॉल, कॉल की याद, छूटे कॉल, और आपके लक्ष्यों व फ़ोटो पर फ़ैसला। आने वाला कॉल हमेशा बजेगा।</string>
+    <string name="push_like">%1$s ने आपकी पोस्ट पसंद की</string>
+    <string name="push_comment_like">%1$s ने आपकी टिप्पणी पसंद की</string>
+    <string name="push_goal_approved">लक्ष्य पूरा: %1$s</string>
+    <string name="push_goal_approved_body">आपके मुक्ति पॉइंट जोड़ दिए गए हैं।</string>
+    <string name="push_goal_rejected">%1$s के लिए आपकी फ़ोटो स्वीकृत नहीं हुई</string>
+    <string name="push_goal_rejected_body">कृपया इस गतिविधि की दूसरी फ़ोटो भेजें।</string>
+    <string name="push_face_approved">शुरुआती एनिमेशन के लिए आपकी फ़ोटो स्वीकृत हुई</string>
+    <string name="push_face_rejected">शुरुआती एनिमेशन के लिए आपकी फ़ोटो स्वीकृत नहीं हुई</string>
+    <plurals name="push_like_many">
+        <item quantity="one">%1$s और %2$d अन्य ने आपकी पोस्ट पसंद की</item>
+        <item quantity="other">%1$s और %2$d अन्य ने आपकी पोस्ट पसंद की</item>
+    </plurals>
+    <plurals name="push_comment_like_many">
+        <item quantity="one">%1$s और %2$d अन्य ने आपकी टिप्पणी पसंद की</item>
+        <item quantity="other">%1$s और %2$d अन्य ने आपकी टिप्पणी पसंद की</item>
+    </plurals>
+    <plurals name="notif_bell_unread">
+        <item quantity="one">सूचनाएँ, %1$d नई</item>
+        <item quantity="other">सूचनाएँ, %1$d नई</item>
+    </plurals>
 </resources>

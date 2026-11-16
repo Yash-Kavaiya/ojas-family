@@ -2,9 +2,9 @@ import { Timestamp } from "firebase-admin/firestore";
 import { ensureUserDoc } from "../src/auth";
 import { adminGrantFor, countPaidDay, memberLevelFor, verifyPurchaseFor, type PlayApi } from "../src/billing";
 import { onCallUpdated, onChatMessage, sweepRingingCalls } from "../src/chat";
-import { onAnswerNotify, onCommentLikeChanged, onDailyReplyWritten, onQuestionNotify, onThoughtCommentNotify } from "../src/community";
-import { onGoalProgressWritten } from "../src/goals";
-import { wantsPersonal, type Messenger } from "../src/notify";
+import { onAnswerNotify, onCommentLikeChanged, onDailyPostWritten, onDailyReplyWritten, onLikeNotify, onQuestionNotify, onThoughtCommentNotify } from "../src/community";
+import { onFaceDecisionNotify, onGoalDecisionNotify, onGoalProgressWritten } from "../src/goals";
+import { notifyUser, sweepBell, switchOn, wantsPersonal, type Messenger } from "../src/notify";
 import { dayBefore, logPracticeFor, streak } from "../src/practice";
 import { publicProfileOf, refreshAuthorSnapshots, syncPublicProfile } from "../src/profiles";
 import { clearDb, testDb } from "./emulator";
@@ -180,11 +180,28 @@ describe("author snapshots", () => {
 });
 
 describe("notifications", () => {
-  test("master switch silences everything; categories default on", () => {
+  test("master switch silences everything; groups and their switches default on", () => {
     expect(wantsPersonal({ all: false }, "chat")).toBe(false);
-    expect(wantsPersonal({ communityMentions: false }, "communityMentions")).toBe(false);
-    expect(wantsPersonal({ communityMentions: false }, "chat")).toBe(true);
-    expect(wantsPersonal(undefined, "dailyReplies")).toBe(true);
+    expect(wantsPersonal(undefined, { group: "activity", action: "likeReply" })).toBe(true);
+    expect(wantsPersonal({ "qa.mention": false }, { group: "qa", action: "mention" })).toBe(false);
+    expect(wantsPersonal({ "qa.mention": false }, { group: "qa", action: "likeReply" })).toBe(true);
+    // A group switched off silences all of it
+    expect(wantsPersonal({ activity: false }, { group: "activity", action: "post" })).toBe(false);
+    expect(wantsPersonal({ critical: false }, { group: "critical" })).toBe(false);
+  });
+
+  test("settings saved before the groups keep meaning what they meant", () => {
+    expect(switchOn({ communityMentions: false }, "qa", "mention")).toBe(false);
+    expect(switchOn({ communityMentions: false }, "thought", "mention")).toBe(false);
+    expect(switchOn({ dailyReplies: false }, "activity", "likeReply")).toBe(false);
+    expect(switchOn({ dailyPosts: false }, "activity", "post")).toBe(false);
+    // Once the new switch is set it wins
+    expect(switchOn({ communityMentions: false, "qa.mention": true }, "qa", "mention")).toBe(true);
+  });
+
+  test("an incoming call rings with Critical off; only the master switch stops it", () => {
+    expect(wantsPersonal({ critical: false }, "ring")).toBe(true);
+    expect(wantsPersonal({ all: false }, "ring")).toBe(false);
   });
 
   test("a new visible question goes to the community topic and to mentioned people", async () => {
@@ -192,7 +209,7 @@ describe("notifications", () => {
     const { m, sent } = fakeMessenger();
     await onQuestionNotify(db, m, "q1", undefined, { status: "visible", authorUid: "m1", authorName: "A", title: "Why?", mentions: ["m2"] });
     expect(sent.map((s) => s.to)).toEqual(["topic:communityPosts", "tok-m2"]);
-    expect(sent[1].data.category).toBe("communityMentions");
+    expect(sent[1].data.category).toBe("qa");
   });
 
   test("a pending question is announced only when approved", async () => {
@@ -215,7 +232,7 @@ describe("notifications", () => {
     const { m, sent } = fakeMessenger();
     await onDailyReplyWritten(db, m, "p1", undefined, { status: "visible", authorUid: "m2", text: "Lovely" });
     expect((await db.doc("dailyPosts/p1").get()).get("replyCount")).toBe(1);
-    expect(sent[0].data.category).toBe("dailyReplies");
+    expect(sent[0].data.category).toBe("activity");
   });
 
   test("a reply to a comment tells that comment's author, not the replier", async () => {
@@ -239,6 +256,86 @@ describe("notifications", () => {
     const { m, sent } = fakeMessenger();
     await onAnswerNotify(db, m, "q2", undefined, { status: "visible", authorUid: "m2", text: "Agreed", parentId: "a1" });
     expect(sent.map((s) => [s.to, s.data.type])).toEqual([["tok-m1", "commentReply"], ["tok-asker", "answer"]]);
+  });
+});
+
+describe("bell list", () => {
+  const bell = async (uid: string) => (await db.collection(`users/${uid}/notifications`).get()).docs.map((d) => d.data());
+
+  test("a reply is kept for the bell even with no phone to push to", async () => {
+    await db.doc("dailyPosts/p1").set({ authorUid: "m1", replyCount: 0 });
+    const { m, sent } = fakeMessenger();
+    await onDailyReplyWritten(db, m, "p1", undefined, { status: "visible", authorUid: "m2", authorName: "Amit", text: "Lovely" });
+    expect(sent).toHaveLength(0);
+    expect(await bell("m1")).toEqual([expect.objectContaining({ group: "activity", action: "likeReply", type: "dailyReply", title: "Amit", target: "dailyPosts/p1", read: false, count: 1 })]);
+  });
+
+  test("a switch that is off keeps the line out of the bell too", async () => {
+    await db.doc("questions/q1").set({ authorUid: "m1" });
+    await db.doc("users/m1").set({ notificationPrefs: { "qa.likeReply": false } }, { merge: true });
+    const { m } = fakeMessenger();
+    await onAnswerNotify(db, m, "q1", undefined, { status: "visible", authorUid: "m2", text: "Because" });
+    expect(await bell("m1")).toEqual([]);
+  });
+
+  test("likes on one post make one counted line, and the author's own like says nothing", async () => {
+    await db.doc("dailyPosts/p2").set({ authorUid: "m1", text: "Planted a tree" });
+    await db.doc("users/m2").set({ displayName: "Meera" }, { merge: true });
+    await db.doc("users/staff").set({ displayName: "Ravi" }, { merge: true });
+    await db.doc("users/m1").set({ fcmTokens: ["tok-m1"] }, { merge: true });
+    const { m, sent } = fakeMessenger();
+    await onLikeNotify(db, m, "dailyPosts/p2", "m2");
+    await onLikeNotify(db, m, "dailyPosts/p2", "staff");
+    await onLikeNotify(db, m, "dailyPosts/p2", "m1");
+    const lines = await bell("m1");
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatchObject({ type: "like", title: "Ravi", count: 2, body: "Planted a tree", target: "dailyPosts/p2" });
+    expect(sent.map((s) => s.data.count ?? "1")).toEqual(["1", "2"]);
+  });
+
+  test("a like on an answer tells the answer's author, under Q&A", async () => {
+    await db.doc("questions/q3/answers/a1").set({ authorUid: "m1", text: "Sit daily" });
+    const { m } = fakeMessenger();
+    await onLikeNotify(db, m, "questions/q3/answers/a1", "m2");
+    expect(await bell("m1")).toEqual([expect.objectContaining({ group: "qa", type: "commentLike", target: "questions/q3" })]);
+  });
+
+  test("once read, the next event starts a fresh line", async () => {
+    const { m } = fakeMessenger();
+    await notifyUser(db, m, "m1", { group: "qa", action: "likeReply" }, { type: "like", title: "A", target: "questions/q" }, "like:questions/q");
+    await db.doc("users/m1/notifications/like_questions_q").update({ read: true });
+    await notifyUser(db, m, "m1", { group: "qa", action: "likeReply" }, { type: "like", title: "B", target: "questions/q" }, "like:questions/q");
+    expect((await bell("m1"))[0]).toMatchObject({ title: "B", count: 1, read: false });
+  });
+
+  test("a new Activity post is one line for paid members, not one per member", async () => {
+    const { m, sent } = fakeMessenger();
+    await onDailyPostWritten(db, m, "d1", undefined, { status: "visible", authorUid: "m1", authorName: "A", text: "Seva" });
+    expect(sent.map((s) => s.to)).toEqual(["topic:dailyPosts"]);
+    expect((await db.doc("paidBroadcasts/daily_d1").get()).data()).toMatchObject({ group: "activity", action: "post", target: "dailyPosts/d1", fromUid: "m1" });
+    expect((await db.collection("broadcasts").get()).size).toBe(0);
+  });
+
+  test("Critical: a goal decision and a face photo decision reach the member", async () => {
+    await db.doc("goals/warm").set({ title: { en: "Warm water", hi: "गरम पानी" }, reward: 20 });
+    const { m } = fakeMessenger();
+    await onGoalDecisionNotify(db, m, "m1", "warm", { status: "submitted" }, { status: "approved" });
+    await onGoalDecisionNotify(db, m, "m1", "warm", { status: "approved" }, { status: "approved" });
+    await onFaceDecisionNotify(db, m, "m1", { status: "submitted" }, { status: "rejected" });
+    const lines = (await bell("m1")).map((l) => [l.group, l.type, l.body, l.target]);
+    expect(lines).toEqual(expect.arrayContaining([["critical", "goalApproved", "Warm water", "goals"], ["critical", "faceRejected", "", "profile"]]));
+    expect(lines).toHaveLength(2);
+  });
+
+  test("lines older than 30 days are swept", async () => {
+    const old = Timestamp.fromDate(new Date(NOW.getTime() - 31 * DAY));
+    const fresh = Timestamp.fromDate(new Date(NOW.getTime() - 2 * DAY));
+    await db.doc("users/m1/notifications/old").set({ createdAt: old });
+    await db.doc("users/m1/notifications/new").set({ createdAt: fresh });
+    await db.doc("broadcasts/old").set({ createdAt: old });
+    await db.doc("paidBroadcasts/old").set({ createdAt: old });
+    expect(await sweepBell(db, NOW)).toBe(3);
+    expect((await bell("m1")).length).toBe(1);
   });
 });
 

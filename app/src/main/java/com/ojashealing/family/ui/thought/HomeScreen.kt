@@ -204,6 +204,7 @@ fun HomeScreen(
                 }
             }
             item(key = "about", contentType = "about") { AboutBox(about, onOpenAbout, Modifier.padding(horizontal = Spacing.l)) }
+            item(key = "social", contentType = "social") { SocialRow(about.links, Modifier.padding(horizontal = Spacing.l, vertical = Spacing.s)) }
         }
         if (state.canSchedule) {
             FloatingActionButton(
@@ -379,7 +380,7 @@ fun ThoughtCard(
     }
 }
 
-/** Below the thought: About Ojas Family, About Swamiji, App help, Legal, the YouTube channel and any links admins add. */
+/** Below the thought: About Ojas Family, About Swamiji, App help, Legal and any other links admins add. */
 @Composable
 fun AboutBox(about: AboutInfo, onOpenAbout: (String) -> Unit, modifier: Modifier = Modifier) {
     val uri = androidx.compose.ui.platform.LocalUriHandler.current
@@ -389,8 +390,8 @@ fun AboutBox(about: AboutInfo, onOpenAbout: (String) -> Unit, modifier: Modifier
         AboutRow(Icons.Outlined.SelfImprovement, stringResource(R.string.about_swamiji)) { onOpenAbout("swamiji") }
         AboutRow(Icons.AutoMirrored.Outlined.HelpOutline, stringResource(R.string.about_help)) { onOpenAbout("help") }
         AboutRow(Icons.Outlined.Gavel, stringResource(R.string.about_legal)) { onOpenAbout("legal") }
-        AboutRow(Icons.Outlined.SmartDisplay, stringResource(R.string.about_youtube)) { runCatching { uri.openUri(OJAS_YOUTUBE) } }
-        about.links.forEach { l -> AboutRow(Icons.Outlined.Link, l.title) { runCatching { uri.openUri(l.url) } } }
+        // Social pages (YouTube, WhatsApp, Instagram...) are the round icons under this box
+        about.links.filter { socialOf(it.url) == null }.forEach { l -> AboutRow(Icons.Outlined.Link, l.title) { runCatching { uri.openUri(l.url) } } }
     }
 }
 

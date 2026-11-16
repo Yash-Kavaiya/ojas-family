@@ -110,27 +110,14 @@ class OjasMessagingService : FirebaseMessagingService() {
             Firebase.firestore.document("calls/$callId").update("deliveredAt", FieldValue.serverTimestamp())
             return
         }
-        val (channel, title, body) = when (d["type"]) {
-            "announcement" -> Triple(Channels.COMMUNITY, getString(R.string.push_announcement), who.ifEmpty { text })
-            "thought" -> Triple(Channels.COMMUNITY, getString(R.string.push_thought), who.ifEmpty { text })
-            "question" -> Triple(Channels.COMMUNITY, getString(R.string.push_question, who), text)
-            "answer" -> Triple(Channels.COMMUNITY, getString(R.string.push_answer, who), text)
-            "mention" -> Triple(Channels.COMMUNITY, getString(R.string.push_mention, who), text)
-            "daily" -> Triple(Channels.COMMUNITY, getString(R.string.push_daily, who), text)
-            "dailyReply" -> Triple(Channels.COMMUNITY, getString(R.string.push_daily_reply, who), text)
-            "commentReply" -> Triple(Channels.COMMUNITY, getString(R.string.push_comment_reply, who), text)
-            "chat" -> Triple(Channels.CHAT, getString(R.string.push_chat, who), text)
-            "missedCall" -> Triple(Channels.CALL, getString(if (d["video"] == "1") R.string.push_missed_video_call else R.string.push_missed_call, who), getString(R.string.push_missed_call_body))
-            "call" -> Triple(Channels.CALL, getString(if (d["video"] == "1") R.string.push_video_call else R.string.push_call, who), getString(R.string.call_tap_to_answer))
-            // Scheduled calls: body is the time ("7 Nov, 4:30 pm"), title the other person
-            "callRequest" -> Triple(Channels.CHAT, getString(R.string.push_call_request, who), text)
-            "callRequest_confirmed" -> Triple(Channels.CHAT, getString(R.string.push_call_confirmed), text)
-            "callRequest_proposed" -> Triple(Channels.CHAT, getString(R.string.push_call_proposed), text)
-            "callRequest_declined" -> Triple(Channels.CHAT, getString(R.string.push_call_declined), text)
-            "callRequest_cancelled" -> Triple(Channels.CHAT, getString(R.string.push_call_cancelled, who), text)
-            "callReminder_soon" -> Triple(Channels.CALL, getString(R.string.push_call_soon, who.ifEmpty { getString(R.string.role_swamiji) }), text)
-            "callReminder_now" -> Triple(Channels.CALL, getString(R.string.push_call_now), getString(R.string.push_call_now_body, text))
-            else -> return
+        val type = d["type"].orEmpty()
+        val video = d["video"] == "1"
+        val count = d["count"]?.toIntOrNull() ?: 1
+        val (title, body) = com.ojashealing.family.ui.notify.notificationText(resources, type, who, text, count, video) ?: return
+        val channel = when {
+            type == "call" || type == "missedCall" || type.startsWith("callReminder") -> Channels.CALL
+            d["category"] == "chat" || d["category"] == "critical" -> Channels.CHAT
+            else -> Channels.COMMUNITY
         }
         val target = d["target"]
         showNotification(this, (target ?: d["type"]).hashCode(), channel, title, body, target, urgent = d["type"] == "call" || d["type"] == "callReminder_now")
@@ -139,20 +126,15 @@ class OjasMessagingService : FirebaseMessagingService() {
 
 /** Broadcast notification categories are FCM topics; Settings switches subscribe and unsubscribe. */
 object PushTopics {
-    // Settings key -> FCM topic (same names as TOPICS in functions/src/notify.ts)
-    val topics = mapOf(
-        "announcements" to "announcements",
-        "thoughtOfDay" to "thoughtOfDay",
-        "communityPosts" to "communityPosts",
-        "dailyPosts" to "dailyPosts"
-    )
+    // Each group's new posts come on a topic (same names as TOPICS in functions/src/notify.ts)
+    val topics = com.ojashealing.family.data.notify.postTopics
 
-    /** [paid]: Daily Activities posts are only for members who can see them. */
+    /** Subscribed while the group's "Post" switch is on. [paid]: Activity posts are only for members who can see them. */
     suspend fun sync(prefs: Map<String, Boolean>, paid: Boolean) {
-        val all = prefs["all"] ?: true
         val fcm = FirebaseMessaging.getInstance()
-        for ((key, topic) in topics) {
-            val on = all && (prefs[key] ?: true) && (key != "dailyPosts" || paid)
+        for ((group, topic) in topics) {
+            val on = com.ojashealing.family.data.notify.switchOn(prefs, group, com.ojashealing.family.data.notify.NotifAction.Post) &&
+                (group != com.ojashealing.family.data.notify.NotifGroup.Activity || paid)
             runCatching { if (on) fcm.subscribeToTopic(topic).await() else fcm.unsubscribeFromTopic(topic).await() }
         }
     }

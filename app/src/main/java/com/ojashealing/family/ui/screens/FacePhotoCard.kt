@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -49,15 +50,21 @@ fun FacePhotoCard(photo: FacePhoto?, onUpload: suspend (Uri) -> Result<Unit>) {
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
+    // Pick, then crop (and remove the background if wanted), then send
+    var editing by remember { mutableStateOf<Uri?>(null) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null && !busy) {
+        if (uri != null && !busy) editing = uri
+    }
+    editing?.let { picked ->
+        FacePhotoEditor(picked, onDismiss = { editing = null }, onDone = { ready ->
+            editing = null
             busy = true
             failed = false
             scope.launch {
-                failed = onUpload(uri).isFailure
+                failed = onUpload(ready).isFailure
                 busy = false
             }
-        }
+        })
     }
     OjasCard {
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.m), verticalAlignment = Alignment.CenterVertically) {
@@ -69,7 +76,9 @@ fun FacePhotoCard(photo: FacePhoto?, onUpload: suspend (Uri) -> Result<Unit>) {
                 model = photo.photoUrl,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.size(72.dp).clip(RoundedCornerShape(16.dp))
+                // The animation's shape and dark background, so a photo without its background looks as it will there
+                modifier = Modifier.size(width = 72.dp, height = 90.dp).clip(RoundedCornerShape(16.dp))
+                    .background(com.ojashealing.family.ui.theme.BackgroundDark)
             )
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                 Text(

@@ -29,15 +29,15 @@ export async function onCallRequestWritten(db: Firestore, m: Messenger, id: stri
   const video = after.video === true ? "1" : "0";
   if (!before && status === "pending") {
     for (const uid of await staffSide(db, after)) {
-      await notifyUser(db, m, uid, "chat", { type: "callRequest", title: str(after.memberName), body: when, target, video, fromUid: str(after.memberUid) });
+      await notifyUser(db, m, uid, { group: "critical" }, { type: "callRequest", title: str(after.memberName), body: when, target, video, fromUid: str(after.memberUid) });
     }
     return;
   }
   if (status === "confirmed" || status === "proposed" || status === "declined") {
-    await notifyUser(db, m, str(after.memberUid), "chat", { type: `callRequest_${status}`, title: str(after.staffName), body: when, target, video });
+    await notifyUser(db, m, str(after.memberUid), { group: "critical" }, { type: `callRequest_${status}`, title: str(after.staffName), body: when, target, video });
   } else if (status === "cancelled") {
     for (const uid of await staffSide(db, after)) {
-      await notifyUser(db, m, uid, "chat", { type: "callRequest_cancelled", title: str(after.memberName), body: when, target, video });
+      await notifyUser(db, m, uid, { group: "critical" }, { type: "callRequest_cancelled", title: str(after.memberName), body: when, target, video });
     }
   }
 }
@@ -63,8 +63,8 @@ export async function sendCallReminders(db: Firestore, m: Messenger, now: Date):
     if (!due) continue;
     const when = istLabel(millis(r.at));
     const base = { type: due === "now" ? "callReminder_now" : "callReminder_soon", body: when, target: `callRequests/${d.id}`, video: r.video === true ? "1" : "0" };
-    await notifyUser(db, m, str(r.memberUid), "call", { ...base, title: str(r.staffName) });
-    for (const uid of await staffSide(db, r)) await notifyUser(db, m, uid, "call", { ...base, title: str(r.memberName) });
+    await notifyUser(db, m, str(r.memberUid), { group: "critical" }, { ...base, title: str(r.staffName) });
+    for (const uid of await staffSide(db, r)) await notifyUser(db, m, uid, { group: "critical" }, { ...base, title: str(r.memberName) });
     await d.ref.set(due === "now" ? { remindedStart: true, reminded15: true } : { reminded15: true }, { merge: true });
     sent++;
   }

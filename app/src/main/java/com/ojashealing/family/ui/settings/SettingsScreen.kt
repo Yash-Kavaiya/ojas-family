@@ -1,5 +1,12 @@
 package com.ojashealing.family.ui.settings
 
+import com.ojashealing.family.data.notify.NOTIF_ALL
+import com.ojashealing.family.data.notify.NotifAction
+import com.ojashealing.family.data.notify.NotifGroup
+import com.ojashealing.family.data.notify.notifKey
+import com.ojashealing.family.data.notify.switchOn
+import com.ojashealing.family.ui.notify.icon
+import com.ojashealing.family.ui.notify.label
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -92,7 +99,12 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit) {
                     }
                 }
 
-                Section(stringResource(R.string.settings_privacy), tint = 2) {
+                Section(stringResource(R.string.settings_reminders), tint = 2) {
+                    ValueRow(stringResource(R.string.settings_morning_reminder), state.morningReminder) { editingReminder = true }
+                    ValueRow(stringResource(R.string.settings_night_reminder), state.nightReminder) { editingReminder = false }
+                }
+
+                Section(stringResource(R.string.settings_privacy), tint = 3) {
                     // Turning hiding off always works; turning it on waits for User Level 3
                     SwitchRow(stringResource(R.string.settings_hide_profile), state.hideProfile,
                         enabled = state.canHideProfile || state.hideProfile, onChange = vm::setHideProfile)
@@ -105,11 +117,6 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit) {
 
                 // Which notifications to get: here with the other settings, not on the Home tab
                 NotificationControls(prefs = state.notificationPrefs, onChange = vm::setNotificationPrefs)
-
-                Section(stringResource(R.string.settings_reminders), tint = 3) {
-                    ValueRow(stringResource(R.string.settings_morning_reminder), state.morningReminder) { editingReminder = true }
-                    ValueRow(stringResource(R.string.settings_night_reminder), state.nightReminder) { editingReminder = false }
-                }
 
                 Section(stringResource(R.string.settings_account), tint = 4) {
                     OutlinedButton(onClick = vm::signOutNow, modifier = Modifier.fillMaxWidth()) {
@@ -157,20 +164,43 @@ fun NotificationControls(
         pending = pending.filter { (key, on) -> (prefs[key] ?: true) != on }
     }
     val shown = prefs + pending
-    val allOn = shown[NotificationKeys.ALL] ?: true
+    val allOn = shown[NOTIF_ALL] ?: true
     fun set(key: String, on: Boolean) {
         val nextPending = pending + (key to on)
         pending = nextPending
         onChange(prefs + nextPending)
     }
-    Box(modifier) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(Spacing.l)) {
         Section(stringResource(R.string.settings_notifications), tint = 6) {
-            SwitchRow(stringResource(R.string.notif_all), allOn) { set(NotificationKeys.ALL, it) }
-            NotificationKeys.categories.forEach { (key, label) ->
-                SwitchRow(stringResource(label), (shown[key] ?: true), enabled = allOn) { set(key, it) }
+            SwitchRow(stringResource(R.string.notif_all), allOn) { set(NOTIF_ALL, it) }
+        }
+        // One card per group: its own switch, then Post, Like & Reply and Mention
+        NotifGroup.entries.forEachIndexed { i, group ->
+            val groupOn = allOn && switchOn(shown, group)
+            OjasCard(tintKey = 7 + i) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.m)) {
+                    Icon(group.icon(), contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Box(Modifier.weight(1f)) {
+                        SwitchRow(stringResource(group.label()), groupOn, enabled = allOn) { set(notifKey(group), it) }
+                    }
+                }
+                if (group == NotifGroup.Critical) {
+                    Text(stringResource(R.string.notif_critical_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                group.actions.forEach { action ->
+                    Box(Modifier.padding(start = Spacing.xl)) {
+                        SwitchRow(stringResource(action.label()), groupOn && switchOn(shown, group, action), enabled = groupOn) { set(notifKey(group, action), it) }
+                    }
+                }
             }
         }
     }
+}
+
+private fun NotifAction.label(): Int = when (this) {
+    NotifAction.Post -> R.string.notif_action_post
+    NotifAction.LikeReply -> R.string.notif_action_like_reply
+    NotifAction.Mention -> R.string.notif_action_mention
 }
 
 @Composable

@@ -1,5 +1,7 @@
 package com.ojashealing.family.data.user
 
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import android.content.ContentResolver
 import android.net.Uri
 import com.google.firebase.firestore.DocumentSnapshot
@@ -59,8 +61,15 @@ class FacePhotoRepository(
      * swapped for another one, then asks for review.
      */
     suspend fun submit(uid: String, photo: Uri): Result<Unit> = runCatching {
-        val ref = storage.reference.child("users/$uid/face_${System.currentTimeMillis()}.jpg")
-        ref.putBytes(resolver.shrunkJpeg(photo, 1600), StorageMetadata.Builder().setContentType("image/jpeg").build()).await()
+        // A photo with its background removed arrives from the editor as a PNG and must stay one: JPEG has no see-through
+        val cutOut = photo.lastPathSegment.orEmpty().endsWith(".png", ignoreCase = true)
+        val ref = storage.reference.child("users/$uid/face_${System.currentTimeMillis()}.${if (cutOut) "png" else "jpg"}")
+        if (cutOut) {
+            val bytes = withContext(Dispatchers.IO) { resolver.openInputStream(photo)?.use { it.readBytes() } } ?: error("Could not read the photo")
+            ref.putBytes(bytes, StorageMetadata.Builder().setContentType("image/png").build()).await()
+        } else {
+            ref.putBytes(resolver.shrunkJpeg(photo, 1600), StorageMetadata.Builder().setContentType("image/jpeg").build()).await()
+        }
         val url = ref.downloadUrl.await().toString()
         db.document("facePhotos/$uid").set(
             mapOf("status" to "submitted", "photoUrl" to url, "submittedAt" to FieldValue.serverTimestamp())

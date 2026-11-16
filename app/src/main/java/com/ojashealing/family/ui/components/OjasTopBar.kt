@@ -1,5 +1,8 @@
 package com.ojashealing.family.ui.components
 
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.Image
@@ -66,7 +69,10 @@ fun OjasTopBar(
     profile: UserProfile?,
     modifier: Modifier = Modifier,
     onCounterPositioned: (Offset) -> Unit = {},
-    onOpenPoints: () -> Unit = {}
+    onOpenPoints: () -> Unit = {},
+    /** New lines in the bell list; the bell shows only when [onOpenBell] is given. */
+    unread: Int = 0,
+    onOpenBell: (() -> Unit)? = null,
 ) {
     val points = profile?.mokshaPoints ?: 0
 
@@ -123,6 +129,24 @@ fun OjasTopBar(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         NameBadges(profile.viewer.role, profile.viewer.userLevel.rank, profile.viewer.memberLevel.rank, 14.dp)
+                    }
+                }
+            }
+
+            if (onOpenBell != null) {
+                val bellLabel = if (unread > 0) pluralStringResource(R.plurals.notif_bell_unread, unread, unread) else stringResource(R.string.notif_title)
+                androidx.compose.material3.IconButton(onClick = onOpenBell, modifier = Modifier.testTag("bell")) {
+                    androidx.compose.material3.BadgedBox(badge = {
+                        // Red, like Facebook: the count of what is new
+                        if (unread > 0) androidx.compose.material3.Badge(containerColor = androidx.compose.ui.graphics.Color(0xFFE11D48), contentColor = androidx.compose.ui.graphics.Color.White) {
+                            Text(if (unread > 99) "99+" else "$unread")
+                        }
+                    }) {
+                        Icon(
+                            if (unread > 0) Icons.Filled.Notifications else Icons.Outlined.Notifications,
+                            contentDescription = bellLabel,
+                            tint = if (unread > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             }

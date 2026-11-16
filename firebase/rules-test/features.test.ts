@@ -49,10 +49,12 @@ describe("daily activities", () => {
     await assertSucceeds(getDoc(doc(as("paid"), "dailyPosts", "p1")));
   });
 
-  test("only Member Level 3 posts, and a photo is required", async () => {
+  test("only Member Level 3 posts: a photo, words or both, never an empty post", async () => {
     await assertFails(setDoc(doc(as("paid"), "dailyPosts", "x"), post("paid", { imageUrl: "https://img" })));
-    await assertFails(setDoc(doc(as("m3"), "dailyPosts", "x"), post("m3", { imageUrl: "" })));
+    await assertFails(setDoc(doc(as("m3"), "dailyPosts", "x"), post("m3", { imageUrl: "", text: "" })));
     await assertSucceeds(setDoc(doc(as("m3"), "dailyPosts", "x"), post("m3", { imageUrl: "https://img" })));
+    await assertSucceeds(setDoc(doc(as("m3"), "dailyPosts", "words"), post("m3", { imageUrl: "", text: "Cooked for the family today." })));
+    await assertSucceeds(setDoc(doc(as("m3"), "dailyPosts", "photoOnly"), post("m3", { imageUrl: "https://img", text: "" })));
   });
 
   test("paid members reply and like", async () => {
@@ -317,5 +319,37 @@ describe("chat and calls by member level", () => {
     await assertSucceeds(updateDoc(doc(as("sw"), "callRequests", "r1"), { status: "proposed", proposedAt: FUTURE, staffUid: "sw", staffName: "Swamiji" }));
     await assertSucceeds(updateDoc(doc(as("m3"), "callRequests", "r1"), { status: "confirmed", at: FUTURE }));
     await assertFails(updateDoc(doc(as("adm"), "callRequests", "r1"), { reminded15: true }));
+  });
+});
+
+describe("bell list", () => {
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, "users", "m3", "notifications", "n1"), { group: "qa", read: false, title: "A" });
+      await setDoc(doc(db, "broadcasts", "b1"), { group: "qa" });
+      await setDoc(doc(db, "paidBroadcasts", "p1"), { group: "activity" });
+    });
+  });
+
+  test("a member reads and marks their own lines read, and nobody else's", async () => {
+    await assertSucceeds(getDoc(doc(as("m3"), "users", "m3", "notifications", "n1")));
+    await assertFails(getDoc(doc(as("paid"), "users", "m3", "notifications", "n1")));
+    await assertSucceeds(updateDoc(doc(as("m3"), "users", "m3", "notifications", "n1"), { read: true }));
+    await assertFails(updateDoc(doc(as("m3"), "users", "m3", "notifications", "n1"), { title: "changed" }));
+    await assertFails(setDoc(doc(as("m3"), "users", "m3", "notifications", "fake"), { group: "critical", read: false }));
+  });
+
+  test("shared lines: everyone reads new posts; only paid members read new Activity posts", async () => {
+    await assertSucceeds(getDoc(doc(as("free"), "broadcasts", "b1")));
+    await assertFails(getDoc(doc(as("free"), "paidBroadcasts", "p1")));
+    await assertSucceeds(getDoc(doc(as("paid"), "paidBroadcasts", "p1")));
+    await assertFails(setDoc(doc(as("adm"), "broadcasts", "x"), { group: "qa" }));
+  });
+
+  test("a member keeps their own seen state", async () => {
+    await assertSucceeds(setDoc(doc(as("m3"), "users", "m3", "notificationState", "main"), { seen: { qa: serverTimestamp() }, opened: ["b1"] }));
+    await assertFails(setDoc(doc(as("m3"), "users", "m3", "notificationState", "main"), { seen: {}, extra: 1 }));
+    await assertFails(getDoc(doc(as("paid"), "users", "m3", "notificationState", "main")));
   });
 });

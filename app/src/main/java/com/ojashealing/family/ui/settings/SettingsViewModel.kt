@@ -14,21 +14,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-// Keys stored in users/{uid}.notificationPrefs; Cloud Functions read the same keys before sending
-object NotificationKeys {
-    const val ALL = "all"
-    val categories = listOf(
-        "announcements" to R.string.notif_announcements,
-        "thoughtOfDay" to R.string.notif_thought,
-        "communityPosts" to R.string.notif_community_posts,
-        "communityInteractions" to R.string.notif_community_interactions,
-        "communityMentions" to R.string.notif_community_mentions,
-        "dailyPosts" to R.string.notif_daily_posts,
-        "dailyReplies" to R.string.notif_daily_replies,
-        "dailyMentions" to R.string.notif_daily_mentions
-    )
-}
-
 /** The slice of the user profile the settings screen reads. */
 data class SettingsProfile(
     val hideProfile: Boolean,
@@ -53,7 +38,7 @@ data class SettingsUiState(
 ) {
     // Every notification is on until the user turns it off
     fun isOn(key: String): Boolean = notificationPrefs[key] ?: true
-    val categoriesEnabled: Boolean get() = isOn(NotificationKeys.ALL)
+    val categoriesEnabled: Boolean get() = isOn(com.ojashealing.family.data.notify.NOTIF_ALL)
 }
 
 class SettingsViewModel(

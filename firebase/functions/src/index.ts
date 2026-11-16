@@ -8,7 +8,7 @@ import { HttpsError, onCall, type CallableRequest } from "firebase-functions/v2/
 import { deleteAccountData, ensureUserDoc, setRoleFor } from "./auth";
 import { claimDailyOpenFor } from "./daily";
 import { addVideoFor, importPlaylistFor } from "./content";
-import { onGoalProgressWritten, tickGoalFor } from "./goals";
+import { onGoalProgressWritten, tickGoalFor, onFaceDecisionNotify, onGoalDecisionNotify } from "./goals";
 import { onAnswerWritten, onCommentWritten, onLikeChanged, onQuestionWritten } from "./social";
 import { onDocumentCreated, onDocumentDeleted, onDocumentUpdated, onDocumentWritten } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
@@ -24,9 +24,9 @@ import { onCallCreated, onCallUpdated, onChatMessage, sweepRingingCalls } from "
 import { onCallRequestWritten, sendCallReminders } from "./schedule";
 import {
   onAnnouncementCommentNotify, onAnnouncementCountChanged, onCommentLikeChanged, onAnnouncementCreated, onAnswerNotify, onDailyLikeChanged, onDailyPostWritten, onDailyReplyWritten,
-  onQuestionNotify, onThoughtCommentNotify, onThoughtOfDay,
+  onLikeNotify, onQuestionNotify, onThoughtCommentNotify, onThoughtOfDay,
 } from "./community";
-import type { Messenger } from "./notify";
+import { sweepBell, type Messenger } from "./notify";
 import { istDay } from "./time";
 import { applyAdminList, applyAdminListNow, givePointsFor, statsFor } from "./admin";
 import { findGiftRecipientsFor, reverseTransferFor, setTransfersFrozenFor, staffAdjustPointsFor, transferPointsFor, updatePointsConfigFor } from "./transfer";
@@ -145,8 +145,10 @@ export const thoughtLikeAdded = onDocumentCreated("thoughts/{thoughtId}/likes/{u
 export const thoughtLikeRemoved = onDocumentDeleted("thoughts/{thoughtId}/likes/{uid}", (e) =>
   onLikeChanged(db, `thoughts/${e.params.thoughtId}`, e.params.uid, -1, new Date()));
 
-export const questionLikeAdded = onDocumentCreated("questions/{questionId}/likes/{uid}", (e) =>
-  onLikeChanged(db, `questions/${e.params.questionId}`, e.params.uid, 1, new Date()));
+export const questionLikeAdded = onDocumentCreated("questions/{questionId}/likes/{uid}", async (e) => {
+  await onLikeChanged(db, `questions/${e.params.questionId}`, e.params.uid, 1, new Date());
+  await onLikeNotify(db, messenger, `questions/${e.params.questionId}`, e.params.uid);
+});
 
 export const questionLikeRemoved = onDocumentDeleted("questions/{questionId}/likes/{uid}", (e) =>
   onLikeChanged(db, `questions/${e.params.questionId}`, e.params.uid, -1, new Date()));
@@ -172,8 +174,15 @@ export const answerWritten = onDocumentWritten("questions/{questionId}/answers/{
   await onAnswerNotify(db, messenger, e.params.questionId, before, after);
 });
 
-export const goalProgressWritten = onDocumentWritten("users/{uid}/goalProgress/{goalId}", (e) =>
-  onGoalProgressWritten(db, e.params.uid, e.params.goalId, e.data?.before.data(), e.data?.after.data()));
+export const goalProgressWritten = onDocumentWritten("users/{uid}/goalProgress/{goalId}", async (e) => {
+  const before = e.data?.before.data();
+  const after = e.data?.after.data();
+  await onGoalProgressWritten(db, e.params.uid, e.params.goalId, before, after);
+  await onGoalDecisionNotify(db, messenger, e.params.uid, e.params.goalId, before, after);
+});
+
+export const facePhotoWritten = onDocumentWritten("facePhotos/{uid}", (e) =>
+  onFaceDecisionNotify(db, messenger, e.params.uid, e.data?.before.data(), e.data?.after.data()));
 
 // ---- Daily practices (design §7.4) ----
 
@@ -265,7 +274,12 @@ export const rateAiAnswer = onCall(async (req) => {
 // ---- Notifications ----
 
 export const announcementCreated = onDocumentCreated("announcements/{id}", (e) =>
-  onAnnouncementCreated(messenger, e.params.id, e.data?.data()));
+  onAnnouncementCreated(db, messenger, e.params.id, e.data?.data()));
+
+// Bell lines older than 30 days go, once a day
+export const bellSweep = onSchedule({ schedule: "30 3 * * *", timeZone: "Asia/Kolkata" }, async () => {
+  await sweepBell(db, new Date());
+});
 
 export const thoughtOfDayPush = onSchedule({ schedule: "0 6 * * *", timeZone: "Asia/Kolkata" }, async () => {
   await onThoughtOfDay(db, messenger, istDay(new Date()));
@@ -299,16 +313,31 @@ const commentLikePaths = [
 ];
 const commentPathOf = (pattern: string, params: Record<string, string>) =>
   pattern.replace("{p}", params.p).replace("{c}", params.c);
-export const thoughtCommentLikeAdded = onDocumentCreated(`${commentLikePaths[0]}/likes/{uid}`, (e) => onCommentLikeChanged(db, commentPathOf(commentLikePaths[0], e.params), 1));
+export const thoughtCommentLikeAdded = onDocumentCreated(`${commentLikePaths[0]}/likes/{uid}`, async (e) => {
+  await onCommentLikeChanged(db, commentPathOf(commentLikePaths[0], e.params), 1);
+  await onLikeNotify(db, messenger, commentPathOf(commentLikePaths[0], e.params), e.params.uid);
+});
 export const thoughtCommentLikeRemoved = onDocumentDeleted(`${commentLikePaths[0]}/likes/{uid}`, (e) => onCommentLikeChanged(db, commentPathOf(commentLikePaths[0], e.params), -1));
-export const announcementCommentLikeAdded = onDocumentCreated(`${commentLikePaths[1]}/likes/{uid}`, (e) => onCommentLikeChanged(db, commentPathOf(commentLikePaths[1], e.params), 1));
+export const announcementCommentLikeAdded = onDocumentCreated(`${commentLikePaths[1]}/likes/{uid}`, async (e) => {
+  await onCommentLikeChanged(db, commentPathOf(commentLikePaths[1], e.params), 1);
+  await onLikeNotify(db, messenger, commentPathOf(commentLikePaths[1], e.params), e.params.uid);
+});
 export const announcementCommentLikeRemoved = onDocumentDeleted(`${commentLikePaths[1]}/likes/{uid}`, (e) => onCommentLikeChanged(db, commentPathOf(commentLikePaths[1], e.params), -1));
-export const answerLikeAdded = onDocumentCreated(`${commentLikePaths[2]}/likes/{uid}`, (e) => onCommentLikeChanged(db, commentPathOf(commentLikePaths[2], e.params), 1));
+export const answerLikeAdded = onDocumentCreated(`${commentLikePaths[2]}/likes/{uid}`, async (e) => {
+  await onCommentLikeChanged(db, commentPathOf(commentLikePaths[2], e.params), 1);
+  await onLikeNotify(db, messenger, commentPathOf(commentLikePaths[2], e.params), e.params.uid);
+});
 export const answerLikeRemoved = onDocumentDeleted(`${commentLikePaths[2]}/likes/{uid}`, (e) => onCommentLikeChanged(db, commentPathOf(commentLikePaths[2], e.params), -1));
-export const dailyReplyLikeAdded = onDocumentCreated(`${commentLikePaths[3]}/likes/{uid}`, (e) => onCommentLikeChanged(db, commentPathOf(commentLikePaths[3], e.params), 1));
+export const dailyReplyLikeAdded = onDocumentCreated(`${commentLikePaths[3]}/likes/{uid}`, async (e) => {
+  await onCommentLikeChanged(db, commentPathOf(commentLikePaths[3], e.params), 1);
+  await onLikeNotify(db, messenger, commentPathOf(commentLikePaths[3], e.params), e.params.uid);
+});
 export const dailyReplyLikeRemoved = onDocumentDeleted(`${commentLikePaths[3]}/likes/{uid}`, (e) => onCommentLikeChanged(db, commentPathOf(commentLikePaths[3], e.params), -1));
 
-export const dailyLikeAdded = onDocumentCreated("dailyPosts/{id}/likes/{uid}", (e) => onDailyLikeChanged(db, e.params.id, 1));
+export const dailyLikeAdded = onDocumentCreated("dailyPosts/{id}/likes/{uid}", async (e) => {
+  await onDailyLikeChanged(db, e.params.id, 1);
+  await onLikeNotify(db, messenger, `dailyPosts/${e.params.id}`, e.params.uid);
+});
 export const dailyLikeRemoved = onDocumentDeleted("dailyPosts/{id}/likes/{uid}", (e) => onDailyLikeChanged(db, e.params.id, -1));
 
 // ---- Payments (design §7.9) ----

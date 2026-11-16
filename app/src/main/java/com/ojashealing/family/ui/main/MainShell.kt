@@ -206,6 +206,7 @@ import kotlinx.serialization.Serializable
 @Serializable data class MemberProfileRoute(val uid: String)
 @Serializable object MembersRoute
 @Serializable object PointsHistoryRoute
+@Serializable object NotificationsRoute
 @Serializable data class ThoughtRoute(val id: String)
 @Serializable data class AnnouncementRoute(val id: String)
 @Serializable data class AboutRoute(val kind: String)
@@ -302,6 +303,23 @@ fun MainShell(container: AppContainer) {
             ) { a, b -> (a?.unreadCountMember ?: 0) + (b?.unreadCountMember ?: 0) }
         }.catch { emit(0) }
     }.collectAsStateWithLifecycle(0)
+
+    // The bell list: the member's own notifications and new posts, only for switches that are on
+    val inboxPaid = profile?.let { Permissions.canViewDailyActivities(it.viewer) } == true
+    val inboxItems by remember(profile?.uid, profile?.notificationPrefs, inboxPaid) {
+        val p0 = profile
+        if (p0 == null) flowOf(null)
+        else container.inbox.observe(p0.uid, inboxPaid, p0.notificationPrefs).catch { emit(emptyList()) }
+    }.collectAsStateWithLifecycle(null)
+    val unreadByGroup = remember(inboxItems) { com.ojashealing.family.data.notify.unreadByGroup(inboxItems.orEmpty()) }
+    val inboxScope = androidx.compose.runtime.rememberCoroutineScope()
+    /** A group's new posts were looked at: only written when some of them were still new. */
+    val markGroupSeen: (com.ojashealing.family.data.notify.NotifGroup) -> Unit = { g ->
+        val uid = profile?.uid
+        if (uid != null && inboxItems.orEmpty().any { !it.personal && it.unread && it.group == g }) {
+            inboxScope.launch { container.inbox.markGroupSeen(uid, g) }
+        }
+    }
 
     // Online / last seen: a heartbeat while the app is in front
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
@@ -445,6 +463,7 @@ fun MainShell(container: AppContainer) {
             selectTab = { tab = it },
             setCommunityJump = { communityJump = it },
             setAskJump = { askJump = it },
+            selectPracticePart = { practicePart = it },
         )
     }
 
@@ -561,7 +580,16 @@ fun MainShell(container: AppContainer) {
                                 selected = tab == item,
                                 onClick = { tab = item },
                                 modifier = Modifier.testTag("nav_${item.name}"),
-                                icon = { SuiteIcon(item, tab == item, profile?.photoUrl.orEmpty(), askUnread) },
+                                icon = {
+                                    // Ask: unread chat; Community: new Activity, Announcements and Q&A; Home: the new thought
+                                    val count = when (item) {
+                                        MainTab.Ask -> askUnread
+                                        MainTab.Community -> listOf(com.ojashealing.family.data.notify.NotifGroup.Activity, com.ojashealing.family.data.notify.NotifGroup.Announcement, com.ojashealing.family.data.notify.NotifGroup.Qa).sumOf { unreadByGroup[it] ?: 0 }
+                                        MainTab.Home -> unreadByGroup[com.ojashealing.family.data.notify.NotifGroup.Thought] ?: 0
+                                        else -> 0
+                                    }
+                                    SuiteIcon(item, tab == item, profile?.photoUrl.orEmpty(), count)
+                                },
                                 label = {
                                     // Shrinks a little rather than cutting "Community" to "Communi…"
                                     com.ojashealing.family.ui.components.FitText(stringResource(item.label), MaterialTheme.typography.labelMedium)
@@ -571,7 +599,10 @@ fun MainShell(container: AppContainer) {
                     },
                 ) {
                     Column(Modifier.fillMaxSize()) {
-                        OjasTopBar(profile, onCounterPositioned = { anchors.counterCenter = it }, onOpenPoints = { nav.navigate(PointsHistoryRoute) })
+                        OjasTopBar(
+                            profile, onCounterPositioned = { anchors.counterCenter = it }, onOpenPoints = { nav.navigate(PointsHistoryRoute) },
+                            unread = unreadByGroup.values.sum(), onOpenBell = { nav.navigate(NotificationsRoute) { launchSingleTop = true } },
+                        )
                         Box(Modifier.weight(1f).fillMaxWidth()) {
                             AnimatedContent(targetState = tab, transitionSpec = { tabTransition(initialState, targetState) }, label = "tab") { shown ->
                                 when (shown) {
@@ -596,6 +627,20 @@ fun MainShell(container: AppContainer) {
                                                 onOpenAnnouncement = { onOpen("announcement", it) },
                                                 tab = communityTab,
                                                 onTab = { communityTab = it },
+                                                badges = mapOf(
+                                                    com.ojashealing.family.ui.community.CommunityTab.DAILY to (unreadByGroup[com.ojashealing.family.data.notify.NotifGroup.Activity] ?: 0),
+                                                    com.ojashealing.family.ui.community.CommunityTab.NOTICES to (unreadByGroup[com.ojashealing.family.data.notify.NotifGroup.Announcement] ?: 0),
+                                                    com.ojashealing.family.ui.community.CommunityTab.QA to (unreadByGroup[com.ojashealing.family.data.notify.NotifGroup.Qa] ?: 0),
+                                                ),
+                                                onSectionShown = { section ->
+                                                    markGroupSeen(
+                                                        when (section) {
+                                                            com.ojashealing.family.ui.community.CommunityTab.DAILY -> com.ojashealing.family.data.notify.NotifGroup.Activity
+                                                            com.ojashealing.family.ui.community.CommunityTab.NOTICES -> com.ojashealing.family.data.notify.NotifGroup.Announcement
+                                                            else -> com.ojashealing.family.data.notify.NotifGroup.Qa
+                                                        }
+                                                    )
+                                                },
                                             )
                                         },
                                         detail = { kind, id, onBack, showBack ->
@@ -914,9 +959,34 @@ fun MainShell(container: AppContainer) {
                     } else null,
                 )
             }
-            composable<ThoughtRoute> { entry -> ThoughtDetailScreen(thoughtVm, entry.toRoute<ThoughtRoute>().id, onBack = { nav.popBackStack() }) }
+            composable<ThoughtRoute> { entry ->
+                LaunchedEffect(Unit) { markGroupSeen(com.ojashealing.family.data.notify.NotifGroup.Thought) }
+                ThoughtDetailScreen(thoughtVm, entry.toRoute<ThoughtRoute>().id, onBack = { nav.popBackStack() })
+            }
             composable<AnnouncementRoute> { entry -> AnnouncementDetailScreen(communityVm, entry.toRoute<AnnouncementRoute>().id, onBack = { nav.popBackStack() }) }
             composable<AboutRoute> { entry -> AboutScreen(entry.toRoute<AboutRoute>().kind, about, onBack = { nav.popBackStack() }) }
+            composable<NotificationsRoute> {
+                NotificationsScreenHost(
+                    items = inboxItems,
+                    prefs = profile?.notificationPrefs.orEmpty(),
+                    onOpen = { item ->
+                        val uid = profile?.uid
+                        if (uid != null) {
+                            inboxScope.launch { container.inbox.markRead(uid, item, inboxItems.orEmpty()) }
+                            openTarget(
+                                nav, item.target, uid,
+                                selectCommunityTab = { communityTab = it },
+                                selectTab = { tab = it },
+                                setCommunityJump = { communityJump = it },
+                                setAskJump = { askJump = it },
+                                selectPracticePart = { practicePart = it },
+                            )
+                        }
+                    },
+                    onMarkAllRead = { profile?.uid?.let { uid -> inboxScope.launch { container.inbox.markAllRead(uid, inboxItems.orEmpty()) } } },
+                    onBack = { nav.popBackStack() },
+                )
+            }
             composable<PointsHistoryRoute> {
                 val uid = profile?.uid
                 val history by remember(uid) { uid?.let { container.points.observeHistory(it).catch { emit(emptyList()) } } ?: flowOf(null) }
@@ -1045,6 +1115,7 @@ private fun openTarget(
     selectTab: (MainTab) -> Unit,
     setCommunityJump: (String) -> Unit = {},
     setAskJump: (String) -> Unit = {},
+    selectPracticePart: (Int) -> Unit = {},
 ) {
     val (kind, id) = target.split("/", limit = 2).let { it[0] to it.getOrElse(1) { "" } }
     // Put the right tab underneath, then open the item itself, so Back lands where it belongs
@@ -1091,6 +1162,10 @@ private fun openTarget(
             revealTabs(nav)
         }
         "practice" -> selectTab(MainTab.Spiritual)
+        // A goal decision: Practice > Freedom Practice
+        "goals" -> { selectPracticePart(1); selectTab(MainTab.Spiritual); revealTabs(nav) }
+        // The face photo decision: Profile
+        "profile" -> { selectTab(MainTab.Profile); revealTabs(nav) }
     }
 }
 
@@ -1148,9 +1223,8 @@ private fun ChatDestination(
 }
 
 @Composable
-private fun SuiteIcon(tab: MainTab, selected: Boolean, photoUrl: String, askUnread: Int) {
+private fun SuiteIcon(tab: MainTab, selected: Boolean, photoUrl: String, count: Int) {
     BadgedBox(badge = {
-        val count = if (tab == MainTab.Ask) askUnread else 0
         if (count > 0) Badge { Text(if (count > 99) "99+" else "$count") }
     }) {
         if (tab == MainTab.Profile && photoUrl.isNotEmpty()) {
@@ -1236,3 +1310,12 @@ private fun OngoingCallBar(call: com.ojashealing.family.data.call.CallUi, modifi
         }
     }
 }
+
+@Composable
+private fun NotificationsScreenHost(
+    items: List<com.ojashealing.family.data.notify.InboxItem>?,
+    prefs: Map<String, Boolean>,
+    onOpen: (com.ojashealing.family.data.notify.InboxItem) -> Unit,
+    onMarkAllRead: () -> Unit,
+    onBack: () -> Unit,
+) = com.ojashealing.family.ui.notify.NotificationsScreen(items, prefs, onOpen, onMarkAllRead, onBack)

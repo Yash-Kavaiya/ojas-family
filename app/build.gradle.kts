@@ -124,6 +124,8 @@ dependencies {
   implementation(libs.mlkit.text.recognition)
   implementation(libs.mlkit.text.recognition.devanagari)
   implementation(libs.mlkit.image.labeling)
+  // Face photo for the opening animation: ML Kit removes the background on the phone
+  implementation(libs.mlkit.selfie.segmentation)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.kotlinx.coroutines.play.services)

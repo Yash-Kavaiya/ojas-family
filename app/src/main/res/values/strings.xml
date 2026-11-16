@@ -164,14 +164,7 @@
     <string name="settings_hide_goals">Hide my achieved goals</string>
     <string name="settings_notifications">Notifications</string>
     <string name="notif_all">All notifications</string>
-    <string name="notif_announcements">Announcements</string>
     <string name="notif_thought">Thought of the day</string>
-    <string name="notif_community_posts">New community posts</string>
-    <string name="notif_community_interactions">Replies and likes on my posts</string>
-    <string name="notif_community_mentions">Mentions in community</string>
-    <string name="notif_daily_posts">New daily activity posts</string>
-    <string name="notif_daily_replies">Replies on my daily activity</string>
-    <string name="notif_daily_mentions">Mentions in daily activities</string>
     <string name="settings_reminders">Practice reminders</string>
     <string name="settings_morning_reminder">Morning practice</string>
     <string name="settings_night_reminder">Night practice</string>
@@ -235,8 +228,9 @@
     <string name="daily_locked_body">Members share their daily seva (cooking, cleaning, exercise, yoga) with photos. Become a member to see, like and reply.</string>
     <string name="daily_post_locked">Posting opens after 6 months of membership (Member Level 3).</string>
     <string name="daily_new">Share today\'s activity</string>
-    <string name="daily_photo_required">Add a photo of your activity</string>
-    <string name="daily_caption">What did you do today? (optional)</string>
+    <string name="daily_add_photo">Add a photo (optional)</string>
+    <string name="daily_caption">What did you do today?</string>
+    <string name="social_follow">Follow Ojas Healing</string>
     <string name="daily_empty_title">No activities yet</string>
     <string name="daily_empty_body">Members\' photos of their daily seva will appear here.</string>
     <string name="daily_replies">Replies</string>
@@ -769,5 +763,41 @@
     <string name="face_photo_rejected">This photo was not approved. Please upload another one.</string>
     <string name="face_photo_upload">Upload a face photo</string>
     <string name="face_photo_change">Change photo</string>
+    <string name="face_remove_background">Remove background</string>
+    <string name="face_remove_background_failed">Could not find a person in this photo. Try another one.</string>
     <string name="moderation_face_photos">Face photos</string>
+    <string name="notif_title">Notifications</string>
+    <string name="notif_mark_all">Mark all as read</string>
+    <string name="notif_filter_all">All</string>
+    <string name="notif_empty_title">No notifications</string>
+    <string name="notif_empty_body">Replies, likes, mentions, new posts and updates on your calls and goals will appear here.</string>
+    <string name="notif_group_critical">Critical</string>
+    <string name="notif_group_thought">Thought of the Day</string>
+    <string name="notif_group_activity">Activity</string>
+    <string name="notif_group_announcement">Announcements</string>
+    <string name="notif_group_qa">Q&amp;A</string>
+    <string name="notif_action_post">New posts</string>
+    <string name="notif_action_like_reply">Likes and replies</string>
+    <string name="notif_action_mention">Mentions</string>
+    <string name="notif_critical_desc">Booked calls, call reminders, missed calls, and decisions on your goals and your photo. An incoming call always rings.</string>
+    <string name="push_like">%1$s liked your post</string>
+    <string name="push_comment_like">%1$s liked your comment</string>
+    <string name="push_goal_approved">Goal achieved: %1$s</string>
+    <string name="push_goal_approved_body">Your Freedom Points have been added.</string>
+    <string name="push_goal_rejected">Your photo for %1$s was not approved</string>
+    <string name="push_goal_rejected_body">Please share another photo for this activity.</string>
+    <string name="push_face_approved">Your photo for the opening animation was approved</string>
+    <string name="push_face_rejected">Your photo for the opening animation was not approved</string>
+    <plurals name="push_like_many">
+        <item quantity="one">%1$s and %2$d other liked your post</item>
+        <item quantity="other">%1$s and %2$d others liked your post</item>
+    </plurals>
+    <plurals name="push_comment_like_many">
+        <item quantity="one">%1$s and %2$d other liked your comment</item>
+        <item quantity="other">%1$s and %2$d others liked your comment</item>
+    </plurals>
+    <plurals name="notif_bell_unread">
+        <item quantity="one">Notifications, %1$d new</item>
+        <item quantity="other">Notifications, %1$d new</item>
+    </plurals>
 </resources>

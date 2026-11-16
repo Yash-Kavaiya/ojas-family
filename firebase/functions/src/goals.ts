@@ -1,5 +1,6 @@
 import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
+import { notifyUser, type Messenger } from "./notify";
 import { awardPoints } from "./points";
 import { dayBefore } from "./practice";
 import { istDay } from "./time";
@@ -128,4 +129,38 @@ export async function tickGoalFor(
     tx.set(userRef, { goalDays: { [goalId]: { streak, lastDay: today } } }, { merge: true });
     return { streak, days, completed };
   });
+}
+
+/** A goal's name for a notification: English, else any language there is. */
+function goalName(title: unknown, fallback: string): string {
+  if (typeof title === "string") return title;
+  if (title && typeof title === "object") {
+    const t = title as Record<string, unknown>;
+    const any = [t.en, t.hi, t.gu, ...Object.values(t)].find((v) => typeof v === "string" && v.length > 0);
+    if (typeof any === "string") return any;
+  }
+  return fallback;
+}
+
+/**
+ * Critical: the member is told when a goal is achieved (an admin approved its photo, or the days were
+ * completed) or when a goal photo was not approved.
+ */
+export async function onGoalDecisionNotify(db: Firestore, m: Messenger, uid: string, goalId: string, before: Data, after: Data): Promise<void> {
+  const now = after?.status;
+  if (now === before?.status || (now !== "approved" && now !== "rejected")) return;
+  const goal = await db.doc(`goals/${goalId}`).get();
+  await notifyUser(db, m, uid, { group: "critical" }, {
+    type: now === "approved" ? "goalApproved" : "goalRejected",
+    body: goalName(goal.get("title"), goalId),
+    target: "goals",
+    ...(now === "approved" && typeof goal.get("reward") === "number" ? { points: String(goal.get("reward")) } : {}),
+  }, `goal:${goalId}:${now}`);
+}
+
+/** Critical: the member is told whether their face photo for the opening animation was approved. */
+export async function onFaceDecisionNotify(db: Firestore, m: Messenger, uid: string, before: Data, after: Data): Promise<void> {
+  const now = after?.status;
+  if (now === before?.status || (now !== "approved" && now !== "rejected")) return;
+  await notifyUser(db, m, uid, { group: "critical" }, { type: now === "approved" ? "faceApproved" : "faceRejected", target: "profile" }, `face:${now}`);
 }
