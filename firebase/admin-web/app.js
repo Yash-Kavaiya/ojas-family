@@ -110,8 +110,225 @@ function route() {
 }
 
 // ---------- dashboard ----------
+const GA_URL = "https://console.firebase.google.com/project/ojas-family-app/analytics";
+const PRACTICE_KEYS = ["blue_light", "quick_protection", "morning", "night"];
+const PRACTICE_COLORS = { blue_light: "#2f7cf6", quick_protection: "#8e5cf0", morning: "#f2a33a", night: "#3d4bb0" };
+const COMMUNITY = [
+  ["questions", "Questions", "#c8661b"], ["answers", "Answers", "#e39a52"], ["posts", "Activity posts", "#2e7d32"],
+  ["replies", "Replies", "#66a86a"], ["comments", "Thought comments", "#3d4bb0"], ["likes", "Likes", "#9aa8ff"],
+];
+const LANG_NAMES = { en: "English", hi: "Hindi", gu: "Gujarati" };
+let dashRange = "30";
+
+const sum = (a) => a.reduce((x, y) => x + y, 0);
+const pct = (a, b) => (b > 0 ? Math.round((100 * a) / b) : 0);
+const shortDay = (d) => new Date(`${d}T12:00:00+05:30`).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+
+/** A day with every number present, so older stored days and today's live numbers read the same way. */
+function fullDay(d) {
+  const z = (o, keys) => Object.fromEntries(keys.map((k) => [k, Number(o?.[k] ?? 0)]));
+  return {
+    day: d.day,
+    people: z(d.people, ["active", "new", "total"]),
+    practice: { people: Number(d.practice?.people ?? 0), sections: Object.fromEntries(PRACTICE_KEYS.map((k) => [k, z(d.practice?.sections?.[k], ["started", "completed"])])) },
+    ai: z(d.ai, ["questions", "up", "down"]),
+    community: z(d.community, ["questions", "answers", "posts", "replies", "comments", "likes", "announcements"]),
+    calls: z(d.calls, ["total", "connected", "minutes", "requests"]),
+    points: z(d.points, ["transfers", "transferred"]),
+    snapshot: d.snapshot,
+  };
+}
+
+/** Line chart as inline SVG (the site loads no chart library). Each point has a tooltip. */
+function lineChart(days, series, height = 200) {
+  const W = 640, H = height, L = 36, B = 24, T = 10, R = 10;
+  const max = Math.max(1, ...series.flatMap((s) => s.values));
+  const nice = Math.ceil(max / 4) * 4 || 4;
+  const x = (i) => L + (days.length < 2 ? (W - L - R) / 2 : (i * (W - L - R)) / (days.length - 1));
+  const y = (v) => T + (H - T - B) * (1 - v / nice);
+  const grid = [0, 1, 2, 3, 4].map((k) => {
+    const v = (nice * k) / 4;
+    return `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" class="gl"/><text x="${L - 6}" y="${y(v) + 4}" class="ax" text-anchor="end">${Math.round(v)}</text>`;
+  }).join("");
+  const step = Math.max(1, Math.ceil(days.length / 8));
+  const xl = days.map((d, i) => (showLabel(i, days.length, step) ? `<text x="${x(i)}" y="${H - 6}" class="ax" text-anchor="middle">${esc(shortDay(d))}</text>` : "")).join("");
+  const lines = series.map((s) => {
+    const pts = s.values.map((v, i) => `${x(i)},${y(v)}`).join(" ");
+    const dots = s.values.map((v, i) => `<circle cx="${x(i)}" cy="${y(v)}" r="3" fill="${s.color}"><title>${esc(shortDay(days[i]))}: ${v} ${esc(s.label)}</title></circle>`).join("");
+    return `<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="2.2" stroke-linejoin="round"/>${dots}`;
+  }).join("");
+  return `<svg viewBox="0 0 ${W} ${H}" class="chart" role="img">${grid}${xl}${lines}</svg>${legend(series)}`;
+}
+
+/** Stacked bars per day as inline SVG. */
+function stackedBars(days, series, height = 200) {
+  const W = 640, H = height, L = 36, B = 24, T = 10, R = 10;
+  const totals = days.map((_, i) => sum(series.map((s) => s.values[i])));
+  const nice = Math.ceil(Math.max(1, ...totals) / 4) * 4 || 4;
+  const slot = (W - L - R) / Math.max(1, days.length);
+  const bw = Math.max(2, Math.min(28, slot * 0.7));
+  const y = (v) => T + (H - T - B) * (1 - v / nice);
+  const grid = [0, 1, 2, 3, 4].map((k) => {
+    const v = (nice * k) / 4;
+    return `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" class="gl"/><text x="${L - 6}" y="${y(v) + 4}" class="ax" text-anchor="end">${Math.round(v)}</text>`;
+  }).join("");
+  const step = Math.max(1, Math.ceil(days.length / 8));
+  const bars = days.map((d, i) => {
+    let acc = 0;
+    const cx = L + slot * i + slot / 2;
+    const parts = series.map((s) => {
+      const v = s.values[i];
+      if (!v) return "";
+      const top = y(acc + v), h = y(acc) - top;
+      acc += v;
+      return `<rect x="${cx - bw / 2}" y="${top}" width="${bw}" height="${h}" fill="${s.color}" rx="2"><title>${esc(shortDay(d))}: ${v} ${esc(s.label)}</title></rect>`;
+    }).join("");
+    const label = showLabel(i, days.length, step) ? `<text x="${cx}" y="${H - 6}" class="ax" text-anchor="middle">${esc(shortDay(d))}</text>` : "";
+    return parts + label;
+  }).join("");
+  return `<svg viewBox="0 0 ${W} ${H}" class="chart" role="img">${grid}${bars}</svg>${legend(series)}`;
+}
+
+/** Every [step]th date, and the last one, never two crowded together at the end. */
+const showLabel = (i, count, step) => i === count - 1 || (i % step === 0 && count - 1 - i >= step * 0.6);
+
+const legend = (series) => `<div class="legend">${series.map((s) => `<span><i style="background:${s.color}"></i>${esc(s.label)}</span>`).join("")}</div>`;
+
+const hbars = (pairs, color = "var(--accent)") => {
+  const max = Math.max(1, ...pairs.map((p) => p[1]));
+  return pairs.map(([l, v]) => `<div class="bar"><span title="${esc(l)}">${esc(l)}</span><div class="track"><div class="fill" style="width:${(100 * v) / max}%;background:${color}"></div></div><span>${v}</span></div>`).join("") || `<p class="muted">No data yet.</p>`;
+};
+
 async function dashboard() {
-  const s = await call("adminStats", {});
+  const today = istToday();
+  // History (up to two 90-day periods, for the comparison), today's live numbers and the existing to-do counts
+  const [hist, live, s] = await Promise.all([
+    getDocs(query(collection(db, "stats"), where("day", ">=", addDays(today, -180)), orderBy("day"))).then((q) => q.docs.map((d) => fullDay(d.data()))),
+    call("adminDayStats", {}).then(fullDay),
+    call("adminStats", {}),
+  ]);
+  const all = [...hist.filter((d) => d.day < today), live];
+  const snapshot = live.snapshot || [...hist].reverse().find((d) => d.snapshot)?.snapshot;
+  view().innerHTML = `
+    <div class="row" style="justify-content:space-between"><div><h1>Dashboard</h1><p class="muted">How the app is used. Days are India time; today (${esc(today)}) is counted live.</p></div>
+      <div class="row">
+        <div class="seg" id="d-range">${[["1", "Today"], ["7", "7 days"], ["30", "30 days"], ["90", "90 days"]].map(([v, l]) => `<button data-r="${v}" class="${dashRange === v ? "on" : ""}">${l}</button>`).join("")}</div>
+        <button id="d-csv">Download CSV</button><a class="btn" href="${GA_URL}" target="_blank" rel="noopener">Open Google Analytics ↗</a>
+      </div></div>
+    ${hist.length < 2 ? `<div class="card notice row" style="justify-content:space-between;margin:12px 0"><span>History starts tonight. Fill the last 90 days from what members already did (AI questions are only known from now on).</span><button class="primary" id="d-fill">Fill history</button></div>` : ""}
+    <div id="d-body"></div>
+    <h2>Needs attention</h2><div id="d-todo"></div>`;
+  $$("#d-range button").forEach((b) => (b.onclick = () => { dashRange = b.dataset.r; $$("#d-range button").forEach((x) => x.classList.toggle("on", x === b)); drawDash(all, snapshot); }));
+  $("#d-csv").onclick = () => downloadCsv(dashRange === "1" ? all.slice(-1) : all.slice(0, -1).slice(-Number(dashRange)));
+  const fill = $("#d-fill");
+  if (fill) fill.onclick = () => run(fill, () => call("adminBackfillStats", { days: 90 }), (r) => `Filled ${r.filled.length} days`).then((r) => r && route());
+  drawDash(all, snapshot);
+  drawTodo(s);
+}
+
+function drawDash(all, snapshot) {
+  const n = Number(dashRange);
+  // Longer ranges use whole days only (up to yesterday), so today's unfinished numbers don't drag the lines down
+  const wholeDays = n === 1 ? all : all.slice(0, -1);
+  const cur = wholeDays.slice(-n);
+  // Compared only when the earlier period is fully known
+  const prevAll = wholeDays.slice(-2 * n, -n);
+  const prev = prevAll.length === n ? prevAll : [];
+  const days = cur.map((d) => d.day);
+  const tot = (list, f) => sum(list.map(f));
+  const card = (label, value, before, hint = "") => {
+    const delta = prev.length && before != null ? value - before : null;
+    const cls = delta == null || delta === 0 ? "" : delta > 0 ? "up" : "down";
+    const dtxt = delta == null ? "" : `<span class="delta ${cls}">${delta > 0 ? "▲" : delta < 0 ? "▼" : "•"} ${Math.abs(delta)}${before > 0 ? ` (${delta >= 0 ? "+" : "−"}${Math.abs(pct(delta, before))}%)` : ""}</span>`;
+    return `<div class="card stat"><div class="n">${value}</div><div class="l">${label}</div>${dtxt}${hint ? `<div class="muted" style="font-size:12px">${hint}</div>` : ""}</div>`;
+  };
+  const avg = (list, f) => (list.length ? Math.round(tot(list, f) / list.length) : 0);
+  const done = (d) => sum(PRACTICE_KEYS.map((k) => d.practice.sections[k].completed));
+  const posts = (d) => sum(COMMUNITY.map(([k]) => (k === "likes" ? 0 : d.community[k])));
+  const label = n === 1 ? "vs yesterday" : `vs previous ${n} days`;
+  const busiest = cur.reduce((a, d) => (d.people.active > (a?.people.active ?? -1) ? d : a), null);
+
+  const sections = PRACTICE_KEYS.map((k) => {
+    const st = tot(cur, (d) => d.practice.sections[k].started), cp = tot(cur, (d) => d.practice.sections[k].completed);
+    return { k, st, cp };
+  });
+  const allDone = sum(sections.map((x) => x.cp));
+  const favourite = [...sections].sort((a, b) => b.cp - a.cp)[0];
+  const up = tot(cur, (d) => d.ai.up), down = tot(cur, (d) => d.ai.down);
+
+  $("#d-body").innerHTML = `
+    <p class="muted">${n === 1 ? "Today so far" : `The ${n} days up to yesterday`}${prev.length ? ` · compared ${label}` : ""}</p>
+    <div class="grid">
+      ${card(n === 1 ? "Opened the app" : "Active people a day (avg)", avg(cur, (d) => d.people.active), avg(prev, (d) => d.people.active))}
+      ${card("New members", tot(cur, (d) => d.people.new), tot(prev, (d) => d.people.new))}
+      ${card("Practices completed", tot(cur, done), tot(prev, done))}
+      ${card("People who practised (a day, avg)", avg(cur, (d) => d.practice.people), avg(prev, (d) => d.practice.people))}
+      ${card("Ask Swamiji questions", tot(cur, (d) => d.ai.questions), tot(prev, (d) => d.ai.questions))}
+      ${card("Posts, answers & comments", tot(cur, posts), tot(prev, posts))}
+      ${card("Members in total", cur.at(-1)?.people.total ?? 0, prev.at(-1)?.people.total ?? 0)}
+      ${card("Paid memberships", snapshot?.paid?.membership ?? 0, null, "now")}
+    </div>
+    ${n > 1 ? `
+    <div class="charts">
+      <div class="card"><h3>People using the app</h3>${lineChart(days, [
+        { label: "Opened the app", color: "#c8661b", values: cur.map((d) => d.people.active) },
+        { label: "Practised", color: "#2f7cf6", values: cur.map((d) => d.practice.people) },
+        { label: "New members", color: "#2e7d32", values: cur.map((d) => d.people.new) },
+      ])}${busiest ? `<p class="muted">Busiest day: ${esc(shortDay(busiest.day))} with ${busiest.people.active} people.</p>` : ""}</div>
+      <div class="card"><h3>Practices completed a day</h3>${stackedBars(days, PRACTICE_KEYS.map((k) => ({ label: SECTIONS[k], color: PRACTICE_COLORS[k], values: cur.map((d) => d.practice.sections[k].completed) })))}</div>
+      <div class="card"><h3>Ask Swamiji</h3>${lineChart(days, [
+        { label: "Questions", color: "#8e5cf0", values: cur.map((d) => d.ai.questions) },
+        { label: "Helpful 👍", color: "#2e7d32", values: cur.map((d) => d.ai.up) },
+        { label: "Not helpful 👎", color: "#c62828", values: cur.map((d) => d.ai.down) },
+      ], 170)}</div>
+      <div class="card"><h3>Community activity a day</h3>${stackedBars(days, COMMUNITY.map(([k, l, c]) => ({ label: l, color: c, values: cur.map((d) => d.community[k]) })), 170)}</div>
+    </div>` : ""}
+    <div class="charts">
+      <div class="card"><h3>Practices</h3>
+        <table><thead><tr><th>Practice</th><th>Started</th><th>Completed</th><th>Finish rate</th><th>Share</th></tr></thead><tbody>
+        ${sections.map((x) => `<tr><td><i class="dot" style="background:${PRACTICE_COLORS[x.k]}"></i>${esc(SECTIONS[x.k])}</td><td>${x.st}</td><td>${x.cp}</td><td>${pct(x.cp, x.st)}%</td><td>${pct(x.cp, allDone)}%</td></tr>`).join("")}
+        </tbody></table>
+        <p class="muted">${allDone ? `Most used: <b>${esc(SECTIONS[favourite.k])}</b>. ` : ""}A practice counts as completed after 90% of it has played.</p></div>
+      <div class="card"><h3>Ask Swamiji answers</h3>
+        <div class="grid" style="grid-template-columns:repeat(3,1fr)">
+          <div><div class="big">${tot(cur, (d) => d.ai.questions)}</div><div class="muted">questions</div></div>
+          <div><div class="big">${up + down ? `${pct(up, up + down)}%` : "–"}</div><div class="muted">rated helpful</div></div>
+          <div><div class="big">${up} / ${down}</div><div class="muted">👍 / 👎</div></div>
+        </div>
+        <p><a href="#ai">Read the rated answers →</a></p>
+        <h3>Calls &amp; Freedom Points</h3>
+        <p>${tot(cur, (d) => d.calls.connected)} calls connected of ${tot(cur, (d) => d.calls.total)} (${tot(cur, (d) => d.calls.minutes)} minutes), ${tot(cur, (d) => d.calls.requests)} call bookings.<br>
+        ${tot(cur, (d) => d.points.transfers)} point gifts between members (${tot(cur, (d) => d.points.transferred)} points).</p></div>
+    </div>
+    ${snapshot ? `
+    <h2>Members</h2>
+    <div class="charts three">
+      <div class="card"><h3>Language</h3>${hbars(Object.entries(snapshot.languages || {}).filter(([, v]) => v).map(([k, v]) => [LANG_NAMES[k] || k, v]).sort((a, b) => b[1] - a[1]))}</div>
+      <div class="card"><h3>State</h3>${hbars(Object.entries(snapshot.states || {}).sort((a, b) => b[1] - a[1]), "#2e7d32")}</div>
+      <div class="card"><h3>Country</h3>${hbars(Object.entries(snapshot.countries || {}).sort((a, b) => b[1] - a[1]), "#c8661b")}</div>
+    </div>` : ""}`;
+}
+
+function downloadCsv(list) {
+  const cols = [
+    ["day", (d) => d.day], ["active", (d) => d.people.active], ["new_members", (d) => d.people.new], ["members_total", (d) => d.people.total],
+    ["people_practised", (d) => d.practice.people],
+    ...PRACTICE_KEYS.flatMap((k) => [[`${k}_started`, (d) => d.practice.sections[k].started], [`${k}_completed`, (d) => d.practice.sections[k].completed]]),
+    ["ai_questions", (d) => d.ai.questions], ["ai_helpful", (d) => d.ai.up], ["ai_not_helpful", (d) => d.ai.down],
+    ...COMMUNITY.map(([k]) => [k, (d) => d.community[k]]), ["announcements", (d) => d.community.announcements],
+    ["calls", (d) => d.calls.total], ["calls_connected", (d) => d.calls.connected], ["call_minutes", (d) => d.calls.minutes], ["call_bookings", (d) => d.calls.requests],
+    ["point_gifts", (d) => d.points.transfers], ["points_gifted", (d) => d.points.transferred],
+  ];
+  const csv = [cols.map((c) => c[0]).join(","), ...list.map((d) => cols.map((c) => c[1](d)).join(","))].join("\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+  a.download = `ojas-usage-${list[0]?.day ?? ""}-to-${list.at(-1)?.day ?? ""}.csv`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+/** The to-do counts and levels that were the whole dashboard before. */
+function drawTodo(s) {
   const u = s.users;
   const stat = (n, l, warn = false) => `<div class="card stat ${warn && n > 0 ? "warn" : ""}"><div class="n">${n}</div><div class="l">${l}</div></div>`;
   const bars = (labels, values) => {
@@ -120,19 +337,16 @@ async function dashboard() {
   };
   const m = s.moderation;
   const waiting = m.comments + m.answers + m.replies + m.questions + m.dailyPosts;
-  view().innerHTML = `
-    <h1>Dashboard</h1><p class="muted">Today (IST): ${esc(s.today)}</p>
+  $("#d-todo").innerHTML = `
     <div class="grid">
-      ${stat(u.total, "Members")}${stat(u.activeToday, "Opened the app today")}${stat(u.newToday, "Joined today")}
-      ${stat(s.paid.membership, "Paid memberships")}${stat(s.paid.chat, "Chat packs active")}${stat(s.paid.call, "Call packs active")}
-      ${stat(s.activity.questionsToday, "Questions today")}${stat(s.activity.dailyToday, "Daily posts today")}
       ${stat(s.activity.chatsWaiting, "Chats waiting for a reply", true)}
       ${stat(waiting, "Posts waiting for approval", true)}${stat(m.goalPhotos, "Goal photos to review", true)}${stat(m.reports, "Reports", true)}
     </div>
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr));margin-top:16px">
       <div class="card"><h3>Free levels</h3>${bars(["Level 1", "Level 2", "Level 3", "Level 4"], u.byLevel)}</div>
       <div class="card"><h3>Member levels</h3>${bars(["Member 1", "Member 2", "Member 3"], u.byMemberLevel)}
-        <p class="muted">Staff: ${u.admins} admins, ${u.swamiji} Swamiji, ${u.seniors} senior members</p></div>
+        <p class="muted">Staff: ${u.admins} admins, ${u.swamiji} Swamiji, ${u.seniors} senior members</p>
+        <p class="muted">Paid now: ${s.paid.membership} memberships, ${s.paid.chat} chat packs, ${s.paid.call} call packs</p></div>
       <div class="card"><h3>Thought of the Day</h3>
         <p>${s.thoughts.scheduledAhead} scheduled from today. ${s.thoughts.missingNext30.length ? `<b>${s.thoughts.missingNext30.length}</b> of the next 30 days have none:` : "The next 30 days are all scheduled."}</p>
         <div class="row">${s.thoughts.missingNext30.slice(0, 14).map((d) => `<a class="chip" href="#thoughts/${d}">${d}</a>`).join("")}</div>

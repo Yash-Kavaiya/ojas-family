@@ -125,7 +125,9 @@ class ThoughtViewModel(
         val id = ui.value?.selected?.id ?: return
         viewModelScope.launch {
             val p = meNow.value ?: return@launch
-            repo.setLiked(id, p.uid, !liked.value)
+            val like = !liked.value
+            repo.setLiked(id, p.uid, like)
+            if (like) com.ojashealing.family.data.analytics.Analytics.like("thought")
         }
     }
 

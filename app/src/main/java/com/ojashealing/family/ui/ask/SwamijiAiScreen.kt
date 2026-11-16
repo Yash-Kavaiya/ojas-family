@@ -247,6 +247,7 @@ class SwamijiAiViewModel(private val repo: AiRepository, uid: kotlinx.coroutines
         if ((q.length < 2 && photo == null) || _busy.value || _readingPhoto.value) return
         _busy.value = true
         _photo.value = null
+        com.ojashealing.family.data.analytics.Analytics.aiQuestion(withPhoto = photo != null)
         val answerId = "local-${counter++}"
         _messages.update { list ->
             list.filterNot { it.error != null } +

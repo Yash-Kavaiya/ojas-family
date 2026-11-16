@@ -104,11 +104,13 @@ class PracticeMediaRepository(private val db: FirebaseFirestore, private val fun
 
     suspend fun start(section: ContentSection): Result<Unit> = runCatching {
         functions.getHttpsCallable("startPractice").call(mapOf("section" to section.id)).await()
+        com.ojashealing.family.data.analytics.Analytics.practiceStart(section.id)
         Unit
     }
 
     suspend fun complete(section: ContentSection): Result<PracticeResult> = runCatching {
         val data = functions.getHttpsCallable("completePractice").call(mapOf("section" to section.id)).await().getData() as? Map<*, *>
+        com.ojashealing.family.data.analytics.Analytics.practiceComplete(section.id)
         PracticeResult(
             awarded = data?.get("awarded") == true,
             completedGoals = (data?.get("completedGoals") as? List<*>).orEmpty().map { it.toString() },

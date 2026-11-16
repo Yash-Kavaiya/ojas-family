@@ -161,6 +161,8 @@
     <string name="settings_privacy">गोपनीयता</string>
     <string name="settings_hide_profile">मेरी प्रोफ़ाइल छिपाएँ</string>
     <string name="settings_hide_goals">मेरे पूरे लक्ष्य छिपाएँ</string>
+    <string name="settings_share_usage">उपयोग के आँकड़े साझा करें</string>
+    <string name="settings_share_usage_hint">ऐप बेहतर बनाने में मदद करता है: कौन-सी स्क्रीन और अभ्यास इस्तेमाल होते हैं। आपका नाम, संदेश या पोस्ट कभी नहीं।</string>
     <string name="settings_notifications">सूचनाएँ</string>
     <string name="notif_all">सभी सूचनाएँ</string>
     <string name="notif_thought">आज का विचार</string>

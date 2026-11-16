@@ -29,6 +29,7 @@ import {
 import { sweepBell, type Messenger } from "./notify";
 import { istDay } from "./time";
 import { applyAdminList, applyAdminListNow, givePointsFor, statsFor } from "./admin";
+import { backfillStatsFor, todayStatsFor, writeDailyStats } from "./stats";
 import { findGiftRecipientsFor, reverseTransferFor, setTransfersFrozenFor, staffAdjustPointsFor, transferPointsFor, updatePointsConfigFor } from "./transfer";
 import { onProfileWritten } from "./profilePoints";
 import { askSwamijiFor, rateAiAnswerFor, remainingToday } from "./ai";
@@ -95,6 +96,25 @@ export const adminGivePoints = onCall({ timeoutSeconds: 300 }, async (req) => {
 export const adminStats = onCall({ timeoutSeconds: 120 }, async (req) => {
   requireUid(req);
   return statsFor(db, req.auth?.token, new Date());
+});
+
+// ---- Usage dashboard (admin website) ----
+
+/** Today's numbers so far, for the admin dashboard. */
+export const adminDayStats = onCall({ timeoutSeconds: 120 }, async (req) => {
+  requireUid(req);
+  return todayStatsFor(db, req.auth?.token, new Date());
+});
+
+/** Counts past days the dashboard has no numbers for yet (up to 90). */
+export const adminBackfillStats = onCall({ timeoutSeconds: 540 }, async (req) => {
+  requireUid(req);
+  return backfillStatsFor(db, req.auth?.token, req.data ?? {}, new Date());
+});
+
+/** Just after midnight in India: yesterday's numbers into stats/{day}. */
+export const dailyStats = onSchedule({ schedule: "20 0 * * *", timeZone: "Asia/Kolkata", timeoutSeconds: 300 }, async () => {
+  await writeDailyStats(db, new Date());
 });
 
 export const adminApplyAdminList = onCall(async (req) => {

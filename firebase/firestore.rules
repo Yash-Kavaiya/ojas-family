@@ -662,6 +662,12 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Daily usage numbers for the admin dashboard, written by the server only
+    match /stats/{day} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     // Moksha Point gifts between members: the two members, Swamiji and admins can read them
     match /pointTransfers/{id} {
       allow read: if signedIn() && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid

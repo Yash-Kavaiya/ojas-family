@@ -157,6 +157,7 @@ class CallRepository(private val db: FirebaseFirestore, private val functions: c
                 if (options.calleeName.isNotEmpty()) put("calleeName", options.calleeName.take(80))
             }
         ).await()
+        com.ojashealing.family.data.analytics.Analytics.callStart(options.video)
         ref.id
     }
 

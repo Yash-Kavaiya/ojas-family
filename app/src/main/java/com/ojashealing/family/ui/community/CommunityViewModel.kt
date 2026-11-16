@@ -95,10 +95,10 @@ class CommunityViewModel(
     }
 
     fun answer(questionId: String, text: String, photo: Uri?, mentions: List<String>, reply: ReplyTo?, onDone: () -> Unit) =
-        withPhoto(photo) { p, url -> repo.answer(questionId, p.asAuthor(), text, url, mentions, reply).onSuccess { onDone() } }
+        withPhoto(photo) { p, url -> repo.answer(questionId, p.asAuthor(), text, url, mentions, reply).onSuccess { com.ojashealing.family.data.analytics.Analytics.post("answer"); onDone() } }
 
     fun ask(title: String, body: String, photo: Uri?, onDone: () -> Unit) =
-        withPhoto(photo) { p, url -> repo.ask(p.asAuthor(), title, body, url).onSuccess { onDone() } }
+        withPhoto(photo) { p, url -> repo.ask(p.asAuthor(), title, body, url).onSuccess { com.ojashealing.family.data.analytics.Analytics.post("question"); onDone() } }
 
 
     private val me = profile.filterNotNull()

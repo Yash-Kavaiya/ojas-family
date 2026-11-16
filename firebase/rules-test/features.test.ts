@@ -353,3 +353,12 @@ describe("bell list", () => {
     await assertFails(getDoc(doc(as("paid"), "users", "m3", "notificationState", "main")));
   });
 });
+
+describe("usage dashboard", () => {
+  test("only admins read the daily numbers, and nobody writes them", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => { await setDoc(doc(ctx.firestore(), "stats", "2026-11-06"), { day: "2026-11-06" }); });
+    await assertSucceeds(getDoc(doc(as("adm"), "stats", "2026-11-06")));
+    await assertFails(getDoc(doc(as("paid"), "stats", "2026-11-06")));
+    await assertFails(setDoc(doc(as("adm"), "stats", "2026-11-07"), { day: "2026-11-07" }));
+  });
+});

@@ -154,10 +154,10 @@ class DailyViewModel(
 
     /** A photo, words, or both. */
     fun post(text: String, photo: Uri?, onDone: () -> Unit) =
-        send(photo, { p, url -> repo.post(p.asAuthor(), text, url, emptyList()) }, onDone)
+        send(photo, { p, url -> repo.post(p.asAuthor(), text, url, emptyList()).onSuccess { com.ojashealing.family.data.analytics.Analytics.post("activity") } }, onDone)
 
     fun reply(postId: String, text: String, photo: Uri?, mentions: List<String>, reply: ReplyTo?, onDone: () -> Unit) =
-        send(photo, { p, url -> repo.reply(postId, p.asAuthor(), text, url, mentions, reply) }, onDone)
+        send(photo, { p, url -> repo.reply(postId, p.asAuthor(), text, url, mentions, reply).onSuccess { com.ojashealing.family.data.analytics.Analytics.post("activity_reply") } }, onDone)
 }
 
 /** Third Community tab: paid members' daily seva photos. */

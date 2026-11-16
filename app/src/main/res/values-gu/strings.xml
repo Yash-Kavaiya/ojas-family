@@ -161,6 +161,8 @@
     <string name="settings_privacy">ગોપનીયતા</string>
     <string name="settings_hide_profile">મારી પ્રોફાઇલ છુપાવો</string>
     <string name="settings_hide_goals">મારા પૂરા થયેલા લક્ષ્ય છુપાવો</string>
+    <string name="settings_share_usage">વપરાશના આંકડા શેર કરો</string>
+    <string name="settings_share_usage_hint">App વધુ સારી બનાવવામાં મદદ કરે છે: કઈ screen અને સાધના વપરાય છે. તમારું નામ, સંદેશા કે post ક્યારેય નહીં.</string>
     <string name="settings_notifications">સૂચનાઓ</string>
     <string name="notif_all">બધી સૂચનાઓ</string>
     <string name="notif_thought">આજનો વિચાર</string>

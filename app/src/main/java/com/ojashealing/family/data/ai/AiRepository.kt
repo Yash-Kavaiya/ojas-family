@@ -224,6 +224,7 @@ class RemoteAiRepository(
             }
         }
         functions.getHttpsCallable("rateAiAnswer").call(data).await()
+        if (rating != 0) com.ojashealing.family.data.analytics.Analytics.aiRating(helpful = rating > 0)
         Unit
     }
 

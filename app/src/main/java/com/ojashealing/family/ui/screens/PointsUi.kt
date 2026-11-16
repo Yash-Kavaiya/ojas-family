@@ -154,7 +154,7 @@ class PointsActionsViewModel(private val repo: PointsRepository) : ViewModel() {
         }
     }
 
-    fun send(to: GiftRecipient, amount: Int, note: String) = run { repo.sendPoints(to.uid, amount, note.trim()) }
+    fun send(to: GiftRecipient, amount: Int, note: String) = run { repo.sendPoints(to.uid, amount, note.trim()).onSuccess { com.ojashealing.family.data.analytics.Analytics.pointsGift() } }
     fun adjust(uid: String, mode: String, amount: Int, countForLevel: Boolean, note: String) =
         run { repo.staffAdjust(uid, mode, amount, countForLevel, note.trim()) }
     fun freeze(uid: String, frozen: Boolean) = run { repo.setTransfersFrozen(uid, frozen).map { if (frozen) 1 else 0 } }

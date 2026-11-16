@@ -29,6 +29,8 @@ class OjasApp : Application(), coil.ImageLoaderFactory {
             else PlayIntegrityAppCheckProviderFactory.getInstance()
         )
         container = AppContainer(this)
+        // Google Analytics: what is done in the app, never who or what was written (see Analytics)
+        com.ojashealing.family.data.analytics.Analytics.init(this)
         Channels.create(this)
     }
 

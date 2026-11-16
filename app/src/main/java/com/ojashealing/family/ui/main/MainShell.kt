@@ -34,6 +34,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import coil.compose.AsyncImage
+import coil.imageLoader
 import com.ojashealing.family.ui.adaptive.DetailMode
 import com.ojashealing.family.ui.adaptive.PrimaryNav
 import com.ojashealing.family.ui.adaptive.rememberWindowChrome
@@ -336,6 +337,9 @@ fun MainShell(container: AppContainer) {
     val anchors = remember { RewardAnchors() }
     // Held above the NavHost so sub-screens keep the tab, but not saved: every fresh open starts on Home
     var tab by rememberSaveable { mutableStateOf(MainTab.Home) }
+    // Google Analytics: which screen is open (the tab's name on the tabs screen)
+    val screenRoute = nav.currentBackStackEntryAsState().value?.destination?.route
+    LaunchedEffect(screenRoute, tab) { com.ojashealing.family.data.analytics.Analytics.screen(com.ojashealing.family.data.analytics.Events.screenName(screenRoute, if (tab == MainTab.Spiritual) "Practice" else tab.name)) }
     // Q&A, Daily or Announcements inside Community; held here so notifications can pick it
     var communityTab by rememberSaveable { androidx.compose.runtime.mutableIntStateOf(com.ojashealing.family.ui.community.CommunityTab.DAILY) }
     var communityJump by rememberSaveable { mutableStateOf<String?>(null) }
@@ -366,10 +370,16 @@ fun MainShell(container: AppContainer) {
             facePhoto = photo
             val approved = photo?.takeIf { canFacePhoto && it.status == com.ojashealing.family.data.user.FacePhotoStatus.Approved }
             container.settings.setIntroFace(uid, approved?.photoUrl.orEmpty())
+            // Fetched now into the image cache, so the next opening can show it at once
+            approved?.photoUrl?.takeIf { it.isNotEmpty() }?.let { url ->
+                val app = context.applicationContext
+                app.imageLoader.enqueue(coil.request.ImageRequest.Builder(app).data(url).build())
+            }
         }
     }
     LaunchedEffect(p?.uid, p?.notificationPrefs, p?.viewer?.memberLevel, p?.viewer?.role) {
         if (p == null) return@LaunchedEffect
+        com.ojashealing.family.data.analytics.Analytics.setMember(p.language, p.viewer.userLevel.rank, p.viewer.memberLevel.name, paid = Permissions.canViewDailyActivities(p.viewer))
         PushTopics.registerToken()
         PushTopics.sync(p.notificationPrefs, paid = Permissions.canViewDailyActivities(p.viewer))
     }
@@ -457,6 +467,7 @@ fun MainShell(container: AppContainer) {
         val t = target ?: return@LaunchedEffect
         if (p == null) return@LaunchedEffect
         DeepLinks.consume()
+        com.ojashealing.family.data.analytics.Analytics.notificationOpen(t.substringBefore('/'))
         openTarget(
             nav, t, p.uid,
             selectCommunityTab = { communityTab = it },

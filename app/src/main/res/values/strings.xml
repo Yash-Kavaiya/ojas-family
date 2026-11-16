@@ -162,6 +162,8 @@
     <string name="settings_privacy">Privacy</string>
     <string name="settings_hide_profile">Hide my profile</string>
     <string name="settings_hide_goals">Hide my achieved goals</string>
+    <string name="settings_share_usage">Share usage statistics</string>
+    <string name="settings_share_usage_hint">Helps us improve the app: which screens and practices are used. Never your name, messages or posts.</string>
     <string name="settings_notifications">Notifications</string>
     <string name="notif_all">All notifications</string>
     <string name="notif_thought">Thought of the day</string>

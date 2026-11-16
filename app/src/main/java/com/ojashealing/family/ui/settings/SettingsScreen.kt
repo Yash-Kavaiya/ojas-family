@@ -113,6 +113,15 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     SwitchRow(stringResource(R.string.settings_hide_goals), state.hideGoals, onChange = vm::setHideGoals)
+                    // Google Analytics: kept on this phone, so it applies before any profile has loaded
+                    val context = androidx.compose.ui.platform.LocalContext.current
+                    var shareUsage by remember { mutableStateOf(com.ojashealing.family.data.analytics.Analytics.isShared(context)) }
+                    SwitchRow(stringResource(R.string.settings_share_usage), shareUsage) {
+                        shareUsage = it
+                        com.ojashealing.family.data.analytics.Analytics.setShared(context, it)
+                    }
+                    Text(stringResource(R.string.settings_share_usage_hint), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
 
                 // Which notifications to get: here with the other settings, not on the Home tab

@@ -194,7 +194,8 @@ export async function askSwamijiFor(
   const used = await db.runTransaction(async (tx) => {
     const n = Number((await tx.get(counterRef)).get("ai") ?? 0);
     if (n >= limit) throw new HttpsError("resource-exhausted", "You have asked today's questions. Come back tomorrow, or ask Swamiji personally.");
-    tx.set(counterRef, { ai: n + 1 }, { merge: true });
+    // The day is stored too, so the admin dashboard can add up questions across members
+    tx.set(counterRef, { ai: n + 1, day }, { merge: true });
     return n + 1;
   });
 
