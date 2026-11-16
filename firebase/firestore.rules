@@ -133,6 +133,24 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    function validBook(data) {
+      return data.title is string && data.title.size() > 0 && data.title.size() <= 200
+        && data.url is string && data.url.size() <= 2000 && data.url.matches('^https://[^\\s]+$')
+        && data.get('author', '') is string && data.get('author', '').size() <= 120
+        && data.get('minUserLevel', 1) is int
+        && data.get('minMemberLevel', 0) is int
+        && data.get('order', 0) is int
+        && data.get('published', true) is bool;
+    }
+
+    // PDF books on the Ask tab: an admin pastes each book's link; like the videos, the
+    // unlock level is applied by the app
+    match /books/{id} {
+      allow read: if signedIn();
+      allow create, update: if isAdmin() && validBook(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
     // ---- Social (design §7.5, §7.6, §9) ----
 
     function viewer() {

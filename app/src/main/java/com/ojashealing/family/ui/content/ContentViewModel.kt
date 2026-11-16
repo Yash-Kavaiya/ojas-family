@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ojashealing.family.R
 import com.ojashealing.family.domain.Access
+import com.ojashealing.family.domain.Book
 import com.ojashealing.family.domain.ContentItem
 import com.ojashealing.family.domain.ContentSection
 import com.ojashealing.family.domain.Permissions
@@ -49,7 +50,18 @@ fun buildPractice(items: List<ContentItem>, viewer: Viewer): List<SectionUi> {
 fun buildUnderstanding(items: List<ContentItem>, viewer: Viewer): List<Pair<ContentItem, Access>> =
     visible(items, viewer).filter { it.section == ContentSection.Understanding }.map { it to accessFor(it, viewer) }
 
-class ContentViewModel(content: Flow<List<ContentItem>>, viewer: Flow<Viewer?>) : ViewModel() {
+/** Ask tab's Books: published ones only for non-staff, each with its lock. */
+fun buildBooks(books: List<Book>, viewer: Viewer): List<Pair<Book, Access>> =
+    (if (Permissions.isStaff(viewer)) books else books.filter { it.published }).map { it to accessFor(it, viewer) }
+
+class ContentViewModel(
+    content: Flow<List<ContentItem>>,
+    viewer: Flow<Viewer?>,
+    booksSource: Flow<List<Book>> = kotlinx.coroutines.flow.flowOf(emptyList()),
+) : ViewModel() {
+
+    val books: StateFlow<List<Pair<Book, Access>>?> = combine(booksSource, viewer.filterNotNull()) { b, v -> buildBooks(b, v) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     private val inputs = combine(content, viewer.filterNotNull()) { items, v -> items to v }
 

@@ -11,7 +11,13 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.Lock
+import com.ojashealing.family.domain.Book
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -63,13 +69,21 @@ import com.ojashealing.family.ui.content.VideoTile
 import com.ojashealing.family.ui.paid.formatDate
 import com.ojashealing.family.ui.theme.Spacing
 
-/** Spec 4: Understanding (4.1), personal chat (4.2) and personal call (4.3). */
+/**
+ * Spec 4, in three sections: Ask (the AI, personal chat 4.2 and personal call 4.3), Video (Understanding 4.1)
+ * and Books (PDF books opened from their links).
+ */
 @Composable
 fun AskTab(
     profile: UserProfile?,
     entitlements: Entitlements,
     understanding: List<Pair<ContentItem, Access>>?,
     onPlay: (ContentItem) -> Unit,
+    /** 0 = Ask, 1 = Video, 2 = Books. */
+    part: Int = 0,
+    onPart: (Int) -> Unit = {},
+    books: List<Pair<Book, Access>>? = emptyList(),
+    onOpenBook: (Book) -> Unit = {},
     onOpenChat: (com.ojashealing.family.data.chat.ChatChannel) -> Unit,
     onCall: (com.ojashealing.family.data.chat.ChatChannel, video: Boolean) -> Unit,
     onPlans: (PaidAccess) -> Unit,
@@ -85,6 +99,59 @@ fun AskTab(
 ) {
     var locked by remember { mutableStateOf<Access.Locked?>(null) }
     val p = profile ?: return LoadingState()
+    Column(Modifier.fillMaxSize()) {
+        androidx.compose.material3.TabRow(
+            selectedTabIndex = part.coerceIn(0, 2),
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.primary
+        ) {
+            listOf(R.string.ask_part_ask, R.string.ask_part_video, R.string.ask_part_books).forEachIndexed { i, label ->
+                androidx.compose.material3.Tab(
+                    selected = part == i, onClick = { onPart(i) },
+                    text = { com.ojashealing.family.ui.components.FitText(stringResource(label), MaterialTheme.typography.labelLarge) },
+                    unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        androidx.compose.animation.AnimatedContent(
+            targetState = part.coerceIn(0, 2),
+            modifier = Modifier.weight(1f),
+            transitionSpec = { com.ojashealing.family.ui.theme.sectionSwitch(targetState > initialState) },
+            label = "askPart",
+        ) { shown ->
+            Box(Modifier.fillMaxSize()) {
+                when (shown) {
+                    1 -> VideoPart(understanding, onPlay) { locked = it }
+                    2 -> BooksPart(books, onOpenBook) { locked = it }
+                    else -> AskPart(
+                        p, entitlements, onOpenChat, onCall, onPlans, onInbox, onOpenAi, onSchedule, onHistory, onMyCalls,
+                        adminCallsReady, scheduled, approving, onOpenRequest,
+                    )
+                }
+            }
+        }
+    }
+    locked?.let { LockedDialog(it) { locked = null } }
+}
+
+/** Ask: the AI card, then chat, calls and booked-call reminders with Swamiji and the Admin team. */
+@Composable
+private fun AskPart(
+    p: UserProfile,
+    entitlements: Entitlements,
+    onOpenChat: (com.ojashealing.family.data.chat.ChatChannel) -> Unit,
+    onCall: (com.ojashealing.family.data.chat.ChatChannel, video: Boolean) -> Unit,
+    onPlans: (PaidAccess) -> Unit,
+    onInbox: () -> Unit,
+    onOpenAi: () -> Unit,
+    onSchedule: (com.ojashealing.family.data.chat.ChatChannel) -> Unit,
+    onHistory: () -> Unit,
+    onMyCalls: () -> Unit,
+    adminCallsReady: Boolean,
+    scheduled: List<CallRequest>,
+    approving: Boolean,
+    onOpenRequest: (String) -> Unit,
+) {
     val staff = Permissions.isChatStaff(p.viewer)
     LazyColumn(contentPadding = PaddingValues(bottom = Spacing.xl), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
         item(key = "ai") { SwamijiAiCard(onOpenAi, Modifier.padding(start = Spacing.l, end = Spacing.l, top = Spacing.l)) }
@@ -143,6 +210,17 @@ fun AskTab(
                 }
             }
         }
+    }
+}
+
+/** Video: the Understanding videos, one list. */
+@Composable
+private fun VideoPart(
+    understanding: List<Pair<ContentItem, Access>>?,
+    onPlay: (ContentItem) -> Unit,
+    onLocked: (Access.Locked) -> Unit,
+) {
+    LazyColumn(contentPadding = PaddingValues(bottom = Spacing.xl), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
         item(key = "understandingHeader") { SectionHeader(stringResource(R.string.ask_understanding)) }
         when {
             understanding == null -> item(key = "loading") { com.ojashealing.family.ui.components.LoadingSpinner(Modifier.fillMaxWidth().padding(Spacing.xl)) }
@@ -151,7 +229,7 @@ fun AskTab(
                     modifier = Modifier.padding(horizontal = Spacing.l))
             }
             else -> items(understanding, key = { it.first.id }, contentType = { "video" }) { (item, access) ->
-                val open = { if (access is Access.Locked) locked = access else onPlay(item) }
+                val open = { if (access is Access.Locked) onLocked(access) else onPlay(item) }
                 Row(
                     modifier = Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = open).padding(horizontal = Spacing.l, vertical = Spacing.s),
                     horizontalArrangement = Arrangement.spacedBy(Spacing.m),
@@ -163,7 +241,51 @@ fun AskTab(
             }
         }
     }
-    locked?.let { LockedDialog(it) { locked = null } }
+}
+
+/** Books: PDF books; tapping one opens its link so the phone downloads or shows the PDF. */
+@Composable
+private fun BooksPart(
+    books: List<Pair<Book, Access>>?,
+    onOpen: (Book) -> Unit,
+    onLocked: (Access.Locked) -> Unit,
+) {
+    LazyColumn(contentPadding = PaddingValues(bottom = Spacing.xl), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
+        item(key = "booksHeader") { SectionHeader(stringResource(R.string.ask_part_books)) }
+        when {
+            books == null -> item(key = "loading") { com.ojashealing.family.ui.components.LoadingSpinner(Modifier.fillMaxWidth().padding(Spacing.xl)) }
+            books.isEmpty() -> item(key = "empty") {
+                Text(stringResource(R.string.books_empty), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = Spacing.l))
+            }
+            else -> items(books, key = { it.first.id }, contentType = { "book" }) { (book, access) ->
+                OjasCard(
+                    onClick = { if (access is Access.Locked) onLocked(access) else onOpen(book) },
+                    modifier = Modifier.padding(horizontal = Spacing.l),
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.m), verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            Modifier.size(44.dp).clip(androidx.compose.foundation.shape.CircleShape)
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center
+                        ) { Icon(Icons.AutoMirrored.Outlined.MenuBook, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer) }
+                        Column(Modifier.weight(1f)) {
+                            Text(book.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            if (book.author.isNotBlank()) {
+                                Text(book.author, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                        Icon(
+                            if (access is Access.Locked) Icons.Outlined.Lock else Icons.Outlined.Download,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
 /** A booked call that stays on Ask until an hour after its time: waiting, or a confirmed reminder. */

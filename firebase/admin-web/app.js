@@ -97,7 +97,7 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 window.addEventListener("hashchange", route);
-const PAGES = { dashboard, members, points, ai, practice, thoughts, content, moderation, announcements, calls, admins, settings };
+const PAGES = { dashboard, members, points, ai, practice, thoughts, content, books, moderation, announcements, calls, admins, settings };
 function route() {
   if (!auth.currentUser) return;
   const [page, arg] = (location.hash.slice(1) || "dashboard").split("/");
@@ -554,6 +554,52 @@ async function content() {
       minUserLevel: Math.min(4, Math.max(1, Number($(".v-min", tr).value) || 1)), published: $(".v-pub", tr).checked,
     }), "Saved");
     $(".v-del", tr).onclick = (e) => confirm("Delete this video from the app?") && run(e.target, () => deleteDoc(doc(db, "content", id)), "Deleted").then(content);
+  });
+}
+
+// ---------- books ----------
+const clampLevel = (v) => Math.min(4, Math.max(1, Math.trunc(Number(v)) || 1));
+function bookFields(title, author, url, min) {
+  const t = title.trim(), u = url.trim();
+  if (!t) throw new Error("Give the book a title");
+  if (!/^https:\/\/\S+$/.test(u)) throw new Error("The link must start with https://");
+  return { title: t.slice(0, 200), author: author.trim().slice(0, 120), url: u.slice(0, 1990), minUserLevel: clampLevel(min) };
+}
+async function books() {
+  const snap = await getDocs(collection(db, "books"));
+  const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || String(a.title).localeCompare(String(b.title)));
+  view().innerHTML = `
+    <h1>Books</h1>
+    <p class="muted">PDF books on the Ask tab's Books section. Paste a link anyone can open (for a Google Drive file: Share → "Anyone with the link"). Like Understanding videos, books open at Level 2 or with membership; raise "Min level" for a single book.</p>
+    <div class="card stack" style="max-width:560px"><h3>Add a book</h3>
+      <label>Title<input id="b-title" maxlength="200"></label>
+      <label>Author (optional)<input id="b-author" maxlength="120"></label>
+      <label>PDF link<input id="b-url" placeholder="https://drive.google.com/..."></label>
+      <label>Min level<input id="b-min" type="number" min="1" max="4" value="1" style="width:80px"></label>
+      <button class="primary" id="b-add">Add</button></div>
+    <h2>Books <span class="muted">(${list.length})</span></h2>
+    <table><thead><tr><th>Title</th><th>Author</th><th>Link</th><th>Order</th><th>Min level</th><th>Shown</th><th></th></tr></thead><tbody>${
+      list.map((b) => `<tr data-id="${esc(b.id)}">
+        <td><input class="b-title" value="${esc(b.title)}" maxlength="200" style="width:100%"></td>
+        <td><input class="b-author" value="${esc(b.author || "")}" maxlength="120"></td>
+        <td><input class="b-url" value="${esc(b.url)}" style="width:100%"> <a href="${esc(b.url)}" target="_blank" rel="noopener">Open</a></td>
+        <td><input class="b-order" type="number" value="${Number(b.order ?? 0)}" style="width:80px"></td>
+        <td><input class="b-min" type="number" min="1" max="4" value="${Number(b.minUserLevel ?? 1)}" style="width:60px"></td>
+        <td><input class="b-pub" type="checkbox" ${b.published !== false ? "checked" : ""}></td>
+        <td><button class="b-save">Save</button> <button class="link danger b-del">Delete</button></td></tr>`).join("") || '<tr><td colspan="7" class="muted">No books yet.</td></tr>'
+    }</tbody></table>`;
+  $("#b-add").onclick = (e) => run(e.target, () => addDoc(collection(db, "books"), {
+    ...bookFields($("#b-title").value, $("#b-author").value, $("#b-url").value, $("#b-min").value),
+    minMemberLevel: 0, order: list.length, published: true,
+  }), "Added").then(books);
+  $$("tr[data-id]").forEach((tr) => {
+    const id = tr.dataset.id;
+    $(".b-save", tr).onclick = (e) => run(e.target, () => updateDoc(doc(db, "books", id), {
+      ...bookFields($(".b-title", tr).value, $(".b-author", tr).value, $(".b-url", tr).value, $(".b-min", tr).value),
+      order: Math.trunc(Number($(".b-order", tr).value) || 0), published: $(".b-pub", tr).checked,
+    }), "Saved");
+    $(".b-del", tr).onclick = (e) => confirm("Delete this book from the app?") && run(e.target, () => deleteDoc(doc(db, "books", id)), "Deleted").then(books);
   });
 }
 

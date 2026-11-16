@@ -267,6 +267,11 @@
     <string name="purchase_pending">भुगतान बाकी है। पूरा होते ही पहुँच शुरू होगी।</string>
     <string name="purchase_failed">भुगतान नहीं हो पाया। यदि पैसे कटे हैं तो Google उन्हें लौटा देगा।</string>
     <string name="ask_understanding">स्वामीजी की समझ</string>
+    <string name="ask_part_ask">पूछें</string>
+    <string name="ask_part_video">वीडियो</string>
+    <string name="ask_part_books">पुस्तकें</string>
+    <string name="books_empty">अभी कोई पुस्तक नहीं है। वे यहाँ दिखेंगी।</string>
+    <string name="books_open_failed">यह पुस्तक नहीं खुल सकी। कृपया फिर से कोशिश करें।</string>
     <string name="ask_personal">स्वामीजी से निजी बात</string>
     <string name="ask_calls_left">%1$d कॉल बाकी</string>
     <string name="ask_see_plans">प्लान देखें</string>

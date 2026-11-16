@@ -267,6 +267,11 @@
     <string name="purchase_pending">ચુકવણી બાકી છે. પૂરી થતાં જ ઍક્સેસ શરૂ થશે.</string>
     <string name="purchase_failed">ચુકવણી થઈ નહીં. જો પૈસા કપાયા હોય તો Google પાછા આપશે.</string>
     <string name="ask_understanding">સ્વામીજીની સમજ</string>
+    <string name="ask_part_ask">પૂછો</string>
+    <string name="ask_part_video">વિડિયો</string>
+    <string name="ask_part_books">પુસ્તકો</string>
+    <string name="books_empty">હજી કોઈ પુસ્તક નથી. તે અહીં દેખાશે.</string>
+    <string name="books_open_failed">આ પુસ્તક ખૂલી શક્યું નહીં. કૃપા કરીને ફરી પ્રયાસ કરો.</string>
     <string name="ask_personal">સ્વામીજી સાથે ખાનગી વાત</string>
     <string name="ask_calls_left">%1$d કૉલ બાકી</string>
     <string name="ask_see_plans">પ્લાન જુઓ</string>

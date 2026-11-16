@@ -221,6 +221,43 @@ describe("content", () => {
   });
 });
 
+describe("books", () => {
+  const book = { title: "Spiritual Encyclopedia", author: "Swamiji", url: "https://drive.google.com/file/d/abc/view", minUserLevel: 1, minMemberLevel: 0, order: 0, published: true };
+  const admin = () => asUser("root", { role: "admin" });
+
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "books", "b1"), book);
+    });
+  });
+
+  test("signed-in user can read books", async () => {
+    await assertSucceeds(getDoc(doc(asUser(ALICE), "books", "b1")));
+  });
+
+  test("unauthenticated cannot read books", async () => {
+    await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), "books", "b1")));
+  });
+
+  test("non-admin cannot write books", async () => {
+    await assertFails(setDoc(doc(asUser(ALICE), "books", "b2"), book));
+    await assertFails(updateDoc(doc(asUser(ALICE), "books", "b1"), { title: "Hacked" }));
+    await assertFails(deleteDoc(doc(asUser(ALICE), "books", "b1")));
+  });
+
+  test("admin can add, edit and delete a book", async () => {
+    await assertSucceeds(setDoc(doc(admin(), "books", "b2"), book));
+    await assertSucceeds(updateDoc(doc(admin(), "books", "b2"), { title: "New title", published: false }));
+    await assertSucceeds(deleteDoc(doc(admin(), "books", "b2")));
+  });
+
+  test("admin cannot add a book without an https link or a title", async () => {
+    await assertFails(setDoc(doc(admin(), "books", "b3"), { ...book, url: "http://example.com/a.pdf" }));
+    await assertFails(setDoc(doc(admin(), "books", "b3"), { ...book, url: "javascript:alert(1)" }));
+    await assertFails(setDoc(doc(admin(), "books", "b3"), { ...book, title: "" }));
+  });
+});
+
 describe("social", () => {
   const HOUR = 3600 * 1000;
   const now = Date.now();

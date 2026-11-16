@@ -230,10 +230,13 @@ fun MainShell(container: AppContainer) {
     }
     val entitlements by entitlementsFlow.collectAsStateWithLifecycle(Entitlements())
     val contentVm: ContentViewModel = viewModel(factory = viewModelFactory {
-        initializer { ContentViewModel(container.content.observe(), vm.profile.map { it?.viewer }) }
+        initializer { ContentViewModel(container.content.observe(), vm.profile.map { it?.viewer }, container.content.observeBooks()) }
     })
     val practice by contentVm.practice.collectAsStateWithLifecycle()
     val understanding by contentVm.understanding.collectAsStateWithLifecycle()
+    val books by contentVm.books.collectAsStateWithLifecycle()
+    // Ask, Video or Books inside the Ask tab
+    var askPart by rememberSaveable { androidx.compose.runtime.mutableIntStateOf(0) }
     val practiceVm: PracticeViewModel = viewModel(factory = viewModelFactory { initializer { PracticeViewModel(container.practice, vm.profile) } })
     val practiceStatus by practiceVm.status.collectAsStateWithLifecycle()
     val practiceBusy by practiceVm.busy.collectAsStateWithLifecycle()
@@ -711,6 +714,16 @@ fun MainShell(container: AppContainer) {
                                                 profile = profile,
                                                 entitlements = entitlements,
                                                 understanding = understanding,
+                                                part = askPart,
+                                                onPart = { askPart = it },
+                                                books = books,
+                                                onOpenBook = { book ->
+                                                    runCatching {
+                                                        context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(book.url)))
+                                                    }.onFailure {
+                                                        android.widget.Toast.makeText(context, context.getString(com.ojashealing.family.R.string.books_open_failed), android.widget.Toast.LENGTH_SHORT).show()
+                                                    }
+                                                },
                                                 onPlay = play,
                                                 onOpenChat = { openChat(it.id) },
                                                 onCall = { channel, video -> callStaff(channel, video, "") },

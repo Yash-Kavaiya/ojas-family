@@ -3,6 +3,7 @@ package com.ojashealing.family.data.content
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.functions.FirebaseFunctions
+import com.ojashealing.family.domain.Book
 import com.ojashealing.family.domain.ContentItem
 import com.ojashealing.family.domain.ContentSection
 import kotlinx.coroutines.channels.awaitClose
@@ -13,6 +14,8 @@ import kotlinx.coroutines.tasks.await
 interface ContentRepository {
     /** All content docs ordered by section then position; callers drop unpublished items for non-admins. */
     fun observe(): Flow<List<ContentItem>>
+    /** The Ask tab's PDF books, by position; callers drop unpublished ones for non-staff. */
+    fun observeBooks(): Flow<List<Book>> = kotlinx.coroutines.flow.flowOf(emptyList())
     suspend fun addVideo(url: String, section: ContentSection): Result<Unit>
     /** Returns how many new videos were created. */
     suspend fun importPlaylist(playlistId: String, section: ContentSection): Result<Int>
@@ -31,6 +34,15 @@ class FirestoreContentRepository(
             val items = snap.documents.mapNotNull { it.toContentItem() }
                 .sortedWith(compareBy<ContentItem>({ it.section.ordinal }, { it.order }))
             trySend(items)
+        }
+        awaitClose { registration.remove() }
+    }
+
+    override fun observeBooks(): Flow<List<Book>> = callbackFlow {
+        val registration = db.collection("books").limit(300).addSnapshotListener { snap, error ->
+            // Shown as "no books yet" rather than a spinner that never ends (e.g. before the rules are deployed)
+            if (error != null || snap == null) { trySend(emptyList()); return@addSnapshotListener }
+            trySend(snap.documents.mapNotNull { it.toBook() }.sortedWith(compareBy<Book>({ it.order }, { it.title })))
         }
         awaitClose { registration.remove() }
     }
@@ -55,6 +67,22 @@ class FirestoreContentRepository(
         db.collection("content").document(id).delete().await()
         Unit
     }
+}
+
+// Only https links are opened; anything else is skipped
+private fun DocumentSnapshot.toBook(): Book? {
+    val url = getString("url")?.trim()?.takeIf { it.startsWith("https://") } ?: return null
+    val title = getString("title")?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+    return Book(
+        id = id,
+        title = title,
+        url = url,
+        author = getString("author").orEmpty(),
+        minUserLevel = getLong("minUserLevel")?.toInt() ?: 1,
+        minMemberLevel = getLong("minMemberLevel")?.toInt() ?: 0,
+        order = getLong("order") ?: 0,
+        published = getBoolean("published") ?: true
+    )
 }
 
 // Docs with an unknown section (from a newer app version) are skipped rather than crashing older apps

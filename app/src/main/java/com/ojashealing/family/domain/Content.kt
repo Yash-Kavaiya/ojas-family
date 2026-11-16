@@ -56,6 +56,18 @@ sealed interface Access {
     data class Locked(val needsUserLevel: Int?, val needsMemberLevel: Int?) : Access
 }
 
+/** A PDF book on the Ask tab's Books section: an admin-pasted https link; Firestore collection "books". */
+data class Book(
+    val id: String,
+    val title: String,
+    val url: String,
+    val author: String = "",
+    val minUserLevel: Int = 1,
+    val minMemberLevel: Int = 0,
+    val order: Long = 0,
+    val published: Boolean = true
+)
+
 fun accessFor(item: ContentItem, viewer: Viewer): Access {
     if (Permissions.isStaff(viewer)) return Access.Open
 
@@ -65,19 +77,29 @@ fun accessFor(item: ContentItem, viewer: Viewer): Access {
         ContentSection.Understanding -> Permissions.canReadUnderstanding(viewer) to UserLevel.L2.rank
         else -> true to UserLevel.L1.rank
     }
+    return gate(viewer, sectionOk, sectionUser, item.minUserLevel, item.minMemberLevel)
+}
+
+/** Books open on the same terms as the Understanding videos, and a book's own minimums can raise the bar. */
+fun accessFor(book: Book, viewer: Viewer): Access {
+    if (Permissions.isStaff(viewer)) return Access.Open
+    return gate(viewer, Permissions.canReadUnderstanding(viewer), UserLevel.L2.rank, book.minUserLevel, book.minMemberLevel)
+}
+
+private fun gate(viewer: Viewer, sectionOk: Boolean, sectionUser: Int, minUserLevel: Int, minMemberLevel: Int): Access {
     if (!sectionOk) {
         return Access.Locked(
-            needsUserLevel = maxOf(sectionUser, item.minUserLevel),
-            needsMemberLevel = maxOf(MemberLevel.M1.rank, item.minMemberLevel)
+            needsUserLevel = maxOf(sectionUser, minUserLevel),
+            needsMemberLevel = maxOf(MemberLevel.M1.rank, minMemberLevel)
         )
     }
 
     // A document's own minimums can only raise the bar
-    val userShort = viewer.userLevel.rank < item.minUserLevel
-    val memberShort = item.minMemberLevel > 0 && viewer.memberLevel.rank < item.minMemberLevel
+    val userShort = viewer.userLevel.rank < minUserLevel
+    val memberShort = minMemberLevel > 0 && viewer.memberLevel.rank < minMemberLevel
     return if (!userShort && !memberShort) Access.Open
     else Access.Locked(
-        needsUserLevel = item.minUserLevel.takeIf { userShort },
-        needsMemberLevel = item.minMemberLevel.takeIf { memberShort }
+        needsUserLevel = minUserLevel.takeIf { userShort },
+        needsMemberLevel = minMemberLevel.takeIf { memberShort }
     )
 }

@@ -44,4 +44,21 @@ class ContentTest {
 
     @Test fun adminSeesEverything() =
         assertEquals(Access.Open, accessFor(item(ContentSection.Night, minUser = 4, minMember = 3), viewer(UserLevel.L1, r = Role.Admin)))
+
+    private fun book(minUser: Int = 1, minMember: Int = 0) =
+        Book(id = "b", title = "t", url = "https://example.com/a.pdf", minUserLevel = minUser, minMemberLevel = minMember)
+
+    @Test fun booksOpenLikeUnderstanding() {
+        assertEquals(Access.Locked(needsUserLevel = 2, needsMemberLevel = 1), accessFor(book(), viewer(UserLevel.L1)))
+        assertEquals(Access.Open, accessFor(book(), viewer(UserLevel.L2)))
+        assertEquals(Access.Open, accessFor(book(), viewer(UserLevel.L1, MemberLevel.M1)))
+    }
+
+    @Test fun bookLevelCanOnlyRaiseTheBar() {
+        assertEquals(Access.Locked(needsUserLevel = 3, needsMemberLevel = null), accessFor(book(minUser = 3), viewer(UserLevel.L2)))
+        assertEquals(Access.Locked(needsUserLevel = 3, needsMemberLevel = 1), accessFor(book(minUser = 3), viewer(UserLevel.L1)))
+    }
+
+    @Test fun staffOpensEveryBook() =
+        assertEquals(Access.Open, accessFor(book(minUser = 4, minMember = 3), viewer(UserLevel.L1, r = Role.Admin)))
 }

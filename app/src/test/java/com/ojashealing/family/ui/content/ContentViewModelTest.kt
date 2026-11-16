@@ -1,6 +1,7 @@
 package com.ojashealing.family.ui.content
 
 import com.ojashealing.family.domain.Access
+import com.ojashealing.family.domain.Book
 import com.ojashealing.family.domain.ContentItem
 import com.ojashealing.family.domain.ContentSection
 import com.ojashealing.family.domain.MemberLevel
@@ -45,5 +46,16 @@ class ContentViewModelTest {
         assertTrue(buildPractice(items, l1).flatMap { it.items }.none { it.first.id == "hidden" })
         val admin = l1.copy(role = Role.Admin)
         assertTrue(buildPractice(items, admin).flatMap { it.items }.any { it.first.id == "hidden" })
+    }
+
+    @Test fun unpublishedBooksHiddenExceptForStaff() {
+        val books = listOf(
+            Book(id = "b1", title = "One", url = "https://example.com/1.pdf"),
+            Book(id = "b2", title = "Two", url = "https://example.com/2.pdf", published = false)
+        )
+        val forMember = buildBooks(books, l1)
+        assertEquals(listOf("b1"), forMember.map { it.first.id })
+        assertTrue(forMember.single().second is Access.Locked)
+        assertEquals(listOf("b1", "b2"), buildBooks(books, l1.copy(role = Role.Admin)).map { it.first.id })
     }
 }
