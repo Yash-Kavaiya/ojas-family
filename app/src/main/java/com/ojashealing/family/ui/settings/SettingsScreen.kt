@@ -7,7 +7,15 @@ import com.ojashealing.family.data.notify.notifKey
 import com.ojashealing.family.data.notify.switchOn
 import com.ojashealing.family.ui.notify.icon
 import com.ojashealing.family.ui.notify.label
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.selected
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -224,14 +232,54 @@ private fun ThemeSelector(current: ThemeMode, onSelect: (ThemeMode) -> Unit) {
         ThemeMode.Light to R.string.settings_theme_light,
         ThemeMode.Dark to R.string.settings_theme_dark
     )
-    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-        options.forEachIndexed { i, (mode, label) ->
-            SegmentedButton(
-                selected = current == mode,
-                onClick = { onSelect(mode) },
-                shape = SegmentedButtonDefaults.itemShape(index = i, count = options.size)
-            ) { Text(stringResource(label), maxLines = 1) }
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            options.forEachIndexed { i, (mode, label) ->
+                SegmentedButton(
+                    selected = current == mode,
+                    onClick = { onSelect(mode) },
+                    shape = SegmentedButtonDefaults.itemShape(index = i, count = options.size)
+                ) { Text(stringResource(label), maxLines = 1) }
+            }
         }
+        // Two colour themes beside the Ojas colours above
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
+            ThemeCard(
+                stringResource(R.string.settings_theme_healing_blue), current == ThemeMode.HealingBlue,
+                swatch = listOf(Color(0xFFEAF3FF), Color(0xFF0B5CAD), Color(0xFF00708A)),
+                onClick = { onSelect(ThemeMode.HealingBlue) }, modifier = Modifier.weight(1f)
+            )
+            ThemeCard(
+                stringResource(R.string.settings_theme_forest_sage), current == ThemeMode.ForestSage,
+                swatch = listOf(Color(0xFF111A15), Color(0xFFA9CFA0), Color(0xFFE2C98A)),
+                onClick = { onSelect(ThemeMode.ForestSage) }, modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+/** A named colour theme: its colours in small circles and its name; chosen ones get a ring and a tick. */
+@Composable
+private fun ThemeCard(label: String, selected: Boolean, swatch: List<Color>, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+    Column(
+        modifier = modifier
+            .clip(shape)
+            .border(if (selected) 2.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, shape)
+            .clickable(role = Role.RadioButton, onClick = onClick)
+            .semantics { this.selected = selected }
+            .padding(Spacing.m),
+        verticalArrangement = Arrangement.spacedBy(Spacing.s)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            swatch.forEach { c ->
+                Box(Modifier.size(22.dp).clip(androidx.compose.foundation.shape.CircleShape).background(c)
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, androidx.compose.foundation.shape.CircleShape))
+            }
+            Spacer(Modifier.weight(1f))
+            if (selected) Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+        }
+        Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface, maxLines = 2)
     }
 }
 

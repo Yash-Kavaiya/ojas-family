@@ -157,6 +157,8 @@
     <string name="settings_theme_system">સિસ્ટમ</string>
     <string name="settings_theme_light">લાઇટ</string>
     <string name="settings_theme_dark">ડાર્ક</string>
+    <string name="settings_theme_healing_blue">હીલિંગ બ્લૂ લાઇટ</string>
+    <string name="settings_theme_forest_sage">ફોરેસ્ટ સેજ ડાર્ક</string>
     <string name="settings_language">ભાષા</string>
     <string name="settings_privacy">ગોપનીયતા</string>
     <string name="settings_hide_profile">મારી પ્રોફાઇલ છુપાવો</string>

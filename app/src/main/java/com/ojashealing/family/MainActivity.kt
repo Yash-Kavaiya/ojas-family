@@ -26,12 +26,16 @@ class MainActivity : AppCompatActivity() {
 
         setContent {
             val themeMode by settings.themeMode.collectAsStateWithLifecycle(initialValue = ThemeMode.System)
-            val dark = when (themeMode) {
-                ThemeMode.System -> isSystemInDarkTheme()
-                ThemeMode.Light -> false
-                ThemeMode.Dark -> true
+            val (colors, dark) = com.ojashealing.family.ui.theme.colorsFor(themeMode, isSystemInDarkTheme())
+            // Status and navigation bar icons follow the app's theme, not the phone's setting
+            val view = androidx.compose.ui.platform.LocalView.current
+            androidx.compose.runtime.SideEffect {
+                androidx.core.view.WindowCompat.getInsetsController(window, view).apply {
+                    isAppearanceLightStatusBars = !dark
+                    isAppearanceLightNavigationBars = !dark
+                }
             }
-            OjasFamilyTheme(darkTheme = dark) {
+            OjasFamilyTheme(darkTheme = dark, colors = colors) {
                 OjasRoot()
             }
         }

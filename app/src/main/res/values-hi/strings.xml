@@ -157,6 +157,8 @@
     <string name="settings_theme_system">सिस्टम</string>
     <string name="settings_theme_light">लाइट</string>
     <string name="settings_theme_dark">डार्क</string>
+    <string name="settings_theme_healing_blue">हीलिंग ब्लू लाइट</string>
+    <string name="settings_theme_forest_sage">फ़ॉरेस्ट सेज डार्क</string>
     <string name="settings_language">भाषा</string>
     <string name="settings_privacy">गोपनीयता</string>
     <string name="settings_hide_profile">मेरी प्रोफ़ाइल छिपाएँ</string>

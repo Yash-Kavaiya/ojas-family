@@ -10,7 +10,11 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-enum class ThemeMode { System, Light, Dark }
+/**
+ * System / Light / Dark use the Ojas saffron-and-purple colours. [HealingBlue] is a soft blue light
+ * theme and [ForestSage] a deep green dark theme. Stored by name, so older choices still read.
+ */
+enum class ThemeMode { System, Light, Dark, HealingBlue, ForestSage }
 
 val SupportedLanguages = listOf("en", "hi", "gu")
 
