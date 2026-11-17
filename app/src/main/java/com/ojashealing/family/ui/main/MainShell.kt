@@ -711,6 +711,8 @@ fun MainShell(container: AppContainer) {
                                         jump = askJump,
                                         onJumpConsumed = { askJump = null },
                                         hub = { openChat, openInbox ->
+                                            // Read while composing (lint: no resource lookups through LocalContext)
+                                            val booksOpenFailed = androidx.compose.ui.res.stringResource(com.ojashealing.family.R.string.books_open_failed)
                                             AskTab(
                                                 profile = profile,
                                                 entitlements = entitlements,
@@ -722,7 +724,7 @@ fun MainShell(container: AppContainer) {
                                                     runCatching {
                                                         context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(book.url)))
                                                     }.onFailure {
-                                                        android.widget.Toast.makeText(context, context.getString(com.ojashealing.family.R.string.books_open_failed), android.widget.Toast.LENGTH_SHORT).show()
+                                                        android.widget.Toast.makeText(context, booksOpenFailed, android.widget.Toast.LENGTH_SHORT).show()
                                                     }
                                                 },
                                                 onPlay = play,
