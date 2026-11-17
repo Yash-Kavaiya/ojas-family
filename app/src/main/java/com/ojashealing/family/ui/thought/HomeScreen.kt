@@ -101,6 +101,13 @@ val LocalOpenProfile = compositionLocalOf<((String) -> Unit)?> { null }
 
 private fun dayLabel(id: String): String = LocalDateLike.parse(id)?.let { "%02d/%02d".format(it.day, it.month) } ?: id
 
+/** Quick Protection comes before Blue Healing Light on Home. */
+private fun homeOrder(sectionId: String): Int = when (sectionId) {
+    "quick_protection" -> 0
+    "blue_light" -> 1
+    else -> 2
+}
+
 @Composable
 fun HomeScreen(
     vm: ThoughtViewModel,
@@ -132,28 +139,8 @@ fun HomeScreen(
     Box(Modifier.fillMaxSize()) {
         LazyColumn(contentPadding = PaddingValues(bottom = 96.dp), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
             item(key = "greeting", contentType = "greeting") { Greeting(firstName, Modifier.padding(horizontal = Spacing.l).staggeredEntrance(0, key = "greeting")) }
-            streak?.let { s ->
-                item(key = "practiceNudge", contentType = "practiceNudge") {
-                    PracticeNudge(s, onOpenPractice, Modifier.padding(horizontal = Spacing.l).staggeredEntrance(1, key = "practiceNudge"))
-                }
-            }
-            items(quickPractices, key = { "quick_" + it.section.id }, contentType = { "quickPractice" }) { card ->
-                com.ojashealing.family.ui.content.GuidedPracticeCard(
-                    card, practiceStatus,
-                    onOpen = {
-                        if (card.locked) locked = com.ojashealing.family.domain.Access.Locked(needsUserLevel = com.ojashealing.family.domain.UserLevel.L4.rank, needsMemberLevel = 1)
-                        else onOpenGuided(card)
-                    },
-                    modifier = Modifier.padding(horizontal = Spacing.l).staggeredEntrance(2, key = "quick_" + card.section.id),
-                )
-            }
-            items(quickSections, key = { "quickRow_" + it.section.id }, contentType = { "quickSection" }) { section ->
-                com.ojashealing.family.ui.content.PracticeSectionBox(
-                    section, onPlay, onLocked = { locked = it },
-                    modifier = Modifier.padding(horizontal = Spacing.l).staggeredEntrance(2, key = "quickRow_" + section.section.id),
-                )
-            }
-            item(key = "header", contentType = "header") { SectionHeader(stringResource(R.string.notif_thought), Modifier.staggeredEntrance(2, key = "header")) }
+            // Home order: greeting, Thought of the Day, Quick Protection, Blue Healing Light, then "Begin practice"
+            item(key = "header", contentType = "header") { SectionHeader(stringResource(R.string.notif_thought), Modifier.staggeredEntrance(1, key = "header")) }
             summary?.let { sum ->
                 item(key = "scheduled", contentType = "scheduled") { ScheduledStrip(sum, onOpenScheduled, Modifier.padding(horizontal = Spacing.l)) }
             }
@@ -186,7 +173,7 @@ fun HomeScreen(
                                 androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(Durations.Base, easing = OjasEasing.Emphasized)) { it / 16 }) togetherWith
                                 androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(Durations.Quick))
                         },
-                        modifier = Modifier.staggeredEntrance(3, key = "card"),
+                        modifier = Modifier.staggeredEntrance(2, key = "card"),
                         label = "thought",
                     ) { shown ->
                         ThoughtCard(
@@ -201,6 +188,37 @@ fun HomeScreen(
                             modifier = Modifier.padding(horizontal = Spacing.l)
                         )
                     }
+                }
+            }
+            // Each practice is a guided card or, without a guided practice yet, a box of videos
+            val homeBoxes: List<Any> = (quickPractices + quickSections).sortedBy {
+                homeOrder(if (it is com.ojashealing.family.ui.content.GuidedCard) it.section.id else (it as com.ojashealing.family.ui.content.SectionUi).section.id)
+            }
+            items(
+                homeBoxes,
+                key = { if (it is com.ojashealing.family.ui.content.GuidedCard) "quick_" + it.section.id else "quickRow_" + (it as com.ojashealing.family.ui.content.SectionUi).section.id },
+                contentType = { if (it is com.ojashealing.family.ui.content.GuidedCard) "quickPractice" else "quickSection" },
+            ) { box ->
+                if (box is com.ojashealing.family.ui.content.GuidedCard) {
+                    com.ojashealing.family.ui.content.GuidedPracticeCard(
+                        box, practiceStatus,
+                        onOpen = {
+                            if (box.locked) locked = com.ojashealing.family.domain.Access.Locked(needsUserLevel = com.ojashealing.family.domain.UserLevel.L4.rank, needsMemberLevel = 1)
+                            else onOpenGuided(box)
+                        },
+                        modifier = Modifier.padding(horizontal = Spacing.l).staggeredEntrance(3, key = "quick_" + box.section.id),
+                    )
+                } else {
+                    val section = box as com.ojashealing.family.ui.content.SectionUi
+                    com.ojashealing.family.ui.content.PracticeSectionBox(
+                        section, onPlay, onLocked = { locked = it },
+                        modifier = Modifier.padding(horizontal = Spacing.l).staggeredEntrance(3, key = "quickRow_" + section.section.id),
+                    )
+                }
+            }
+            streak?.let { s ->
+                item(key = "practiceNudge", contentType = "practiceNudge") {
+                    PracticeNudge(s, onOpenPractice, Modifier.padding(horizontal = Spacing.l).staggeredEntrance(4, key = "practiceNudge"))
                 }
             }
             item(key = "about", contentType = "about") { AboutBox(about, onOpenAbout, Modifier.padding(horizontal = Spacing.l)) }

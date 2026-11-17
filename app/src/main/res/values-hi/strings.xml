@@ -575,7 +575,7 @@
     <string name="streak_today_done">आज का अभ्यास हो गया। कल फिर मिलेंगे।</string>
     <string name="streak_keep_going">सिलसिला बनाए रखने के लिए आज अभ्यास करें।</string>
     <string name="streak_start_title">आज से अपना सिलसिला शुरू करें</string>
-    <string name="streak_start_body">नीचे कोई भी एक अभ्यास पूरा करें। हर दिन का अभ्यास लौ को बढ़ाता है।</string>
+    <string name="streak_start_body">ऊपर कोई भी एक अभ्यास पूरा करें। हर दिन का अभ्यास लौ को बढ़ाता है।</string>
     <string name="streak_best">सर्वश्रेष्ठ</string>
     <string name="streak_next_goal">अगला लक्ष्य: %1$d दिन</string>
     <string name="action_next">आगे</string>

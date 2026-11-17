@@ -77,7 +77,12 @@ fun SocialRow(links: List<AboutLink>, modifier: Modifier = Modifier) {
     val shown = socialLinks(links)
     Column(modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
         Text(stringResource(R.string.social_follow), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.m, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
+        // Four to a line, so the eight pages sit in two even lines of 4
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(Spacing.m, Alignment.CenterHorizontally),
+            verticalArrangement = Arrangement.spacedBy(Spacing.m),
+            maxItemsInEachRow = 4,
+        ) {
             shown.forEach { (social, url) ->
                 Box(
                     Modifier.size(48.dp).clip(CircleShape).socialBackground(social)

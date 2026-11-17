@@ -30,7 +30,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -93,17 +92,17 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit) {
             ) {
                 Section(stringResource(R.string.settings_appearance), tint = 0) { ThemeSelector(state.themeMode, vm::setTheme) }
 
-                Section(stringResource(R.string.settings_language), tint = 1) {
-                    languageNames.forEach { (tag, name) ->
-                        RadioRow(name, selected = state.language == tag) { vm.setLanguage(tag) }
-                    }
-                }
+                Section(stringResource(R.string.settings_language), tint = 1) { LanguageSelector(state.language, vm::setLanguage) }
 
                 Section(stringResource(R.string.settings_reminders), tint = 2) {
                     ValueRow(stringResource(R.string.settings_morning_reminder), state.morningReminder) { editingReminder = true }
                     ValueRow(stringResource(R.string.settings_night_reminder), state.nightReminder) { editingReminder = false }
                 }
 
+                // Which notifications to get: here with the other settings, not on the Home tab
+                NotificationControls(prefs = state.notificationPrefs, onChange = vm::setNotificationPrefs)
+
+                // Privacy comes after all the notification cards
                 Section(stringResource(R.string.settings_privacy), tint = 3) {
                     // Turning hiding off always works; turning it on waits for User Level 3
                     SwitchRow(stringResource(R.string.settings_hide_profile), state.hideProfile,
@@ -123,9 +122,6 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit) {
                     Text(stringResource(R.string.settings_share_usage_hint), style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-
-                // Which notifications to get: here with the other settings, not on the Home tab
-                NotificationControls(prefs = state.notificationPrefs, onChange = vm::setNotificationPrefs)
 
                 Section(stringResource(R.string.settings_account), tint = 4) {
                     OutlinedButton(onClick = vm::signOutNow, modifier = Modifier.fillMaxWidth()) {
@@ -239,6 +235,21 @@ private fun ThemeSelector(current: ThemeMode, onSelect: (ThemeMode) -> Unit) {
     }
 }
 
+/** The three languages side by side in one line, like the theme choice above it. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LanguageSelector(current: String, onSelect: (String) -> Unit) {
+    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+        languageNames.forEachIndexed { i, (tag, name) ->
+            SegmentedButton(
+                selected = current == tag,
+                onClick = { onSelect(tag) },
+                shape = SegmentedButtonDefaults.itemShape(index = i, count = languageNames.size)
+            ) { Text(name, maxLines = 1) }
+        }
+    }
+}
+
 // All rows share a 48dp minimum height so labels in every language line up with their controls
 @Composable
 private fun SwitchRow(label: String, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
@@ -257,18 +268,6 @@ private fun SwitchRow(label: String, checked: Boolean, enabled: Boolean = true, 
             modifier = Modifier.weight(1f)
         )
         Switch(checked = checked && enabled, onCheckedChange = null, enabled = enabled)
-    }
-}
-
-@Composable
-private fun RadioRow(label: String, selected: Boolean, onClick: () -> Unit) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Spacing.m),
-        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(role = Role.RadioButton, onClick = onClick)
-    ) {
-        RadioButton(selected = selected, onClick = null)
-        Text(label, style = MaterialTheme.typography.bodyLarge)
     }
 }
 

@@ -576,7 +576,7 @@
     <string name="streak_today_done">Today\'s practice is done. See you tomorrow.</string>
     <string name="streak_keep_going">Practise today to keep your streak going.</string>
     <string name="streak_start_title">Start your streak today</string>
-    <string name="streak_start_body">Finish any one practice below. Each day you practise adds to the flame.</string>
+    <string name="streak_start_body">Finish any one practice above. Each day you practise adds to the flame.</string>
     <string name="streak_best">Best</string>
     <string name="streak_next_goal">Next goal: %1$d days</string>
     <string name="action_next">Next</string>
@@ -778,7 +778,7 @@
     <string name="notif_filter_all">All</string>
     <string name="notif_empty_title">No notifications</string>
     <string name="notif_empty_body">Replies, likes, mentions, new posts and updates on your calls and goals will appear here.</string>
-    <string name="notif_group_critical">Critical</string>
+    <string name="notif_group_critical">Important</string>
     <string name="notif_group_thought">Thought of the Day</string>
     <string name="notif_group_activity">Activity</string>
     <string name="notif_group_announcement">Announcements</string>

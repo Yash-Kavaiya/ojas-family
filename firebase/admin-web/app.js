@@ -202,10 +202,13 @@ const hbars = (pairs, color = "var(--accent)") => {
 async function dashboard() {
   const today = istToday();
   // History (up to two 90-day periods, for the comparison), today's live numbers and the existing to-do counts
+  // Each part loads on its own, so one failing part shows a message instead of an empty page
+  const failed = [];
+  const soft = (what, p, fallback) => p.catch((e) => { console.error(what, e); failed.push(`${what}: ${e.message}`); return fallback; });
   const [hist, live, s] = await Promise.all([
-    getDocs(query(collection(db, "stats"), where("day", ">=", addDays(today, -180)), orderBy("day"))).then((q) => q.docs.map((d) => fullDay(d.data()))),
-    call("adminDayStats", {}).then(fullDay),
-    call("adminStats", {}),
+    soft("History", getDocs(query(collection(db, "stats"), where("day", ">=", addDays(today, -180)), orderBy("day"))).then((q) => q.docs.map((d) => fullDay(d.data()))), []),
+    soft("Today's numbers", call("adminDayStats", {}).then(fullDay), fullDay({ day: today })),
+    soft("To-do counts", call("adminStats", {}), null),
   ]);
   const all = [...hist.filter((d) => d.day < today), live];
   const snapshot = live.snapshot || [...hist].reverse().find((d) => d.snapshot)?.snapshot;
@@ -215,6 +218,7 @@ async function dashboard() {
         <div class="seg" id="d-range">${[["1", "Today"], ["7", "7 days"], ["30", "30 days"], ["90", "90 days"]].map(([v, l]) => `<button data-r="${v}" class="${dashRange === v ? "on" : ""}">${l}</button>`).join("")}</div>
         <button id="d-csv">Download CSV</button><a class="btn" href="${GA_URL}" target="_blank" rel="noopener">Open Google Analytics ↗</a>
       </div></div>
+    ${failed.length ? `<div class="card notice" style="margin:12px 0"><b>Some numbers could not be loaded.</b>${failed.map((f) => `<div class="muted">${esc(f)}</div>`).join("")}</div>` : ""}
     ${hist.length < 2 ? `<div class="card notice row" style="justify-content:space-between;margin:12px 0"><span>History starts tonight. Fill the last 90 days from what members already did (AI questions are only known from now on).</span><button class="primary" id="d-fill">Fill history</button></div>` : ""}
     <div id="d-body"></div>
     <h2>Needs attention</h2><div id="d-todo"></div>`;
@@ -223,7 +227,7 @@ async function dashboard() {
   const fill = $("#d-fill");
   if (fill) fill.onclick = () => run(fill, () => call("adminBackfillStats", { days: 90 }), (r) => `Filled ${r.filled.length} days`).then((r) => r && route());
   drawDash(all, snapshot);
-  drawTodo(s);
+  if (s) drawTodo(s);
 }
 
 function drawDash(all, snapshot) {
@@ -449,7 +453,7 @@ async function thoughts(prefill) {
   view().innerHTML = `
     <h1>Thought of the Day</h1>
     <p class="muted">Each thought appears at 00:00 IST on its day; members can open the last 7 days. A push goes out at 06:00 IST.</p>
-    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(340px,1fr))">
+    <div class="split">
       <div class="card stack">
         <h3>Write or edit</h3>
         <label>Date<input id="t-date" type="date" value="${esc(prefill || addDays(today, 1))}"></label>
@@ -459,24 +463,37 @@ async function thoughts(prefill) {
         <div id="t-current"></div>
         <button class="primary" id="t-save">Save</button>
       </div>
-      <div class="card stack">
-        <h3>Bulk import (schedule a month at once)</h3>
-        <p class="muted">One per line: <code>YYYY-MM-DD | Title | Thought</code>. Write <code>\\n</code> for a new line inside the thought. Existing days are replaced.</p>
-        <textarea id="t-bulk" placeholder="2026-12-01 | Inner peace | Peace is not found outside..."></textarea>
-        <button class="primary" id="t-import">Import</button>
+      <div class="card cal">
+        <h3>Calendar</h3>
+        <table><thead><tr><th>Day</th><th>Title</th><th>Picture</th><th></th></tr></thead><tbody>${
+          days.map((d) => { const t = byDay[d]; return `<tr data-day="${d}"><td>${d}${d === today ? ' <span class="chip on">today</span>' : ""}</td>
+            <td>${t ? esc(t.title) : '<span class="muted">—</span>'}</td><td>${t?.imageUrl ? `<img class="mini" src="${esc(t.imageUrl)}" alt="Picture for ${d}" loading="lazy">` : ""}</td>
+            <td><button class="link" data-edit="${d}">${t ? "Edit" : "Write"}</button>${t ? ` · <button class="link danger" data-del="${d}">Delete</button>` : ""}</td></tr>`; }).join("")
+        }</tbody></table>
       </div>
     </div>
-    <h2>Calendar</h2>
-    <table><thead><tr><th>Day</th><th>Title</th><th>Picture</th><th></th></tr></thead><tbody>${
-      days.map((d) => { const t = byDay[d]; return `<tr><td>${d}${d === today ? ' <span class="chip on">today</span>' : ""}</td>
-        <td>${t ? esc(t.title) : '<span class="muted">—</span>'}</td><td>${t?.imageUrl ? "✓" : ""}</td>
-        <td><button class="link" data-edit="${d}">${t ? "Edit" : "Write"}</button>${t ? ` · <button class="link danger" data-del="${d}">Delete</button>` : ""}</td></tr>`; }).join("")
-    }</tbody></table>`;
+    <div class="card stack" style="margin-top:12px">
+      <h3>Bulk import (schedule a month at once)</h3>
+      <p class="muted">One per line: <code>YYYY-MM-DD | Title | Thought</code>. Write <code>\\n</code> for a new line inside the thought. Existing days are replaced.</p>
+      <textarea id="t-bulk" placeholder="2026-12-01 | Inner peace | Peace is not found outside..."></textarea>
+      <button class="primary" id="t-import">Import</button>
+    </div>`;
   const fill = (d) => {
     const t = byDay[d] || {};
     $("#t-date").value = d; $("#t-title").value = t.title || ""; $("#t-text").value = t.text || "";
-    $("#t-current").innerHTML = t.imageUrl ? `<img class="thumb" src="${esc(t.imageUrl)}" alt="">` : "";
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    $("#t-image").value = "";
+    $("#t-current").innerHTML = t.imageUrl ? `<img class="thumb" src="${esc(t.imageUrl)}" alt=""><div class="muted">Saved picture for ${esc(d)}</div>` : "";
+    $$(".cal tr[data-day]").forEach((r) => r.classList.toggle("sel", r.dataset.day === d));
+    // On a narrow screen the form sits above the calendar
+    if (window.innerWidth <= 1000) window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  let preview;
+  $("#t-image").onchange = () => {
+    const f = $("#t-image").files[0];
+    if (preview) URL.revokeObjectURL(preview);
+    if (!f) return fill($("#t-date").value);
+    preview = URL.createObjectURL(f);
+    $("#t-current").innerHTML = `<img class="thumb" src="${preview}" alt=""><div class="muted">New picture: ${esc(f.name)} (${Math.round(f.size / 1024)} KB), saved when you press Save</div>`;
   };
   fill($("#t-date").value);
   $("#t-date").onchange = () => fill($("#t-date").value);
