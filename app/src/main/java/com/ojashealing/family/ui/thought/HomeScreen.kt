@@ -331,7 +331,7 @@ fun ScheduledThoughtsScreen(vm: ThoughtViewModel, onEdit: (String) -> Unit, onBa
                         OjasCard(onClick = { onEdit(t.id) }, tintKey = t.id) {
                             Text(dayLabel(t.id), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                             Text(t.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                            Text(t.text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            Text(com.ojashealing.family.ui.components.linkified(t.text), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                         }
                     }
                 }
@@ -375,7 +375,7 @@ fun ThoughtCard(
         Text(thought.title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
         // On Home a short preview; the whole thought and its comments open on tap
         Text(
-            thought.text,
+            com.ojashealing.family.ui.components.linkified(thought.text),
             style = LocalQuoteStyle.current,
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = if (preview) 3 else Int.MAX_VALUE,
@@ -655,7 +655,7 @@ fun PostRow(
                     append(post.text)
                 }
             } else androidx.compose.ui.text.AnnotatedString(post.text)
-            Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+            Text(com.ojashealing.family.ui.components.linkified(body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
             if (post.imageUrl.isNotEmpty()) PostImage(post.imageUrl, Modifier.padding(top = Spacing.xs), maxHeight = 260.dp)
             if (post.status == PostStatus.Pending) {
                 Text(stringResource(R.string.post_pending), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)

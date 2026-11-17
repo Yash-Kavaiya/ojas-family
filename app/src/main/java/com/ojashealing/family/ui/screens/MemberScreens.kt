@@ -131,7 +131,7 @@ fun PublicProfileScreen(
                         Text(listOfNotNull(age?.let { stringResource(R.string.profile_age, it) }, place.ifEmpty { null }).joinToString(" · "),
                             style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         com.ojashealing.family.ui.components.ProfileBadges(u.role, u.userLevel, u.memberLevel)
-                        if (u.about.isNotBlank()) Text(u.about, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                        if (u.about.isNotBlank()) Text(com.ojashealing.family.ui.components.linkified(u.about), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
                         Text(stringResource(R.string.profile_points) + ": " + u.mokshaPoints, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                     }
                 }

@@ -100,7 +100,9 @@ class DailyViewModel(
     private val repo: DailyRepository,
     profile: Flow<UserProfile?>,
     private val blocked: Flow<Set<String>>,
-    private val uploadImage: suspend (uid: String, photo: Uri) -> String
+    private val uploadImage: suspend (uid: String, photo: Uri) -> String,
+    /** A photo, audio clip or video for a new post. */
+    private val uploadMedia: suspend (uid: String, media: Uri, kind: com.ojashealing.family.data.social.MediaKind) -> String = { _, _, _ -> error("uploads not available") }
 ) : ViewModel() {
 
     private val me = profile.filterNotNull()
@@ -152,9 +154,21 @@ class DailyViewModel(
         }
     }
 
-    /** A photo, words, or both. */
-    fun post(text: String, photo: Uri?, onDone: () -> Unit) =
-        send(photo, { p, url -> repo.post(p.asAuthor(), text, url, emptyList()).onSuccess { com.ojashealing.family.data.analytics.Analytics.post("activity") } }, onDone)
+    /** Words, a photo / audio / video, or both. */
+    fun post(text: String, media: Uri?, kind: com.ojashealing.family.data.social.MediaKind?, onDone: () -> Unit) {
+        val p = meNow.value ?: return
+        if (_busy.value) return
+        _busy.value = true
+        _failed.value = false
+        viewModelScope.launch {
+            val ok = runCatching { if (media != null && kind != null) uploadMedia(p.uid, media, kind) else "" }.mapCatching { url ->
+                val isPhoto = kind == com.ojashealing.family.data.social.MediaKind.Image
+                repo.post(p.asAuthor(), text, if (isPhoto) url else "", emptyList(), kind.takeIf { !isPhoto && url.isNotEmpty() }, if (isPhoto) "" else url).getOrThrow()
+            }.isSuccess
+            _busy.value = false
+            if (ok) { com.ojashealing.family.data.analytics.Analytics.post("activity"); onDone() } else _failed.value = true
+        }
+    }
 
     fun reply(postId: String, text: String, photo: Uri?, mentions: List<String>, reply: ReplyTo?, onDone: () -> Unit) =
         send(photo, { p, url -> repo.reply(postId, p.asAuthor(), text, url, mentions, reply).onSuccess { com.ojashealing.family.data.analytics.Analytics.post("activity_reply") } }, onDone)
@@ -225,10 +239,12 @@ private fun DailyCard(post: DailyPost, onClick: () -> Unit) {
         }
         val wordsOnly = post.imageUrl.isEmpty()
         if (!wordsOnly) com.ojashealing.family.ui.components.ResponsiveImage(post.imageUrl, maxHeight = 400.dp)
+        // Audio and video play on the post itself; the list shows what is there
+        MediaLabel(post.mediaKind)
         GoalLabel(post)
         // Without a photo the words are the post: larger, and more of them
         if (post.text.isNotBlank()) Text(
-            post.text,
+            com.ojashealing.family.ui.components.linkified(post.text),
             style = if (wordsOnly) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodyMedium,
             maxLines = if (wordsOnly) 8 else 3, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
@@ -269,8 +285,9 @@ fun DailyPostScreen(vm: DailyViewModel, postId: String, onBack: () -> Unit, show
                         ReportMenu(post.author, "dailyPosts/${post.id}", onBlocked = onBack)
                     }
                     if (post.imageUrl.isNotEmpty()) PostImage(post.imageUrl)
+                    com.ojashealing.family.ui.components.PostMedia(post.mediaKind, post.mediaUrl)
                     GoalLabel(post)
-                    if (post.text.isNotBlank()) Text(post.text, style = if (post.imageUrl.isEmpty()) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodyMedium)
+                    if (post.text.isNotBlank()) Text(com.ojashealing.family.ui.components.linkified(post.text), style = if (post.imageUrl.isEmpty()) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodyMedium)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         LikeButton(liked = liked, enabled = true, onToggle = { vm.setLiked(post.id, !liked) })
                         Text(pluralStringResource(R.plurals.likes_plural, post.likeCount, post.likeCount), style = MaterialTheme.typography.labelMedium)
@@ -306,37 +323,30 @@ fun DailyPostScreen(vm: DailyViewModel, postId: String, onBack: () -> Unit, show
     }
 }
 
-/** Member Level 3: share today's seva as a photo, as words, or both. */
+/** Member Level 3: share today's seva as words, a photo, an audio clip or a video, or words with one of them. */
 @Composable
 fun ComposeDailyScreen(vm: DailyViewModel, onBack: () -> Unit) {
     var text by rememberSaveable { mutableStateOf("") }
-    var photo by rememberSaveable { mutableStateOf<Uri?>(null) }
+    var mediaUri by rememberSaveable { mutableStateOf<String?>(null) }
+    var kindId by rememberSaveable { mutableStateOf<String?>(null) }
+    val kind = com.ojashealing.family.data.social.MediaKind.fromId(kindId)
     val busy by vm.busy.collectAsStateWithLifecycle()
     val failed by vm.failed.collectAsStateWithLifecycle()
-    val pickImage = com.ojashealing.family.ui.components.rememberImagePicker { photo = it }
     OnboardingLayout(
         title = stringResource(R.string.daily_new),
         subtitle = null,
         onBack = onBack,
         bottom = {
-            PrimaryButton(stringResource(R.string.action_send), onClick = { vm.post(text, photo, onBack) }, busy = busy, enabled = photo != null || text.isNotBlank())
+            PrimaryButton(
+                stringResource(if (busy && mediaUri != null) R.string.announce_uploading else R.string.action_send),
+                onClick = { vm.post(text, mediaUri?.let(Uri::parse), kind, onBack) },
+                busy = busy, enabled = mediaUri != null || text.isNotBlank()
+            )
         }
     ) {
-        val p = photo
-        // Once picked, the photo shows whole at its own shape; tap it to pick another
-        if (p != null) com.ojashealing.family.ui.components.ResponsiveImage(p, onClick = { pickImage() })
-        else Box(
-            Modifier.fillMaxWidth().aspectRatio(4f / 3f).clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceVariant)
-                .clickable { pickImage() },
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
-                Icon(Icons.Outlined.AddAPhoto, contentDescription = null)
-                Text(stringResource(R.string.daily_add_photo), style = MaterialTheme.typography.labelLarge)
-            }
-        }
         OutlinedTextField(value = text, onValueChange = { text = it.take(1000) }, label = { Text(stringResource(R.string.daily_caption)) },
             modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp))
-        if (failed) ErrorText(stringResource(R.string.error_generic))
+        com.ojashealing.family.ui.components.MediaAttachPicker(mediaUri, kind, onChange = { u, k -> mediaUri = u; kindId = k?.id })
+        if (failed) ErrorText(stringResource(R.string.announce_failed))
     }
 }

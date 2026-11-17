@@ -41,6 +41,9 @@ private class Waiting(
     val denyNeedsConfirm: Boolean,
     val approve: () -> Unit,
     val deny: () -> Unit,
+    /** A post's audio or video, played right in the dialog. */
+    val mediaKind: com.ojashealing.family.data.social.MediaKind? = null,
+    val mediaUrl: String = "",
 )
 
 private const val SEEN_KEY = "moderation_popup_seen"
@@ -65,7 +68,8 @@ fun ModerationPopup(vm: ModerationViewModel, onOpenQueue: () -> Unit) {
 
     val waiting = remember(pending, goalReviews, faces, lang) {
         pending.map { p ->
-            Waiting("post:" + p.path, p.author, p.text, p.imageUrl, denyNeedsConfirm = true, approve = { vm.approve(p.path) }, deny = { vm.remove(p.path) })
+            Waiting("post:" + p.path, p.author, p.text, p.imageUrl, denyNeedsConfirm = true, approve = { vm.approve(p.path) }, deny = { vm.remove(p.path) },
+                mediaKind = p.mediaKind, mediaUrl = p.mediaUrl)
         } + goalReviews.map { r ->
             val s = r.submission
             Waiting(
@@ -106,6 +110,7 @@ fun ModerationPopup(vm: ModerationViewModel, onOpenQueue: () -> Unit) {
                         model = item.imageUrl, contentDescription = null, contentScale = ContentScale.Fit,
                         modifier = Modifier.fillMaxWidth().heightIn(max = 220.dp).clip(RoundedCornerShape(12.dp)),
                     )
+                    com.ojashealing.family.ui.components.PostMedia(item.mediaKind, item.mediaUrl)
                     if (fresh.size > 1) Text(
                         stringResource(R.string.moderation_more_waiting, fresh.size - 1),
                         style = MaterialTheme.typography.bodySmall,

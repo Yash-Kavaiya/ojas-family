@@ -36,6 +36,14 @@ internal fun MutableMap<String, Any>.putBadges(author: Author) {
     if (author.memberLevel > 0) put("authorMember", author.memberLevel)
 }
 
+/** A post's audio or video, stored like an announcement's: "mediaType" ("audio" / "video") and "mediaUrl". */
+private fun DocumentSnapshot.avKind(): MediaKind? =
+    MediaKind.fromId(getString("mediaType")).takeIf { it == MediaKind.Audio || it == MediaKind.Video }
+
+private fun MutableMap<String, Any>.putAv(media: MediaKind?, mediaUrl: String) {
+    if ((media == MediaKind.Audio || media == MediaKind.Video) && mediaUrl.isNotEmpty()) { put("mediaType", media.id); put("mediaUrl", mediaUrl) }
+}
+
 private fun postFields(author: Author, text: String, imageUrl: String = "", mentions: List<String> = emptyList(), reply: ReplyTo? = null) = buildMap<String, Any> {
     put("authorUid", author.uid)
     put("authorName", author.name)
@@ -135,7 +143,8 @@ class CommunityRepository(private val db: FirebaseFirestore) {
         id = id, author = author(), title = getString("title").orEmpty(), body = getString("body").orEmpty(),
         createdAt = millis("createdAt"), likeCount = getLong("likeCount")?.toInt() ?: 0,
         answerCount = getLong("answerCount")?.toInt() ?: 0, status = status(),
-        imageUrl = getString("imageUrl").orEmpty()
+        imageUrl = getString("imageUrl").orEmpty(),
+        mediaKind = avKind(), mediaUrl = if (avKind() != null) getString("mediaUrl").orEmpty() else ""
     )
 
     private fun DocumentSnapshot.toAnnouncement() = Announcement(
@@ -205,14 +214,16 @@ class CommunityRepository(private val db: FirebaseFirestore) {
         Unit
     }
 
-    suspend fun ask(author: Author, title: String, body: String, imageUrl: String = ""): Result<Unit> = runCatching {
+    suspend fun ask(author: Author, title: String, body: String, imageUrl: String = "", media: MediaKind? = null, mediaUrl: String = ""): Result<Unit> = runCatching {
         db.collection("questions").add(
             buildMap<String, Any> {
                 put("authorUid", author.uid); put("authorName", author.name); put("authorPhoto", author.photo)
                 put("authorRole", author.role.toId()); putBadges(author); put("title", title.trim()); put("body", body.trim())
-                put("status", if (needsReview("$title $body", imageUrl)) "pending" else "visible")
+                // A photo, audio or video waits for an admin, like a link (firestore.rules)
+                put("status", if (needsReview("$title $body", imageUrl.ifEmpty { mediaUrl })) "pending" else "visible")
                 put("createdAt", FieldValue.serverTimestamp())
                 if (imageUrl.isNotEmpty()) put("imageUrl", imageUrl)
+                putAv(media, mediaUrl)
             }
         ).await()
         Unit
@@ -256,7 +267,8 @@ class DailyRepository(private val db: FirebaseFirestore) {
         id = id, author = author(), text = getString("text").orEmpty(), imageUrl = getString("imageUrl").orEmpty(),
         createdAt = millis("createdAt"), likeCount = getLong("likeCount")?.toInt() ?: 0,
         replyCount = getLong("replyCount")?.toInt() ?: 0, status = status(),
-        goalTitle = (get("goalTitle") as? Map<*, *>).orEmpty().entries.associate { it.key.toString() to it.value?.toString().orEmpty() }
+        goalTitle = (get("goalTitle") as? Map<*, *>).orEmpty().entries.associate { it.key.toString() to it.value?.toString().orEmpty() },
+        mediaKind = avKind(), mediaUrl = if (avKind() != null) getString("mediaUrl").orEmpty() else ""
     )
 
     fun observePosts(viewer: Viewer, uid: String): Flow<List<DailyPost>> {
@@ -288,11 +300,12 @@ class DailyRepository(private val db: FirebaseFirestore) {
         Unit
     }
 
-    suspend fun post(author: Author, text: String, imageUrl: String, mentions: List<String>): Result<Unit> = runCatching {
+    suspend fun post(author: Author, text: String, imageUrl: String, mentions: List<String>, media: MediaKind? = null, mediaUrl: String = ""): Result<Unit> = runCatching {
         db.collection("dailyPosts").add(
             buildMap<String, Any> {
                 put("authorUid", author.uid); put("authorName", author.name); put("authorPhoto", author.photo)
                 put("authorRole", author.role.toId()); putBadges(author); put("text", text.trim()); put("imageUrl", imageUrl)
+                putAv(media, mediaUrl)
                 put("status", if (containsLink(text)) "pending" else "visible")
                 put("createdAt", FieldValue.serverTimestamp())
                 if (mentions.isNotEmpty()) put("mentions", mentions.take(10))
@@ -326,7 +339,8 @@ class ModerationRepository(private val db: FirebaseFirestore) {
                     text = d.getString("text") ?: listOfNotNull(d.getString("title"), d.getString("body")).joinToString("\n"),
                     author = d.getString("authorName").orEmpty(),
                     createdAt = d.millis("createdAt"),
-                    imageUrl = d.getString("imageUrl").orEmpty()
+                    imageUrl = d.getString("imageUrl").orEmpty(),
+                    mediaKind = d.avKind(), mediaUrl = if (d.avKind() != null) d.getString("mediaUrl").orEmpty() else ""
                 )
             }.sortedBy { it.createdAt }
         }

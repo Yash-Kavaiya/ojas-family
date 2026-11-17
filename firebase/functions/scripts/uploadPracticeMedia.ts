@@ -85,7 +85,11 @@ async function main() {
       metadata: { contentType: mime, cacheControl: "public, max-age=86400", metadata: { firebaseStorageDownloadTokens: token } },
     });
     const url = `https://firebasestorage.googleapis.com/v0/b/${BUCKET}/o/${encodeURIComponent(dest)}?alt=media&token=${token}`;
-    config[section] = { url, kind, durationSec: seconds(file), title: TITLES[section] };
+    // A practice moving off YouTube drops its YouTube ids, so nothing points back there
+    config[section] = {
+      url, kind, durationSec: seconds(file), title: TITLES[section],
+      videoId: FieldValue.delete(), fallbackVideoId: FieldValue.delete(), fallbackDurationSec: FieldValue.delete(),
+    };
     console.log(`  done (${(config[section] as { durationSec: number }).durationSec}s)`);
   }
 

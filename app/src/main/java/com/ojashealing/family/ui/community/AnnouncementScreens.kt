@@ -116,7 +116,7 @@ fun AnnouncementCard(
             }
         }
         Text(n.title, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
-        if (n.body.isNotBlank()) Text(n.body, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+        if (n.body.isNotBlank()) Text(com.ojashealing.family.ui.components.linkified(n.body), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
         if (n.mediaUrl.isNotEmpty()) when (n.mediaKind) {
             MediaKind.Image -> PostImage(n.mediaUrl)
             MediaKind.Audio -> AudioPlayer(n.mediaUrl)
@@ -190,7 +190,8 @@ fun AnnouncementDetailScreen(vm: CommunityViewModel, id: String, onBack: () -> U
                 if (p.canAnswer) {
                     PostComposer(
                         hint = stringResource(R.string.home_comment_hint),
-                        canAttachImage = p.canAttachImage,
+                        // Replies to an announcement are words only
+                        canAttachImage = false,
                         mentionable = comments.map { it.author },
                         busy = sending,
                         onSend = { d, sent -> vm.commentOnAnnouncement(id, d.text, d.photo, d.mentions, d.reply, sent) },
@@ -204,39 +205,13 @@ fun AnnouncementDetailScreen(vm: CommunityViewModel, id: String, onBack: () -> U
     }
 }
 
-@Composable
-private fun AttachTile(icon: ImageVector, label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val shape = RoundedCornerShape(16.dp)
-    Column(
-        modifier = modifier
-            .clip(shape)
-            .background(if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)
-            .border(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, shape)
-            .clickable(onClick = onClick)
-            .padding(vertical = Spacing.m),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(Spacing.xs)
-    ) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
-    }
-}
-
-/** Admins write an announcement: title, message, and one optional picture, audio clip or video. */
+/** Admins write an announcement: a title and a message (a Zoom meeting, a new course). Text only. */
 @Composable
 fun ComposeAnnouncementScreen(vm: CommunityViewModel, onBack: () -> Unit) {
     var title by rememberSaveable { mutableStateOf("") }
     var body by rememberSaveable { mutableStateOf("") }
-    var mediaUri by rememberSaveable { mutableStateOf<String?>(null) }
-    var kindId by rememberSaveable { mutableStateOf<String?>(null) }
     val sending by vm.sending.collectAsStateWithLifecycle()
     val failed by vm.announceFailed.collectAsStateWithLifecycle()
-    val kind = MediaKind.fromId(kindId)
-
-    fun pick(k: MediaKind) = { uri: Uri? -> if (uri != null) { mediaUri = uri.toString(); kindId = k.id } }
-    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia(), pick(MediaKind.Image))
-    val videoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia(), pick(MediaKind.Video))
-    val audioPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent(), pick(MediaKind.Audio))
 
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
@@ -260,35 +235,11 @@ fun ComposeAnnouncementScreen(vm: CommunityViewModel, onBack: () -> Unit) {
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth().heightIn(min = 140.dp)
                 )
-                Text(stringResource(R.string.announce_attach), style = MaterialTheme.typography.titleMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-                    AttachTile(Icons.Outlined.Image, stringResource(R.string.announce_photo), kind == MediaKind.Image,
-                        { photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, Modifier.weight(1f))
-                    AttachTile(Icons.Outlined.Headphones, stringResource(R.string.announce_audio), kind == MediaKind.Audio,
-                        { audioPicker.launch("audio/*") }, Modifier.weight(1f))
-                    AttachTile(Icons.Outlined.Videocam, stringResource(R.string.announce_video), kind == MediaKind.Video,
-                        { videoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) }, Modifier.weight(1f))
-                }
-                val uri = mediaUri
-                if (uri != null && kind != null) {
-                    Box {
-                        when (kind) {
-                            MediaKind.Image -> PostImage(uri)
-                            MediaKind.Audio -> AudioPlayer(uri, Modifier.padding(top = Spacing.xl))
-                            MediaKind.Video -> InlineVideoPlayer(uri, Modifier.padding(top = Spacing.xl))
-                        }
-                        IconButton(
-                            onClick = { mediaUri = null; kindId = null },
-                            modifier = Modifier.align(Alignment.TopEnd).size(32.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.55f))
-                        ) { Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.announce_remove), tint = Color.White) }
-                    }
-                    Text(stringResource(R.string.announce_size_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
                 if (failed) Text(stringResource(R.string.announce_failed), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
             }
             SendPillButton(
-                text = stringResource(if (sending && mediaUri != null) R.string.announce_uploading else R.string.announce_send),
-                onClick = { vm.announce(title, body, mediaUri?.let(Uri::parse), kind, onBack) },
+                text = stringResource(R.string.announce_send),
+                onClick = { vm.announce(title, body, null, null, onBack) },
                 enabled = title.isNotBlank(),
                 busy = sending,
                 modifier = Modifier.padding(Spacing.l)

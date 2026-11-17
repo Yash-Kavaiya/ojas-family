@@ -189,6 +189,17 @@ service cloud.firestore {
         || (data.imageUrl is string && data.imageUrl.size() < 1000 && (data.imageUrl == '' || canAttachImage()));
     }
 
+    // Audio or video on a question or an Activity post: the same members who may add a photo
+    function validAv(data) {
+      return (!('mediaUrl' in data) && !('mediaType' in data))
+        || (data.mediaUrl is string && data.mediaUrl.size() > 0 && data.mediaUrl.size() < 1000
+          && data.mediaType in ['audio', 'video'] && canAttachImage());
+    }
+
+    function hasAv(data) {
+      return data.get('mediaUrl', '') != '';
+    }
+
     // People picked from the thread to be notified
     function validMentions(data) {
       return !('mentions' in data) || (data.mentions is list && data.mentions.size() <= 10);
@@ -262,9 +273,10 @@ service cloud.firestore {
         && request.resource.data.authorRole == role()
         && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 150
         && request.resource.data.body is string && request.resource.data.body.size() <= 2000
-        && validMedia(request.resource.data) && validMentions(request.resource.data) && validBadges(request.resource.data)
+        && validMedia(request.resource.data) && validAv(request.resource.data)
+        && validMentions(request.resource.data) && validBadges(request.resource.data)
         && request.resource.data.status == ((hasLink(request.resource.data.title + ' ' + request.resource.data.body)
-             || hasImage(request.resource.data)) ? 'pending' : 'visible');
+             || hasImage(request.resource.data) || hasAv(request.resource.data)) ? 'pending' : 'visible');
       allow update: if isAdmin();
       allow delete: if signedIn() && (resource.data.authorUid == request.auth.uid || isAdmin());
 
@@ -301,7 +313,8 @@ service cloud.firestore {
 
       match /comments/{commentId} {
         allow read: if readablePost();
-        allow create: if canComment() && validPost(request.resource.data, 1000);
+        // Replies to an announcement are words only
+        allow create: if canComment() && validPost(request.resource.data, 1000) && !hasImage(request.resource.data);
         allow update: if isAdmin();
         allow delete: if signedIn() && (resource.data.authorUid == request.auth.uid || isAdmin());
         // Likes on a comment; the server keeps its likeCount
@@ -423,9 +436,10 @@ service cloud.firestore {
         && request.resource.data.authorRole == role()
         && request.resource.data.authorName is string && request.resource.data.authorName.size() <= 80
         && request.resource.data.text is string && request.resource.data.text.size() <= 1000
-        // A photo, words, or both: never an empty post
+        // Words, a photo, an audio clip or a video: never an empty post
         && request.resource.data.imageUrl is string && request.resource.data.imageUrl.size() < 1000
-        && (request.resource.data.imageUrl.size() > 0 || request.resource.data.text.size() > 0)
+        && validAv(request.resource.data)
+        && (request.resource.data.imageUrl.size() > 0 || request.resource.data.text.size() > 0 || hasAv(request.resource.data))
         && validMentions(request.resource.data) && validBadges(request.resource.data)
         && request.resource.data.status == (hasLink(request.resource.data.text) ? 'pending' : 'visible');
       allow update: if isAdmin();

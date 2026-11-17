@@ -674,7 +674,7 @@ private fun UserBubble(text: String, photoPath: String?, modifier: Modifier = Mo
             )
         }
         Text(
-            text,
+            com.ojashealing.family.ui.components.linkified(text, linkColor = Color.White),
             style = MaterialTheme.typography.bodyLarge,
             color = Color.White,
             modifier = Modifier
@@ -736,7 +736,7 @@ private fun AiBubble(
                         }
                     }
                     m.text.isEmpty() && m.streaming -> ThinkingDots()
-                    else -> Text(answerText(m.text, m.streaming), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+                    else -> Text(com.ojashealing.family.ui.components.linkified(answerText(m.text, m.streaming)), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
                 }
             }
             // The videos this answer drew on: tap to watch from that moment

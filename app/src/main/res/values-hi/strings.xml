@@ -241,6 +241,7 @@
     <string name="post_add_photo">फ़ोटो जोड़ें</string>
     <string name="post_remove_photo">फ़ोटो हटाएँ</string>
     <string name="post_photo_review">फ़ोटो या लिंक वाली पोस्ट एडमिन की स्वीकृति के बाद दिखती हैं।</string>
+    <string name="post_media_review">फ़ोटो, ऑडियो, वीडियो या लिंक वाले सवाल एडमिन की स्वीकृति के बाद दिखते हैं।</string>
     <string name="mention_title">किसी का उल्लेख करें</string>
     <string name="composer_more">फ़ोटो या मेंशन जोड़ें</string>
     <string name="membership_title">सदस्यता</string>

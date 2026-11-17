@@ -76,6 +76,32 @@ describe("images in posts", () => {
   });
 });
 
+describe("audio and video in Activity and Q&A", () => {
+  const av = (kind: string) => ({ mediaType: kind, mediaUrl: "https://media" });
+  const question = (uid: string, extra: Record<string, unknown> = {}) => ({
+    authorUid: uid, authorName: String(users[uid].displayName), authorRole: users[uid].role, title: "Q", body: "", status: "visible", ...extra,
+  });
+
+  test("an Activity post can be just an audio clip or a video", async () => {
+    await assertSucceeds(setDoc(doc(as("m3"), "dailyPosts", "audio"), post("m3", { imageUrl: "", text: "", ...av("audio") })));
+    await assertSucceeds(setDoc(doc(as("m3"), "dailyPosts", "video"), post("m3", { imageUrl: "", ...av("video") })));
+    await assertFails(setDoc(doc(as("m3"), "dailyPosts", "pdf"), post("m3", { imageUrl: "", text: "", ...av("pdf") })));
+    await assertFails(setDoc(doc(as("m3"), "dailyPosts", "empty"), post("m3", { imageUrl: "", text: "", mediaType: "audio", mediaUrl: "" })));
+  });
+
+  test("a question with audio or video waits for review, and only members who may add photos can add it", async () => {
+    await assertSucceeds(setDoc(doc(as("m3"), "questions", "qa"), question("m3", { ...av("video"), status: "pending" })));
+    await assertFails(setDoc(doc(as("m3"), "questions", "qb"), question("m3", { ...av("video") })));
+    await assertFails(setDoc(doc(as("free"), "questions", "qc"), question("free", { ...av("audio"), status: "pending" })));
+    await assertSucceeds(setDoc(doc(as("free"), "questions", "qd"), question("free")));
+  });
+
+  test("replies to an announcement are words only", async () => {
+    await assertSucceeds(setDoc(doc(as("sw"), "announcements", "n1", "comments", "c1"), post("sw")));
+    await assertFails(setDoc(doc(as("sw"), "announcements", "n1", "comments", "c2"), post("sw", { imageUrl: "https://img", status: "pending" })));
+  });
+});
+
 describe("personal chat", () => {
   test("a member with an active chat pack opens a chat and writes", async () => {
     await assertSucceeds(setDoc(doc(as("paid"), "chats", "paid"), { memberUid: "paid", memberName: "Paid" }));

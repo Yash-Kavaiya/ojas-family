@@ -258,14 +258,15 @@ fun MainShell(container: AppContainer) {
         }
     })
     val communityVm: CommunityViewModel = viewModel(factory = viewModelFactory {
-        initializer { CommunityViewModel(container.community, vm.profile, uploadPostImage, container.images::uploadAnnouncement) }
+        initializer { CommunityViewModel(container.community, vm.profile, uploadPostImage, container.images::uploadAnnouncement, container.images::uploadMemberMedia) }
     })
     val dailyVm: DailyViewModel = viewModel(factory = viewModelFactory {
         initializer {
             DailyViewModel(
                 container.daily, vm.profile,
                 container.auth.currentUid.flatMapLatest { uid -> uid?.let(container.community::observeBlocked) ?: flowOf(emptySet()) },
-                uploadPostImage
+                uploadPostImage,
+                container.images::uploadMemberMedia
             )
         }
     })
@@ -800,7 +801,7 @@ fun MainShell(container: AppContainer) {
                     onBack = { nav.popBackStack() },
                     onSubmit = { t, b, done -> communityVm.ask(t, b, done) },
                     canAttachImage = perms?.canAttachImage == true,
-                    onSubmitWithPhoto = { t, b, photo, done -> communityVm.ask(t, b, photo, done) },
+                    onSubmitWithMedia = { t, b, media, kind, done -> communityVm.ask(t, b, media, kind, done) },
                     sending = communityVm.sending.collectAsStateWithLifecycle().value,
                     failed = communityVm.postFailed.collectAsStateWithLifecycle().value
                 )

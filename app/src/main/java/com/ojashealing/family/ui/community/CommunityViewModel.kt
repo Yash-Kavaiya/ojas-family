@@ -58,7 +58,9 @@ class CommunityViewModel(
     private val repo: CommunityRepository,
     profile: Flow<UserProfile?>,
     private val uploadImage: suspend (uid: String, photo: Uri) -> String = { _, _ -> error("uploads not available") },
-    private val uploadAnnouncementMedia: suspend (media: Uri, kind: MediaKind) -> String = { _, _ -> error("uploads not available") }
+    private val uploadAnnouncementMedia: suspend (media: Uri, kind: MediaKind) -> String = { _, _ -> error("uploads not available") },
+    /** A member's photo, audio or video for a question. */
+    private val uploadMedia: suspend (uid: String, media: Uri, kind: MediaKind) -> String = { _, _, _ -> error("uploads not available") }
 ) : ViewModel() {
 
     private val _announceFailed = kotlinx.coroutines.flow.MutableStateFlow(false)
@@ -97,8 +99,20 @@ class CommunityViewModel(
     fun answer(questionId: String, text: String, photo: Uri?, mentions: List<String>, reply: ReplyTo?, onDone: () -> Unit) =
         withPhoto(photo) { p, url -> repo.answer(questionId, p.asAuthor(), text, url, mentions, reply).onSuccess { com.ojashealing.family.data.analytics.Analytics.post("answer"); onDone() } }
 
-    fun ask(title: String, body: String, photo: Uri?, onDone: () -> Unit) =
-        withPhoto(photo) { p, url -> repo.ask(p.asAuthor(), title, body, url).onSuccess { com.ojashealing.family.data.analytics.Analytics.post("question"); onDone() } }
+    /** A question with an optional photo, audio clip or video; the file uploads first. */
+    fun ask(title: String, body: String, media: Uri?, kind: MediaKind?, onDone: () -> Unit) = withMe { p ->
+        if (_sending.value) return@withMe
+        _sending.value = true
+        _postFailed.value = false
+        val sent = runCatching { if (media != null && kind != null) uploadMedia(p.uid, media, kind) else "" }.mapCatching { url ->
+            val photo = if (kind == MediaKind.Image) url else ""
+            val av = if (kind != MediaKind.Image) url else ""
+            repo.ask(p.asAuthor(), title, body, photo, kind.takeIf { av.isNotEmpty() }, av).getOrThrow()
+        }
+        _postFailed.value = sent.isFailure
+        _sending.value = false
+        if (sent.isSuccess) { com.ojashealing.family.data.analytics.Analytics.post("question"); onDone() }
+    }
 
 
     private val me = profile.filterNotNull()

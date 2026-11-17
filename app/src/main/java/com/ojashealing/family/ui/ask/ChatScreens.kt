@@ -759,7 +759,7 @@ private fun Bubble(m: ChatMessage, mine: Boolean, seen: Boolean) {
                 }
             }
             if (m.text.isNotBlank()) {
-                Text(m.text, style = MaterialTheme.typography.bodyMedium,
+                Text(com.ojashealing.family.ui.components.linkified(m.text), style = MaterialTheme.typography.bodyMedium,
                     color = if (mine) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
             }
             // Time and, on my messages, the ticks: a clock while sending, ✓ sent, blue ✓✓ seen

@@ -642,10 +642,10 @@ async function moderation() {
   view().innerHTML = `
     <h1>Moderation</h1>
     <h2>Posts waiting for approval (${posts.length})</h2>
-    <p class="muted">Posts with a link or a picture wait here. Approving shows them to everyone and awards the author's point.</p>
+    <p class="muted">Posts with a link, a picture, audio or video wait here. Approving shows them to everyone and awards the author's point.</p>
     <div class="stack">${posts.map((p) => { const x = p.data(); return `<div class="card pending" data-path="${esc(p.ref.path)}">
       <b>${esc(x.authorName)}</b> <span class="muted">${esc(p.ref.path.split("/")[0])} · ${fmt(x.createdAt)}</span>
-      <p>${esc(x.title ? `${x.title}\n${x.body || ""}` : x.text)}</p>${x.imageUrl ? `<img src="${esc(x.imageUrl)}" alt="">` : ""}
+      <p>${esc(x.title ? `${x.title}\n${x.body || ""}` : x.text)}</p>${x.imageUrl ? `<img src="${esc(x.imageUrl)}" alt="">` : ""}${mediaHtml(x)}
       <div class="row"><button class="primary p-ok">Approve</button><button class="danger p-del">Remove</button></div></div>`; }).join("") || '<p class="muted">Nothing waiting.</p>'}</div>
     <h2>Goal photos (${goals.length})</h2>
     <div class="stack">${goals.map((g) => { const x = g.data(); const uid = g.ref.parent.parent.id; return `<div class="card pending" data-path="${esc(g.ref.path)}">
@@ -682,13 +682,7 @@ async function moderation() {
 }
 
 // ---------- announcements ----------
-const MEDIA_LIMITS = { image: 5, audio: 30, video: 100 }; // MB, same as storage.rules
-
-function mediaKindOf(file) {
-  const t = (file && file.type) || "";
-  return t.startsWith("image/") ? "image" : t.startsWith("audio/") ? "audio" : t.startsWith("video/") ? "video" : null;
-}
-
+/** A picture, audio or video saved on a post or an older announcement, playable here. */
 function mediaHtml(x) {
   const url = typeof x.mediaUrl === "string" && x.mediaUrl.startsWith("https://") ? esc(x.mediaUrl) : "";
   if (!url) return "";
@@ -703,29 +697,14 @@ async function announcements() {
   view().innerHTML = `
     <h1>Announcements</h1>
     <div class="card stack"><label>Title<input id="a-title" maxlength="150"></label><label>Message<textarea id="a-body" maxlength="2000"></textarea></label>
-      <label>Picture, audio or video (optional)<input id="a-file" type="file" accept="image/*,audio/*,video/*"></label>
-      <p class="muted">Up to 5 MB for a picture, 30 MB for audio, 100 MB for video. Members with announcement notifications on get a push.</p>
+      <p class="muted">For a Zoom meeting or a new course: words only, links work. Members reply in words. Members with announcement notifications on get a push.</p>
       <button class="primary" id="a-post">Post</button></div>
     <h2>Posted</h2><div class="stack">${snap.docs.map((d) => { const x = d.data(); return `<div class="card stack" data-id="${esc(d.id)}"><div><b>${esc(x.title)}</b>
       <span class="muted">${fmt(x.createdAt)}</span></div><p>${esc(x.body)}</p>${mediaHtml(x)}<button class="link danger a-del">Delete</button></div>`; }).join("") || '<p class="muted">None yet.</p>'}</div>`;
   $("#a-post").onclick = (e) => {
     const title = $("#a-title").value.trim(), body = $("#a-body").value.trim();
-    const file = $("#a-file").files[0];
     if (!title) return toast("Title is required", true);
-    const kind = file ? mediaKindOf(file) : null;
-    if (file && !kind) return toast("Pick a picture, audio or video file", true);
-    if (file && file.size >= MEDIA_LIMITS[kind] * 1024 * 1024) return toast(`That ${kind} is larger than ${MEDIA_LIMITS[kind]} MB`, true);
-    run(e.target, async () => {
-      const data = { title, body, createdAt: serverTimestamp() };
-      if (file) {
-        const ext = (file.name.split(".").pop() || "bin").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 5) || "bin";
-        const r = ref(storage, `announcements/${crypto.randomUUID()}.${ext}`);
-        await uploadBytes(r, file, { contentType: file.type });
-        data.mediaType = kind;
-        data.mediaUrl = await getDownloadURL(r);
-      }
-      await addDoc(collection(db, "announcements"), data);
-    }, "Posted").then(announcements);
+    run(e.target, () => addDoc(collection(db, "announcements"), { title, body, createdAt: serverTimestamp() }), "Posted").then(announcements);
   };
   $$(".a-del").forEach((b) => (b.onclick = () => confirm("Delete this announcement?") &&
     run(b, () => deleteDoc(doc(db, "announcements", b.closest("[data-id]").dataset.id)), "Deleted").then(announcements)));

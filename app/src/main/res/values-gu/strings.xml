@@ -241,6 +241,7 @@
     <string name="post_add_photo">ફોટો ઉમેરો</string>
     <string name="post_remove_photo">ફોટો કાઢો</string>
     <string name="post_photo_review">ફોટો અથવા લિંકવાળી પોસ્ટ એડમિનની મંજૂરી પછી દેખાય છે.</string>
+    <string name="post_media_review">ફોટો, ઑડિયો, વીડિયો અથવા લિંકવાળા પ્રશ્નો એડમિનની મંજૂરી પછી દેખાય છે.</string>
     <string name="mention_title">કોઈનો ઉલ્લેખ કરો</string>
     <string name="composer_more">ફોટો અથવા મેન્શન ઉમેરો</string>
     <string name="membership_title">સભ્યપદ</string>

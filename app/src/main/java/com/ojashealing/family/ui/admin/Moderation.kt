@@ -183,10 +183,11 @@ fun ModerationScreen(vm: ModerationViewModel, onBack: () -> Unit) {
             items(pending, key = { it.path }, contentType = { "pending" }) { item ->
                 OjasCard(tintKey = item.path) {
                     Text(item.author, style = MaterialTheme.typography.labelLarge)
-                    Text(item.text, style = MaterialTheme.typography.bodyLarge)
+                    Text(com.ojashealing.family.ui.components.linkified(item.text), style = MaterialTheme.typography.bodyLarge)
                     if (item.imageUrl.isNotEmpty()) {
                         com.ojashealing.family.ui.components.PostImage(item.imageUrl)
                     }
+                    com.ojashealing.family.ui.components.PostMedia(item.mediaKind, item.mediaUrl)
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                         OutlinedButton(onClick = { vm.approve(item.path) }) { Text(stringResource(R.string.moderation_approve)) }
                         TextButton(onClick = { confirmRemove = { vm.remove(item.path) } }) { Text(stringResource(R.string.moderation_remove_post), color = MaterialTheme.colorScheme.error) }

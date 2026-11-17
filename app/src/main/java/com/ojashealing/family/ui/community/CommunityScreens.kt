@@ -185,6 +185,7 @@ private fun QuestionCard(q: Question, onClick: () -> Unit) {
             AuthorLine(q.author, q.createdAt)
         }
         Text(q.title, style = MaterialTheme.typography.titleLarge, maxLines = 3, overflow = TextOverflow.Ellipsis)
+        MediaLabel(if (q.imageUrl.isNotEmpty()) com.ojashealing.family.data.social.MediaKind.Image else q.mediaKind)
         Text(
             listOf(pluralStringResource(R.plurals.likes_plural, q.likeCount, q.likeCount), stringResource(R.string.community_answers_count, q.answerCount)).joinToString(" · "),
             style = MaterialTheme.typography.bodySmall,
@@ -238,8 +239,9 @@ fun QuestionDetailScreen(
                         PostMenu(q.author, onReport = { reportTarget = "questions/${q.id}" }, onBlock = { vm.block(q.author.uid); notice = R.string.community_blocked; onBack() })
                     }
                     Text(q.title, style = MaterialTheme.typography.titleLarge)
-                    if (q.body.isNotBlank()) Text(q.body, style = MaterialTheme.typography.bodyLarge)
+                    if (q.body.isNotBlank()) Text(com.ojashealing.family.ui.components.linkified(q.body), style = MaterialTheme.typography.bodyLarge)
                     if (q.imageUrl.isNotEmpty()) PostImage(q.imageUrl)
+                    com.ojashealing.family.ui.components.PostMedia(q.mediaKind, q.mediaUrl)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         LikeButton(liked = liked, enabled = p.canLike, onToggle = { vm.setLiked(q.id, !liked) })
                         Text(pluralStringResource(R.plurals.likes_plural, q.likeCount, q.likeCount), style = MaterialTheme.typography.labelLarge)
@@ -342,15 +344,17 @@ fun ComposePostScreen(
     onBack: () -> Unit,
     onSubmit: (String, String, () -> Unit) -> Unit,
     canAttachImage: Boolean = false,
-    onSubmitWithPhoto: ((String, String, Uri?, () -> Unit) -> Unit)? = null,
+    /** With a photo, audio clip or video (members allowed to attach, [canAttachImage]). */
+    onSubmitWithMedia: ((String, String, Uri?, com.ojashealing.family.data.social.MediaKind?, () -> Unit) -> Unit)? = null,
     /** Whether the post is on its way, and whether the last try failed; the text stays so it can be sent again. */
     sending: Boolean = false,
     failed: Boolean = false
 ) {
     var first by rememberSaveable { mutableStateOf("") }
     var second by rememberSaveable { mutableStateOf("") }
-    var photo by rememberSaveable { mutableStateOf<Uri?>(null) }
-    val pickImage = com.ojashealing.family.ui.components.rememberImagePicker { photo = it }
+    var mediaUri by rememberSaveable { mutableStateOf<String?>(null) }
+    var kindId by rememberSaveable { mutableStateOf<String?>(null) }
+    val kind = com.ojashealing.family.data.social.MediaKind.fromId(kindId)
     OnboardingLayout(
         title = title,
         subtitle = null,
@@ -358,7 +362,7 @@ fun ComposePostScreen(
         bottom = {
             PrimaryButton(stringResource(R.string.action_send), onClick = {
                 val done = { onBack() }
-                if (onSubmitWithPhoto != null) onSubmitWithPhoto(first, second, photo, done) else onSubmit(first, second, done)
+                if (onSubmitWithMedia != null) onSubmitWithMedia(first, second, mediaUri?.let(Uri::parse), kind, done) else onSubmit(first, second, done)
             }, busy = sending, enabled = first.isNotBlank())
         }
     ) {
@@ -366,12 +370,8 @@ fun ComposePostScreen(
         OutlinedTextField(value = second, onValueChange = { second = it.take(2000) }, label = { Text(secondLabel) }, modifier = Modifier.fillMaxWidth().heightIn(min = 160.dp))
         if (failed) Text(stringResource(R.string.error_generic), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
         if (canAttachImage) {
-            photo?.let { PostImage(it.toString()) }
-            OutlinedButton(onClick = { pickImage() }) {
-                Icon(Icons.Outlined.Image, contentDescription = null)
-                Text(stringResource(R.string.post_add_photo))
-            }
-            if (photo != null) Text(stringResource(R.string.post_photo_review), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            com.ojashealing.family.ui.components.MediaAttachPicker(mediaUri, kind, onChange = { u, k -> mediaUri = u; kindId = k?.id })
+            if (mediaUri != null) Text(stringResource(R.string.post_media_review), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

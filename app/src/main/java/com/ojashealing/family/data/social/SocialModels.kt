@@ -75,7 +75,10 @@ data class DailyPost(
     val replyCount: Int,
     val status: PostStatus,
     /** Set when the post is a goal photo from Freedom Practice: the goal's name by language ("en", "hi", "gu"). */
-    val goalTitle: Map<String, String> = emptyMap()
+    val goalTitle: Map<String, String> = emptyMap(),
+    /** An audio clip or video instead of a photo; the photo stays in [imageUrl]. */
+    val mediaKind: MediaKind? = null,
+    val mediaUrl: String = ""
 ) {
     fun goalTitleIn(lang: String) = goalTitle[lang] ?: goalTitle["en"].orEmpty()
 }
@@ -89,7 +92,10 @@ data class Question(
     val likeCount: Int,
     val answerCount: Int,
     val status: PostStatus,
-    val imageUrl: String = ""
+    val imageUrl: String = "",
+    /** An audio clip or video instead of a photo; the photo stays in [imageUrl]. */
+    val mediaKind: MediaKind? = null,
+    val mediaUrl: String = ""
 )
 
 /** What an announcement carries besides text. Stored as "image", "audio" or "video"; absent for text only. */
@@ -113,7 +119,10 @@ data class Announcement(
 )
 
 /** A post waiting for an admin, or a member's report. [path] is the Firestore document path. */
-data class PendingItem(val path: String, val text: String, val author: String, val createdAt: Long, val imageUrl: String = "")
+data class PendingItem(
+    val path: String, val text: String, val author: String, val createdAt: Long, val imageUrl: String = "",
+    val mediaKind: MediaKind? = null, val mediaUrl: String = ""
+)
 data class Report(val id: String, val targetPath: String, val reason: String, val createdAt: Long)
 
 private val reportablePath = Regex("""^(questions/[^/]+(/answers/[^/]+)?|thoughts/[^/]+/comments/[^/]+|announcements/[^/]+/comments/[^/]+|dailyPosts/[^/]+(/replies/[^/]+)?)$""")

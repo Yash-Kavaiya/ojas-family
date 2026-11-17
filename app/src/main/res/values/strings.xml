@@ -242,6 +242,7 @@
     <string name="post_add_photo">Add photo</string>
     <string name="post_remove_photo">Remove photo</string>
     <string name="post_photo_review">Posts with photos or links are shown after an admin approves them.</string>
+    <string name="post_media_review">Questions with a photo, audio, video or a link are shown after an admin approves them.</string>
     <string name="mention_title">Mention someone</string>
     <string name="composer_more">Add photo or mention</string>
     <string name="membership_title">Membership</string>

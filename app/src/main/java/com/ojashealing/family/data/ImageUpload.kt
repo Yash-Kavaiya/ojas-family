@@ -60,6 +60,19 @@ class PostImages(
     /** Member uploads live under their own folder (storage.rules: owner writes, members read). */
     suspend fun upload(uid: String, photo: Uri): String = put("users/$uid/posts/${UUID.randomUUID()}.jpg", photo)
 
+    /**
+     * A member's photo, audio or video for a Q&A question or an Activity post (storage.rules: the
+     * member's own folder; audio up to 30 MB, video up to 100 MB). Photos are shrunk like any post photo.
+     */
+    suspend fun uploadMemberMedia(uid: String, media: Uri, kind: com.ojashealing.family.data.social.MediaKind): String {
+        if (kind == com.ojashealing.family.data.social.MediaKind.Image) return upload(uid, media)
+        val type = resolver.getType(media) ?: if (kind == com.ojashealing.family.data.social.MediaKind.Audio) "audio/mpeg" else "video/mp4"
+        val ext = type.substringAfter('/').substringBefore(';').ifEmpty { "bin" }.take(5)
+        val ref = storage.reference.child("users/$uid/media/${UUID.randomUUID()}.$ext")
+        ref.putFile(media, StorageMetadata.Builder().setContentType(type).build()).await()
+        return ref.downloadUrl.await().toString()
+    }
+
     /** Thought of the Day pictures; storage.rules lets only admins write here. */
     suspend fun uploadThought(thoughtId: String, photo: Uri): String = put("thoughts/$thoughtId.jpg", photo)
 
