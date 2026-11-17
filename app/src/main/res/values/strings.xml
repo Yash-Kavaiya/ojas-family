@@ -139,6 +139,13 @@
     <string name="community_report_reason">What is wrong with this post?</string>
     <string name="community_reported">Thank you. An admin will review it.</string>
     <string name="community_block">Block this person</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_delete">Delete</string>
+    <string name="post_edit_title">Edit</string>
+    <string name="post_delete_title">Delete this?</string>
+    <string name="post_delete_body">It will be removed for everyone. This cannot be undone.</string>
+    <string name="post_save_failed">Could not save. Check your internet and try again.</string>
+    <string name="post_deleted">Deleted</string>
     <string name="community_blocked">You will no longer see their posts.</string>
     <string name="community_empty_qa">No questions yet</string>
     <string name="community_empty_notices">No announcements yet</string>

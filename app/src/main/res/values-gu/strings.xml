@@ -138,6 +138,13 @@
     <string name="community_report_reason">આ પોસ્ટમાં શું ખોટું છે?</string>
     <string name="community_reported">આભાર. એડમિન તેને જોશે.</string>
     <string name="community_block">આ વ્યક્તિને બ્લૉક કરો</string>
+    <string name="action_edit">ફેરફાર કરો</string>
+    <string name="action_delete">કાઢી નાખો</string>
+    <string name="post_edit_title">ફેરફાર કરો</string>
+    <string name="post_delete_title">આ કાઢી નાખવું છે?</string>
+    <string name="post_delete_body">આ બધા માટે દૂર થઈ જશે. પાછું લાવી શકાશે નહીં.</string>
+    <string name="post_save_failed">સાચવી શકાયું નહીં. ઇન્ટરનેટ તપાસો અને ફરી પ્રયાસ કરો.</string>
+    <string name="post_deleted">કાઢી નાખ્યું</string>
     <string name="community_blocked">હવે તમને તેમની પોસ્ટ નહીં દેખાય.</string>
     <string name="community_empty_qa">હજી કોઈ પ્રશ્ન નથી</string>
     <string name="community_empty_notices">હજી કોઈ જાહેરાત નથી</string>

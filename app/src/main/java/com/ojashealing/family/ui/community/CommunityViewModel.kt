@@ -165,4 +165,17 @@ class CommunityViewModel(
     fun announce(title: String, body: String, onDone: () -> Unit) = withMe { repo.postAnnouncement(title, body).onSuccess { onDone() } }
     fun report(path: String, reason: String, onDone: () -> Unit) = withMe { p -> repo.report(p.uid, path, reason).onSuccess { onDone() } }
     fun block(otherUid: String) = withMe { p -> repo.block(p.uid, otherUid) }
+
+    /** The author's own post: new words, a question's new title and details, or removing it. [onDone] says whether it worked. */
+    fun editPost(path: String, text: String, onDone: (Boolean) -> Unit) {
+        viewModelScope.launch { onDone(repo.editText(path, text).isSuccess) }
+    }
+
+    fun editQuestion(id: String, title: String, body: String, onDone: (Boolean) -> Unit) {
+        viewModelScope.launch { onDone(repo.editQuestion(id, title, body).isSuccess) }
+    }
+
+    fun deletePost(path: String, onDone: (Boolean) -> Unit) {
+        viewModelScope.launch { onDone(repo.deletePost(path).isSuccess) }
+    }
 }

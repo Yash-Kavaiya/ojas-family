@@ -138,6 +138,13 @@
     <string name="community_report_reason">इस पोस्ट में क्या गलत है?</string>
     <string name="community_reported">धन्यवाद। एडमिन इसे देखेंगे।</string>
     <string name="community_block">इस व्यक्ति को ब्लॉक करें</string>
+    <string name="action_edit">बदलें</string>
+    <string name="action_delete">हटाएँ</string>
+    <string name="post_edit_title">बदलें</string>
+    <string name="post_delete_title">इसे हटाएँ?</string>
+    <string name="post_delete_body">यह सबके लिए हट जाएगा। इसे वापस नहीं लाया जा सकता।</string>
+    <string name="post_save_failed">सहेजा नहीं जा सका। इंटरनेट जाँचें और फिर कोशिश करें।</string>
+    <string name="post_deleted">हटा दिया गया</string>
     <string name="community_blocked">अब आपको उनकी पोस्ट नहीं दिखेंगी।</string>
     <string name="community_empty_qa">अभी कोई प्रश्न नहीं</string>
     <string name="community_empty_notices">अभी कोई घोषणा नहीं</string>

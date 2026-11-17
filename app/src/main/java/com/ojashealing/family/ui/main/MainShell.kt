@@ -536,13 +536,16 @@ fun MainShell(container: AppContainer) {
     val commentLikes = remember(profile?.uid) { profile?.uid?.let { com.ojashealing.family.ui.components.CommentLikes(container.commentLikes, it) } }
     // Report and Block on every member's post, comment and reply (Q&A, Daily Activities, thoughts, announcements)
     val reportedText = stringResource(R.string.community_reported)
-    val blockedText = stringResource(R.string.community_blocked)
+    val deletedText = stringResource(R.string.post_deleted)
     val postActions = remember(profile?.uid) {
         profile?.uid?.let { uid ->
             com.ojashealing.family.ui.community.PostActions(
                 myUid = uid,
                 report = { path, reason -> communityVm.report(path, reason) { Toast.makeText(context, reportedText, Toast.LENGTH_SHORT).show() } },
-                block = { other -> communityVm.block(other); Toast.makeText(context, blockedText, Toast.LENGTH_SHORT).show() }
+                edit = { path, text, done -> communityVm.editPost(path, text, done) },
+                delete = { path, done ->
+                    communityVm.deletePost(path) { ok -> done(ok); if (ok) Toast.makeText(context, deletedText, Toast.LENGTH_SHORT).show() }
+                }
             )
         }
     }

@@ -180,7 +180,7 @@ fun AnnouncementDetailScreen(vm: CommunityViewModel, id: String, onBack: () -> U
             commentThreads(
                 comments, openThreads,
                 onReply = if (p.canAnswer) ({ c: Post -> replyId = c.id }) else null,
-                trailing = { c: Post -> ReportMenu(c.author, "announcements/$id/comments/${c.id}") },
+                trailing = { c: Post -> ReportMenu(c.author, "announcements/$id/comments/${c.id}", c.text) },
                 pathOf = { c: Post -> "announcements/$id/comments/${c.id}" },
                 canLike = p.canLike
             )

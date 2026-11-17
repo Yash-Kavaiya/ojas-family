@@ -483,7 +483,7 @@ fun ThoughtDetailScreen(vm: ThoughtViewModel, thoughtId: String, onBack: () -> U
                 commentThreads(
                     comments, openThreads,
                     onReply = if (state.canComment) ({ c: Post -> replyId = c.id }) else null,
-                    trailing = { c: Post -> com.ojashealing.family.ui.community.ReportMenu(c.author, "thoughts/${thought.id}/comments/${c.id}") },
+                    trailing = { c: Post -> com.ojashealing.family.ui.community.ReportMenu(c.author, "thoughts/${thought.id}/comments/${c.id}", c.text) },
                     pathOf = { c: Post -> "thoughts/${thought.id}/comments/${c.id}" },
                     canLike = state.canLike
                 )

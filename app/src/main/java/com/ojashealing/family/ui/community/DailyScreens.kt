@@ -282,7 +282,10 @@ fun DailyPostScreen(vm: DailyViewModel, postId: String, onBack: () -> Unit, show
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s), verticalAlignment = Alignment.CenterVertically) {
                         AuthorAvatar(post.author, size = 32)
                         Box(Modifier.weight(1f)) { AuthorLine(post.author, post.createdAt) }
-                        ReportMenu(post.author, "dailyPosts/${post.id}", onBlocked = onBack)
+                        ReportMenu(
+                            post.author, "dailyPosts/${post.id}", post.text,
+                            mayBeEmpty = post.imageUrl.isNotEmpty() || post.mediaUrl.isNotEmpty(), onDeleted = onBack
+                        )
                     }
                     if (post.imageUrl.isNotEmpty()) PostImage(post.imageUrl)
                     com.ojashealing.family.ui.components.PostMedia(post.mediaKind, post.mediaUrl)
@@ -301,7 +304,7 @@ fun DailyPostScreen(vm: DailyViewModel, postId: String, onBack: () -> Unit, show
             }
             commentThreads(
                 replies, openThreads, onReply = { r: Post -> replyId = r.id },
-                trailing = { r: Post -> ReportMenu(r.author, "dailyPosts/${post.id}/replies/${r.id}") },
+                trailing = { r: Post -> ReportMenu(r.author, "dailyPosts/${post.id}/replies/${r.id}", r.text) },
                 // Only paid members reach Daily Activities, and they may all like
                 pathOf = { r: Post -> "dailyPosts/${post.id}/replies/${r.id}" }, canLike = true
             )

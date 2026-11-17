@@ -249,6 +249,35 @@ class CommunityRepository(private val db: FirebaseFirestore) {
         Unit
     }
 
+    // ---- The author edits or deletes their own post (firestore.rules ownTextEdit / ownQuestionEdit) ----
+
+    /** New words for a comment, answer, reply or Activity post at [path]; a link that was not there before sends it back for approval. */
+    suspend fun editText(path: String, text: String): Result<Unit> = runCatching {
+        val doc = db.document(path)
+        val now = doc.get().await()
+        val words = text.trim()
+        val status = if (containsLink(words) && !containsLink(now.getString("text").orEmpty())) "pending" else now.getString("status") ?: "visible"
+        doc.update(mapOf("text" to words, "editedAt" to FieldValue.serverTimestamp(), "status" to status)).await()
+        Unit
+    }
+
+    /** A question's new title and details, with the same rule for new links. */
+    suspend fun editQuestion(id: String, title: String, body: String): Result<Unit> = runCatching {
+        val doc = db.document("questions/$id")
+        val now = doc.get().await()
+        val before = "${now.getString("title").orEmpty()} ${now.getString("body").orEmpty()}"
+        val t = title.trim(); val b = body.trim()
+        val status = if (containsLink("$t $b") && !containsLink(before)) "pending" else now.getString("status") ?: "visible"
+        doc.update(mapOf("title" to t, "body" to b, "editedAt" to FieldValue.serverTimestamp(), "status" to status)).await()
+        Unit
+    }
+
+    /** Removes the post for everyone; the server keeps the counts right. */
+    suspend fun deletePost(path: String): Result<Unit> = runCatching {
+        db.document(path).delete().await()
+        Unit
+    }
+
     suspend fun report(uid: String, targetPath: String, reason: String): Result<Unit> = runCatching {
         db.collection("reports").add(
             mapOf("reporterUid" to uid, "targetPath" to targetPath, "reason" to reason.take(500), "createdAt" to FieldValue.serverTimestamp())

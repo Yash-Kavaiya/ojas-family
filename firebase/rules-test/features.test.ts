@@ -1,7 +1,7 @@
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { assertFails, assertSucceeds, initializeTestEnvironment, RulesTestEnvironment } from "@firebase/rules-unit-testing";
-import { collection, doc, getDoc, getDocs, limit, query, serverTimestamp, setDoc, Timestamp, updateDoc, where } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDoc, getDocs, limit, query, serverTimestamp, setDoc, Timestamp, updateDoc, where } from "firebase/firestore";
 
 let env: RulesTestEnvironment;
 const FUTURE = Timestamp.fromDate(new Date(Date.now() + 7 * 24 * 3600 * 1000));
@@ -99,6 +99,50 @@ describe("audio and video in Activity and Q&A", () => {
   test("replies to an announcement are words only", async () => {
     await assertSucceeds(setDoc(doc(as("sw"), "announcements", "n1", "comments", "c1"), post("sw")));
     await assertFails(setDoc(doc(as("sw"), "announcements", "n1", "comments", "c2"), post("sw", { imageUrl: "https://img", status: "pending" })));
+  });
+});
+
+describe("editing and deleting your own posts", () => {
+  const edited = (fields: Record<string, unknown>) => ({ ...fields, editedAt: serverTimestamp() });
+
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, "questions", "mine"), { authorUid: "m3", authorRole: "member", title: "Old", body: "", status: "visible" });
+      await setDoc(doc(db, "questions", "mine", "answers", "a1"), { authorUid: "m3", authorRole: "member", text: "Old words", status: "visible" });
+      await setDoc(doc(db, "dailyPosts", "photo"), { authorUid: "m3", text: "Seva", imageUrl: "https://img", status: "visible" });
+      await setDoc(doc(db, "thoughts", "t1", "comments", "c1"), { authorUid: "m3", text: "Nice", status: "visible" });
+    });
+  });
+
+  test("the author changes the words; nobody else can, and nothing else changes", async () => {
+    await assertSucceeds(updateDoc(doc(as("m3"), "questions", "mine", "answers", "a1"), edited({ text: "New words", status: "visible" })));
+    await assertSucceeds(updateDoc(doc(as("m3"), "thoughts", "t1", "comments", "c1"), edited({ text: "Very nice", status: "visible" })));
+    await assertFails(updateDoc(doc(as("paid"), "questions", "mine", "answers", "a1"), edited({ text: "Hacked", status: "visible" })));
+    await assertFails(updateDoc(doc(as("m3"), "questions", "mine", "answers", "a1"), edited({ text: "x", status: "visible", likeCount: 99 })));
+    await assertFails(updateDoc(doc(as("m3"), "questions", "mine", "answers", "a1"), edited({ text: "", status: "visible" })));
+  });
+
+  test("adding a link sends it back for approval", async () => {
+    await assertFails(updateDoc(doc(as("m3"), "questions", "mine", "answers", "a1"), edited({ text: "see https://x.in", status: "visible" })));
+    await assertFails(updateDoc(doc(as("m3"), "questions", "mine", "answers", "a1"), edited({ text: "see HTTPS://x.in", status: "visible" })));
+    await assertSucceeds(updateDoc(doc(as("m3"), "questions", "mine", "answers", "a1"), edited({ text: "see https://x.in", status: "pending" })));
+  });
+
+  test("a question's title and details are edited the same way", async () => {
+    await assertSucceeds(updateDoc(doc(as("m3"), "questions", "mine"), edited({ title: "New", body: "More", status: "visible" })));
+    await assertFails(updateDoc(doc(as("m3"), "questions", "mine"), edited({ title: "", body: "More", status: "visible" })));
+    await assertFails(updateDoc(doc(as("free"), "questions", "mine"), edited({ title: "Mine now", body: "", status: "visible" })));
+  });
+
+  test("an Activity post with a photo may lose its words", async () => {
+    await assertSucceeds(updateDoc(doc(as("m3"), "dailyPosts", "photo"), edited({ text: "", status: "visible" })));
+  });
+
+  test("the author deletes their own post; others cannot", async () => {
+    await assertFails(deleteDoc(doc(as("paid"), "questions", "mine", "answers", "a1")));
+    await assertSucceeds(deleteDoc(doc(as("m3"), "questions", "mine", "answers", "a1")));
+    await assertSucceeds(deleteDoc(doc(as("m3"), "dailyPosts", "photo")));
   });
 });
 

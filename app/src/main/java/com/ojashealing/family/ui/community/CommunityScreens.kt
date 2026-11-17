@@ -236,7 +236,7 @@ fun QuestionDetailScreen(
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                         AuthorAvatar(q.author)
                         Box(Modifier.weight(1f)) { AuthorLine(q.author, q.createdAt) }
-                        PostMenu(q.author, onReport = { reportTarget = "questions/${q.id}" }, onBlock = { vm.block(q.author.uid); notice = R.string.community_blocked; onBack() })
+                        QuestionMenu(q, vm, onReport = { reportTarget = "questions/${q.id}" }, onDeleted = onBack)
                     }
                     Text(q.title, style = MaterialTheme.typography.titleLarge)
                     if (q.body.isNotBlank()) Text(com.ojashealing.family.ui.components.linkified(q.body), style = MaterialTheme.typography.bodyLarge)
@@ -258,7 +258,7 @@ fun QuestionDetailScreen(
                 answers, openThreads,
                 onReply = if (p.canAnswer) ({ a: Post -> replyId = a.id }) else null,
                 trailing = { a: Post ->
-                    PostMenu(a.author, onReport = { reportTarget = "questions/${q.id}/answers/${a.id}" }, onBlock = { vm.block(a.author.uid); notice = R.string.community_blocked })
+                    ReportMenu(a.author, "questions/${q.id}/answers/${a.id}", a.text)
                 },
                 pathOf = { a: Post -> "questions/${q.id}/answers/${a.id}" },
                 canLike = p.canLike
@@ -291,34 +291,146 @@ fun QuestionDetailScreen(
     }
 }
 
-/** Report and Block, provided by the main shell so every list of members' posts can offer them. */
-class PostActions(val myUid: String, val report: (path: String, reason: String) -> Unit, val block: (uid: String) -> Unit)
+/** Report, Edit and Delete, provided by the main shell so every list of members' posts can offer them. */
+class PostActions(
+    val myUid: String,
+    val report: (path: String, reason: String) -> Unit,
+    val edit: (path: String, text: String, onDone: (Boolean) -> Unit) -> Unit,
+    val delete: (path: String, onDone: (Boolean) -> Unit) -> Unit,
+)
 
 val LocalPostActions = androidx.compose.runtime.compositionLocalOf<PostActions?> { null }
 
 /**
- * The three-dot menu on someone else's post, comment or reply: report it, or block its author.
- * Shows nothing on your own posts. [path] is the post's document path, as firestore.rules expects.
+ * The three-dot menu on a post, comment or reply. On your own: Edit and Delete. On someone else's:
+ * Report. [path] is the post's document path, as firestore.rules expects; [text] is what Edit starts
+ * from, and [mayBeEmpty] lets a post with a photo, audio or video lose its words.
  */
 @Composable
-fun ReportMenu(author: Author, path: String, onBlocked: () -> Unit = {}) {
+fun ReportMenu(author: Author, path: String, text: String, mayBeEmpty: Boolean = false, onDeleted: () -> Unit = {}) {
     val actions = LocalPostActions.current ?: return
-    if (author.uid == actions.myUid) return
     var reporting by remember { mutableStateOf(false) }
-    PostMenu(author, onReport = { reporting = true }, onBlock = { actions.block(author.uid); onBlocked() })
+    var editing by remember { mutableStateOf(false) }
+    var deleting by remember { mutableStateOf(false) }
+    if (author.uid == actions.myUid) {
+        ThreeDots(listOf(R.string.action_edit to { editing = true }, R.string.action_delete to { deleting = true }))
+    } else {
+        ThreeDots(listOf(R.string.community_report to { reporting = true }))
+    }
     if (reporting) ReportDialog(onDismiss = { reporting = false }, onSend = { reason -> actions.report(path, reason); reporting = false })
+    if (editing) EditPostDialog(
+        title = null, text = text, mayBeEmpty = mayBeEmpty, maxText = 1000,
+        onDismiss = { editing = false },
+        onSave = { _, words, done -> actions.edit(path, words) { ok -> done(ok); if (ok) editing = false } },
+    )
+    if (deleting) DeletePostDialog(
+        onDismiss = { deleting = false },
+        onConfirm = { done -> actions.delete(path) { ok -> done(ok); if (ok) { deleting = false; onDeleted() } } },
+    )
+}
+
+/** The question's own menu: Edit (title and details) and Delete for its author, Report for everyone else. */
+@Composable
+private fun QuestionMenu(q: Question, vm: CommunityViewModel, onReport: () -> Unit, onDeleted: () -> Unit) {
+    val actions = LocalPostActions.current
+    var editing by remember { mutableStateOf(false) }
+    var deleting by remember { mutableStateOf(false) }
+    if (actions != null && q.author.uid == actions.myUid) {
+        ThreeDots(listOf(R.string.action_edit to { editing = true }, R.string.action_delete to { deleting = true }))
+    } else {
+        ThreeDots(listOf(R.string.community_report to onReport))
+    }
+    if (editing) EditPostDialog(
+        title = q.title, text = q.body, mayBeEmpty = true, maxText = 2000,
+        onDismiss = { editing = false },
+        onSave = { title, body, done -> vm.editQuestion(q.id, title.orEmpty(), body) { ok -> done(ok); if (ok) editing = false } },
+    )
+    if (deleting) DeletePostDialog(
+        onDismiss = { deleting = false },
+        onConfirm = { done -> vm.deletePost("questions/${q.id}") { ok -> done(ok); if (ok) { deleting = false; onDeleted() } } },
+    )
 }
 
 @Composable
-private fun PostMenu(author: Author, onReport: () -> Unit, onBlock: () -> Unit) {
+private fun ThreeDots(items: List<Pair<Int, () -> Unit>>) {
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.action_more)) }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            DropdownMenuItem(text = { Text(stringResource(R.string.community_report)) }, onClick = { open = false; onReport() })
-            DropdownMenuItem(text = { Text(stringResource(R.string.community_block)) }, onClick = { open = false; onBlock() })
+            items.forEach { (label, action) ->
+                DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = { open = false; action() })
+            }
         }
     }
+}
+
+/**
+ * Change the words of your own post. [title] is shown only for a question. [onSave] gets the new
+ * title and words and a callback that says whether saving worked; the dialog stays open on failure.
+ */
+@Composable
+private fun EditPostDialog(
+    title: String?,
+    text: String,
+    mayBeEmpty: Boolean,
+    maxText: Int,
+    onDismiss: () -> Unit,
+    onSave: (title: String?, text: String, done: (Boolean) -> Unit) -> Unit,
+) {
+    var newTitle by rememberSaveable { mutableStateOf(title.orEmpty()) }
+    var words by rememberSaveable { mutableStateOf(text) }
+    var saving by remember { mutableStateOf(false) }
+    var failed by remember { mutableStateOf(false) }
+    val canSave = !saving && (title == null || newTitle.isNotBlank()) && (mayBeEmpty || words.isNotBlank())
+    AlertDialog(
+        onDismissRequest = { if (!saving) onDismiss() },
+        title = { Text(stringResource(R.string.post_edit_title), style = MaterialTheme.typography.titleLarge) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
+                if (title != null) OutlinedTextField(
+                    value = newTitle, onValueChange = { newTitle = it.take(150) },
+                    label = { Text(stringResource(R.string.community_question_title)) }, modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = words, onValueChange = { words = it.take(maxText) },
+                    label = if (title != null) ({ Text(stringResource(R.string.community_question_body)) }) else null,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp)
+                )
+                if (failed) Text(stringResource(R.string.post_save_failed), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                saving = true; failed = false
+                onSave(title?.let { newTitle }, words) { ok -> saving = false; failed = !ok }
+            }, enabled = canSave) { Text(stringResource(R.string.action_save)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !saving) { Text(stringResource(R.string.action_cancel)) } }
+    )
+}
+
+/** Asks once before removing your own post for everyone. */
+@Composable
+private fun DeletePostDialog(onDismiss: () -> Unit, onConfirm: (done: (Boolean) -> Unit) -> Unit) {
+    var deleting by remember { mutableStateOf(false) }
+    var failed by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = { if (!deleting) onDismiss() },
+        title = { Text(stringResource(R.string.post_delete_title), style = MaterialTheme.typography.titleLarge) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
+                Text(stringResource(R.string.post_delete_body), style = MaterialTheme.typography.bodyMedium)
+                if (failed) Text(stringResource(R.string.post_save_failed), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                deleting = true; failed = false
+                onConfirm { ok -> deleting = false; failed = !ok }
+            }, enabled = !deleting) { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !deleting) { Text(stringResource(R.string.action_cancel)) } }
+    )
 }
 
 @Composable
