@@ -155,7 +155,7 @@ class DailyViewModel(
     }
 
     /** Words, a photo / audio / video, or both. */
-    fun post(text: String, media: Uri?, kind: com.ojashealing.family.data.social.MediaKind?, onDone: () -> Unit) {
+    fun post(text: String, media: Uri?, kind: com.ojashealing.family.data.social.MediaKind?, onDone: () -> Unit, mentions: List<String> = emptyList()) {
         val p = meNow.value ?: return
         if (_busy.value) return
         _busy.value = true
@@ -163,7 +163,7 @@ class DailyViewModel(
         viewModelScope.launch {
             val ok = runCatching { if (media != null && kind != null) uploadMedia(p.uid, media, kind) else "" }.mapCatching { url ->
                 val isPhoto = kind == com.ojashealing.family.data.social.MediaKind.Image
-                repo.post(p.asAuthor(), text, if (isPhoto) url else "", emptyList(), kind.takeIf { !isPhoto && url.isNotEmpty() }, if (isPhoto) "" else url).getOrThrow()
+                repo.post(p.asAuthor(), text, if (isPhoto) url else "", mentions, kind.takeIf { !isPhoto && url.isNotEmpty() }, if (isPhoto) "" else url).getOrThrow()
             }.isSuccess
             _busy.value = false
             if (ok) { com.ojashealing.family.data.analytics.Analytics.post("activity"); onDone() } else _failed.value = true
@@ -248,10 +248,15 @@ private fun DailyCard(post: DailyPost, onClick: () -> Unit) {
             style = if (wordsOnly) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodyMedium,
             maxLines = if (wordsOnly) 8 else 3, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
-        Text(
-            listOf(pluralStringResource(R.plurals.likes_plural, post.likeCount, post.likeCount), stringResource(R.string.replies_count, post.replyCount)).joinToString(" · "),
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        com.ojashealing.family.ui.components.TrackView("dailyPosts/${post.id}")
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                listOf(pluralStringResource(R.plurals.likes_plural, post.likeCount, post.likeCount), stringResource(R.string.replies_count, post.replyCount)).joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+            com.ojashealing.family.ui.components.ViewCount(post.viewCount)
+        }
         if (post.status == PostStatus.Pending) Text(stringResource(R.string.post_pending), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
     }
 }
@@ -291,9 +296,11 @@ fun DailyPostScreen(vm: DailyViewModel, postId: String, onBack: () -> Unit, show
                     com.ojashealing.family.ui.components.PostMedia(post.mediaKind, post.mediaUrl)
                     GoalLabel(post)
                     if (post.text.isNotBlank()) Text(com.ojashealing.family.ui.components.linkified(post.text), style = if (post.imageUrl.isEmpty()) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodyMedium)
+                    com.ojashealing.family.ui.components.TrackView("dailyPosts/${post.id}", afterMs = 0)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         LikeButton(liked = liked, enabled = true, onToggle = { vm.setLiked(post.id, !liked) })
-                        Text(pluralStringResource(R.plurals.likes_plural, post.likeCount, post.likeCount), style = MaterialTheme.typography.labelMedium)
+                        Text(pluralStringResource(R.plurals.likes_plural, post.likeCount, post.likeCount), style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
+                        com.ojashealing.family.ui.components.ViewCount(post.viewCount)
                     }
                 }
             }
@@ -335,6 +342,8 @@ fun ComposeDailyScreen(vm: DailyViewModel, onBack: () -> Unit) {
     val kind = com.ojashealing.family.data.social.MediaKind.fromId(kindId)
     val busy by vm.busy.collectAsStateWithLifecycle()
     val failed by vm.failed.collectAsStateWithLifecycle()
+    // "@Swamiji" in a new post tells him (the same as in a reply)
+    val staff = com.ojashealing.family.ui.components.LocalStaffMentions.current
     OnboardingLayout(
         title = stringResource(R.string.daily_new),
         subtitle = null,
@@ -342,7 +351,7 @@ fun ComposeDailyScreen(vm: DailyViewModel, onBack: () -> Unit) {
         bottom = {
             PrimaryButton(
                 stringResource(if (busy && mediaUri != null) R.string.announce_uploading else R.string.action_send),
-                onClick = { vm.post(text, mediaUri?.let(Uri::parse), kind, onBack) },
+                onClick = { vm.post(text, mediaUri?.let(Uri::parse), kind, onBack, com.ojashealing.family.data.social.mentionedUids(text, staff)) },
                 busy = busy, enabled = mediaUri != null || text.isNotBlank()
             )
         }

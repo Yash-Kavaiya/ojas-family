@@ -1,5 +1,6 @@
 package com.ojashealing.family.ui.content
 
+import androidx.compose.material.icons.outlined.WbSunny
 import com.ojashealing.family.ui.theme.staggeredEntrance
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -71,8 +72,9 @@ private fun thumbnail(videoId: String) = "https://i.ytimg.com/vi/$videoId/hqdefa
 @Composable
 fun VideoTile(item: ContentItem, access: Access, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val locked = access is Access.Locked
+    val markViewed = com.ojashealing.family.ui.components.rememberMarkViewed()
     Column(
-        modifier = modifier.clickable(role = Role.Button, onClick = onClick),
+        modifier = modifier.clickable(role = Role.Button) { if (!locked) markViewed("content/${item.id}"); onClick() },
         verticalArrangement = Arrangement.spacedBy(Spacing.s)
     ) {
         Box(
@@ -83,7 +85,7 @@ fun VideoTile(item: ContentItem, access: Access, onClick: () -> Unit, modifier: 
                 .background(MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center
         ) {
-            AsyncImage(model = thumbnail(item.videoId), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            com.ojashealing.family.ui.components.ShimmerImage(model = thumbnail(item.videoId), modifier = Modifier.fillMaxSize())
             // Dim locked videos so the lock reads before the thumbnail does
             if (locked) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)))
             Box(
@@ -103,6 +105,7 @@ fun VideoTile(item: ContentItem, access: Access, onClick: () -> Unit, modifier: 
             maxLines = 2,
             overflow = TextOverflow.Ellipsis
         )
+        com.ojashealing.family.ui.components.ViewCount(item.viewCount)
     }
 }
 
@@ -159,10 +162,13 @@ fun PracticeTab(
             containerColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.primary
         ) {
-            listOf(R.string.practice_tab_daily, R.string.practice_tab_freedom).forEachIndexed { i, label ->
+            listOf(
+                R.string.practice_tab_daily to androidx.compose.material.icons.Icons.Outlined.WbSunny,
+                R.string.practice_tab_freedom to androidx.compose.material.icons.Icons.Outlined.SelfImprovement,
+            ).forEachIndexed { i, (label, icon) ->
                 androidx.compose.material3.Tab(
                     selected = part == i, onClick = { onPart(i) },
-                    text = { com.ojashealing.family.ui.components.FitText(stringResource(label), MaterialTheme.typography.labelLarge) },
+                    text = { com.ojashealing.family.ui.components.TabLabel(icon, stringResource(label)) },
                     unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }

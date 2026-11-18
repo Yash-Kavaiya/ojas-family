@@ -123,10 +123,12 @@ fun AnnouncementCard(
             MediaKind.Video -> InlineVideoPlayer(n.mediaUrl)
             null -> Unit
         }
+        com.ojashealing.family.ui.components.TrackView("announcements/${n.id}")
         Row(verticalAlignment = Alignment.CenterVertically) {
             LikeButton(liked = liked, enabled = canLike, onToggle = onLike)
             RollingCount(n.likeCount, { pluralStringResource(R.plurals.likes_plural, it, it) })
             Box(Modifier.weight(1f))
+            com.ojashealing.family.ui.components.ViewCount(n.viewCount, Modifier.padding(end = Spacing.m))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
                 Text(pluralStringResource(R.plurals.comments_plural, n.commentCount, n.commentCount), style = MaterialTheme.typography.labelLarge, color = accent)
@@ -192,7 +194,7 @@ fun AnnouncementDetailScreen(vm: CommunityViewModel, id: String, onBack: () -> U
                         hint = stringResource(R.string.home_comment_hint),
                         // Replies to an announcement are words only
                         canAttachImage = false,
-                        mentionable = comments.map { it.author },
+                        mentionable = com.ojashealing.family.ui.components.LocalStaffMentions.current + comments.map { it.author },
                         busy = sending,
                         onSend = { d, sent -> vm.commentOnAnnouncement(id, d.text, d.photo, d.mentions, d.reply, sent) },
                         replyingTo = replyingTo,

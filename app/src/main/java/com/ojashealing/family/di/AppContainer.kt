@@ -34,6 +34,16 @@ import com.ojashealing.family.data.user.PublicProfileRepository
 class AppContainer(context: Context) {
     private val app = context.applicationContext
 
+    init {
+        // Everything read is kept on the phone (up to 100 MB): screens open from it at once, also
+        // offline, and the live listeners then bring what changed. Must be set before first use.
+        runCatching {
+            Firebase.firestore.firestoreSettings = com.google.firebase.firestore.firestoreSettings {
+                setLocalCacheSettings(com.google.firebase.firestore.persistentCacheSettings { setSizeBytes(100L * 1024 * 1024) })
+            }
+        }
+    }
+
     // Functions are deployed to Mumbai, next to Firestore
     private val functions = Firebase.functions("asia-south1")
 
@@ -68,5 +78,10 @@ class AppContainer(context: Context) {
     val images = PostImages(Firebase.storage, app.contentResolver)
     val about = com.ojashealing.family.data.about.AboutRepository(Firebase.firestore)
     val callRequests = com.ojashealing.family.data.call.CallRequestRepository(Firebase.firestore)
+    // Views of posts, videos and books: once per member per item
+    val views = com.ojashealing.family.data.social.ViewTracker.firestore(
+        Firebase.firestore, uid = { Firebase.auth.currentUser?.uid },
+        seen = com.ojashealing.family.data.social.PrefsSeenStore(app),
+    )
     val locations = LocationRepository { name -> app.assets.open(name).bufferedReader().use { it.readText() } }
 }

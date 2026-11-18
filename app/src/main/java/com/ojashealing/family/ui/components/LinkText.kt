@@ -56,7 +56,12 @@ fun linkified(text: AnnotatedString, linkColor: Color = MaterialTheme.colorSchem
     return remember(text, linkColor, uri) { buildLinked(text, linkColor) { runCatching { uri.openUri(it) } } }
 }
 
-private fun buildLinked(text: AnnotatedString, linkColor: Color, open: (String) -> Unit): AnnotatedString {
+private fun buildLinked(raw: AnnotatedString, linkColor: Color, open: (String) -> Unit): AnnotatedString {
+    // Every "@Name" is coloured too, so a mention stands out wherever the post is shown
+    val mentions = com.ojashealing.family.data.social.typedMentionRanges(raw.text)
+    val text = if (mentions.isEmpty()) raw else AnnotatedString.Builder(raw).apply {
+        mentions.forEach { addStyle(SpanStyle(color = linkColor), it.first, it.last + 1) }
+    }.toAnnotatedString()
     val links = findLinks(text.text)
     if (links.isEmpty()) return text
     val styles = TextLinkStyles(style = SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline))

@@ -1,5 +1,9 @@
 package com.ojashealing.family.ui.ask
 
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.draw.shadow
+import androidx.compose.material.icons.outlined.EmojiEmotions
+import androidx.compose.foundation.lazy.itemsIndexed
 import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.compose.animation.core.LinearEasing
@@ -427,25 +431,29 @@ fun ChatScreen(
     }
     LaunchedEffect(atBottom) { if (atBottom) unseenBelow = 0 }
 
-    Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
+    val chat = chatColors()
+    val fieldFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    Surface(color = chat.wallpaper, modifier = Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().ownedInsets(embedded)) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(Spacing.xs)) {
+            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalContentColor provides chat.onHeader) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().background(chat.header).padding(Spacing.xs)) {
                 if (showBack) IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
                 val title = if (u?.iAmStaff == true) u.thread?.memberName.orEmpty()
                 else stringResource(if (vm.channel == ChatChannel.Admin) R.string.chat_title_admin else R.string.chat_title)
                 Column(Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                        if (u?.pref?.muted == true) Icon(Icons.Outlined.NotificationsOff, contentDescription = stringResource(R.string.chat_muted), modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (u?.pref?.muted == true) Icon(Icons.Outlined.NotificationsOff, contentDescription = stringResource(R.string.chat_muted), modifier = Modifier.size(14.dp), tint = chat.onHeader.copy(alpha = 0.8f))
                     }
                     val status = u?.let { statusLine(it, now) }
                     val assigned = u?.thread?.assigneeName?.takeIf { it.isNotEmpty() && vm.channel == ChatChannel.Swamiji }
                     when {
                         status != null -> Text(
                             status, style = MaterialTheme.typography.bodySmall, maxLines = 1,
-                            color = if (status == stringResource(R.string.chat_typing) || status == stringResource(R.string.chat_online)) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            color = chat.onHeader.copy(alpha = if (status == stringResource(R.string.chat_typing) || status == stringResource(R.string.chat_online)) 1f else 0.8f)
                         )
-                        assigned != null -> Text(stringResource(R.string.chat_assigned_to, assigned), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                        assigned != null -> Text(stringResource(R.string.chat_assigned_to, assigned), style = MaterialTheme.typography.bodySmall, color = chat.onHeader.copy(alpha = 0.8f), maxLines = 1)
                     }
                 }
                 if (onCall != null) {
@@ -487,11 +495,12 @@ fun ChatScreen(
                     }
                 }
             }
+            }
             if (u == null) {
                 LoadingSpinner(Modifier.weight(1f))
                 return@Column
             }
-            Box(Modifier.weight(1f).fillMaxWidth()) {
+            Box(Modifier.weight(1f).fillMaxWidth().chatWallpaper(chat)) {
                 LazyColumn(
                     state = list,
                     modifier = Modifier.fillMaxSize(),
@@ -501,19 +510,22 @@ fun ChatScreen(
                     if (u.messages.isEmpty()) item(key = "empty") {
                         Text(stringResource(R.string.chat_empty), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    items(rows, key = { it.key }, contentType = { row -> if (row is ChatRow.Day) "day" else "message" }) { row ->
+                    itemsIndexed(rows, key = { _, r -> r.key }, contentType = { _, row -> if (row is ChatRow.Day) "day" else "message" }) { i, row ->
                         when (row) {
-                            is ChatRow.Day -> DayChip(dayHeader(row.at))
+                            is ChatRow.Day -> DayChip(dayHeader(row.at), chat)
                             is ChatRow.Message -> {
                                 val m = row.m
-                                if (m.call != null) CallLogLine(m)
+                                if (m.call != null) CallLogLine(m, chat)
                                 else {
                                     val mine = m.senderUid == u.me.uid
-                                    Bubble(m, mine, seen = mine && isSeen(m.createdAt, u.otherReadAt))
+                                    // The first of a run from the same person gets the bubble's tail
+                                    val prev = (rows.getOrNull(i - 1) as? ChatRow.Message)?.m
+                                    val tail = prev == null || prev.call != null || prev.senderUid != m.senderUid
+                                    Bubble(m, mine, seen = mine && isSeen(m.createdAt, u.otherReadAt), tail = tail, chat = chat)
                                     if (m.id == lastMineSeenId) {
                                         Text(
                                             stringResource(R.string.chat_seen), style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            color = chat.meta,
                                             modifier = Modifier.fillMaxWidth().padding(end = Spacing.xs), textAlign = TextAlign.End
                                         )
                                     }
@@ -521,7 +533,7 @@ fun ChatScreen(
                             }
                         }
                     }
-                    if (isTyping(u.otherTypingAt, now)) item(key = "typing") { TypingBubble() }
+                    if (isTyping(u.otherTypingAt, now)) item(key = "typing") { TypingBubble(chat) }
                 }
                 // Back to the newest message, with how many arrived while scrolled up
                 if (!atBottom && rows.isNotEmpty()) {
@@ -536,7 +548,7 @@ fun ChatScreen(
                 }
             }
             Column(
-                Modifier.background(MaterialTheme.colorScheme.surface).padding(horizontal = Spacing.s, vertical = Spacing.xs)
+                Modifier.chatWallpaper(chat).padding(horizontal = Spacing.s, vertical = Spacing.xs)
             ) {
                 if (failed) Text(stringResource(R.string.chat_file_failed), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = Spacing.s))
                 if (textFailed) Text(stringResource(R.string.chat_send_failed), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = Spacing.s))
@@ -553,9 +565,33 @@ fun ChatScreen(
                         if (recording) {
                             RecordingBar(recElapsed, recLevel, recDrag, Modifier.weight(1f))
                         } else {
+                          // One rounded pill: emoji, the text, and the paper clip, as in a messenger
+                          Row(
+                              Modifier.weight(1f).shadow(1.dp, RoundedCornerShape(24.dp)).background(chat.inputPill, RoundedCornerShape(24.dp)),
+                              verticalAlignment = Alignment.Bottom,
+                          ) {
+                            // Opens the keyboard on the box; its emoji key is one tap away
+                            IconButton(onClick = { runCatching { fieldFocus.requestFocus() }; keyboard?.show() }) {
+                                Icon(Icons.Outlined.EmojiEmotions, contentDescription = stringResource(R.string.chat_emoji), tint = chat.onChip)
+                            }
+                            androidx.compose.material3.TextField(
+                                value = draft,
+                                onValueChange = { draft = it.take(2000); if (it.isNotBlank()) vm.typing() },
+                                placeholder = { Text(stringResource(R.string.chat_hint), style = MaterialTheme.typography.bodyMedium) },
+                                textStyle = MaterialTheme.typography.bodyMedium.copy(color = chat.onBubble),
+                                modifier = Modifier.weight(1f).focusRequester(fieldFocus),
+                                maxLines = 5,
+                                colors = androidx.compose.material3.TextFieldDefaults.colors(
+                                    focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent,
+                                    disabledContainerColor = Color.Transparent,
+                                    focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent,
+                                    focusedPlaceholderColor = chat.meta, unfocusedPlaceholderColor = chat.meta,
+                                    cursorColor = chat.send,
+                                ),
+                            )
                             Box {
                                 IconButton(onClick = { attaching = true }, enabled = !sending) {
-                                    Icon(Icons.Outlined.AttachFile, contentDescription = stringResource(R.string.chat_attach))
+                                    Icon(Icons.Outlined.AttachFile, contentDescription = stringResource(R.string.chat_attach), tint = chat.onChip)
                                 }
                                 DropdownMenu(expanded = attaching, onDismissRequest = { attaching = false }) {
                                     DropdownMenuItem(
@@ -575,19 +611,11 @@ fun ChatScreen(
                                     )
                                 }
                             }
-                            OutlinedTextField(
-                                value = draft,
-                                onValueChange = { draft = it.take(2000); if (it.isNotBlank()) vm.typing() },
-                                placeholder = { Text(stringResource(R.string.chat_hint), style = MaterialTheme.typography.bodyMedium) },
-                                textStyle = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(24.dp),
-                                maxLines = 5
-                            )
+                          }
                         }
                         // Send when there is text; otherwise hold the mic to record a voice note
                         if (draft.isNotBlank() && !recording) {
-                            SendButton(onClick = { vm.send(draft) { draft = "" } }, enabled = true, busy = sending, size = 48.dp)
+                            SendButton(onClick = { vm.send(draft) { draft = "" } }, enabled = true, busy = sending, size = 48.dp, colors = listOf(chat.send, chat.send))
                         } else {
                             HoldToRecordButton(
                                 canRecord = {
@@ -601,7 +629,8 @@ fun ChatScreen(
                                     if (cancelled) recorder.cancel()
                                     else recorder.stop()?.let(vm::sendVoice)
                                         ?: Toast.makeText(context, R.string.voice_too_short, Toast.LENGTH_SHORT).show()
-                                }
+                                },
+                                color = chat.send,
                             )
                         }
                     }
@@ -636,22 +665,22 @@ private sealed interface ChatRow {
 }
 
 @Composable
-private fun DayChip(label: String) {
+private fun DayChip(label: String, chat: ChatColors) {
     Box(Modifier.fillMaxWidth().padding(vertical = Spacing.s), contentAlignment = Alignment.Center) {
         Text(
-            label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(50)).padding(horizontal = 12.dp, vertical = 4.dp)
+            label, style = MaterialTheme.typography.labelMedium, color = chat.onChip,
+            modifier = Modifier.shadow(0.5.dp, RoundedCornerShape(8.dp)).background(chat.chip, RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 5.dp)
         )
     }
 }
 
 /** Three dots that rise in turn while the other side types. */
 @Composable
-private fun TypingBubble() {
+private fun TypingBubble(chat: ChatColors) {
     val phase = loopingFloat(0f, 1f, infiniteRepeatable(tween(1200, easing = LinearEasing)), rest = 0.25f, label = "p")
     val liftPx = with(androidx.compose.ui.platform.LocalDensity.current) { 3.dp.toPx() }
     Row(
-        Modifier.padding(vertical = 2.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(16.dp)).padding(horizontal = 14.dp, vertical = 12.dp),
+        Modifier.padding(vertical = 2.dp).background(chat.theirs, BubbleShape(mine = false, tail = true)).padding(start = 14.dp + BubbleTailWidth, end = 14.dp, top = 12.dp, bottom = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         repeat(3) { i ->
@@ -663,7 +692,7 @@ private fun TypingBubble() {
                         alpha = 0.4f + 0.6f * wave
                         translationY = -liftPx * wave
                     }
-                    .background(MaterialTheme.colorScheme.onSurfaceVariant, CircleShape)
+                    .background(chat.meta, CircleShape)
             )
         }
     }
@@ -689,12 +718,12 @@ private fun QuickRepliesDialog(current: List<String>, onSave: (List<String>) -> 
 
 /** "Video call · 12:04" or "Missed call", centred in the conversation. */
 @Composable
-private fun CallLogLine(m: ChatMessage) {
+private fun CallLogLine(m: ChatMessage, chat: ChatColors) {
     val c = m.call ?: return
     val connected = c.seconds > 0
     Box(Modifier.fillMaxWidth().padding(vertical = 2.dp), contentAlignment = Alignment.Center) {
         Row(
-            Modifier.background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(50)).padding(horizontal = 12.dp, vertical = 6.dp),
+            Modifier.shadow(0.5.dp, RoundedCornerShape(8.dp)).background(chat.chip, RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
@@ -722,16 +751,23 @@ private fun CallLogLine(m: ChatMessage) {
 }
 
 @Composable
-private fun Bubble(m: ChatMessage, mine: Boolean, seen: Boolean) {
+private fun Bubble(m: ChatMessage, mine: Boolean, seen: Boolean, tail: Boolean, chat: ChatColors) {
     val context = LocalContext.current
-    Box(Modifier.fillMaxWidth(), contentAlignment = if (mine) Alignment.CenterEnd else Alignment.CenterStart) {
+    val shape = BubbleShape(mine, tail)
+    // Bubbles without a tail keep the same edge as those with one
+    Box(
+        Modifier.fillMaxWidth().padding(top = if (tail) 4.dp else 0.dp),
+        contentAlignment = if (mine) Alignment.CenterEnd else Alignment.CenterStart,
+    ) {
         Column(
-            Modifier.widthIn(max = 300.dp)
-                .background(
-                    if (mine) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-                    RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = if (mine) 16.dp else 4.dp, bottomEnd = if (mine) 4.dp else 16.dp)
-                )
-                .padding(horizontal = Spacing.m, vertical = 6.dp),
+            Modifier.widthIn(max = 300.dp + BubbleTailWidth)
+                .shadow(0.5.dp, shape)
+                .background(if (mine) chat.mine else chat.theirs, shape)
+                .padding(
+                    start = 10.dp + if (mine) 0.dp else BubbleTailWidth,
+                    end = 10.dp + if (mine) BubbleTailWidth else 0.dp,
+                    top = 6.dp, bottom = 4.dp,
+                ),
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             m.attachment?.let { a ->
@@ -740,7 +776,7 @@ private fun Bubble(m: ChatMessage, mine: Boolean, seen: Boolean) {
                     a.isVoice -> VoiceBubble(a.url, a.durationMs, a.waveform, mine)
                     a.isAudio -> AudioPlayer(a.url)
                     else -> Row(
-                        Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+                        Modifier.fillMaxWidth().background(Color.Black.copy(alpha = 0.05f), RoundedCornerShape(8.dp))
                             .clickable {
                                 runCatching {
                                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(a.url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -760,18 +796,19 @@ private fun Bubble(m: ChatMessage, mine: Boolean, seen: Boolean) {
             }
             if (m.text.isNotBlank()) {
                 Text(com.ojashealing.family.ui.components.linkified(m.text), style = MaterialTheme.typography.bodyMedium,
-                    color = if (mine) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
+                    color = chat.onBubble)
             }
             // Time and, on my messages, the ticks: a clock while sending, ✓ sent, blue ✓✓ seen
             Row(Modifier.align(Alignment.End), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(clockTime(m.createdAt), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(clockTime(m.createdAt), style = MaterialTheme.typography.labelSmall, color = chat.meta)
                 if (mine) {
+                    // A clock while sending, grey tick sent, blue double tick seen
                     val (icon, tint, label) = when {
-                        m.pending -> Triple(Icons.Outlined.Schedule, MaterialTheme.colorScheme.onSurfaceVariant, R.string.chat_sending)
-                        seen -> Triple(Icons.Outlined.DoneAll, Color(0xFF1D9BF0), R.string.chat_seen)
-                        else -> Triple(Icons.Outlined.Done, MaterialTheme.colorScheme.onSurfaceVariant, R.string.chat_sent)
+                        m.pending -> Triple(Icons.Outlined.Schedule, chat.meta, R.string.chat_sending)
+                        seen -> Triple(Icons.Outlined.DoneAll, chat.seen, R.string.chat_seen)
+                        else -> Triple(Icons.Outlined.Done, chat.meta, R.string.chat_sent)
                     }
-                    Icon(icon, contentDescription = stringResource(label), tint = tint, modifier = Modifier.size(14.dp))
+                    Icon(icon, contentDescription = stringResource(label), tint = tint, modifier = Modifier.size(16.dp))
                 }
             }
         }

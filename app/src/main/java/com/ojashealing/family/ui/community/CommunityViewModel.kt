@@ -100,14 +100,14 @@ class CommunityViewModel(
         withPhoto(photo) { p, url -> repo.answer(questionId, p.asAuthor(), text, url, mentions, reply).onSuccess { com.ojashealing.family.data.analytics.Analytics.post("answer"); onDone() } }
 
     /** A question with an optional photo, audio clip or video; the file uploads first. */
-    fun ask(title: String, body: String, media: Uri?, kind: MediaKind?, onDone: () -> Unit) = withMe { p ->
+    fun ask(title: String, body: String, media: Uri?, kind: MediaKind?, onDone: () -> Unit, mentions: List<String> = emptyList()) = withMe { p ->
         if (_sending.value) return@withMe
         _sending.value = true
         _postFailed.value = false
         val sent = runCatching { if (media != null && kind != null) uploadMedia(p.uid, media, kind) else "" }.mapCatching { url ->
             val photo = if (kind == MediaKind.Image) url else ""
             val av = if (kind != MediaKind.Image) url else ""
-            repo.ask(p.asAuthor(), title, body, photo, kind.takeIf { av.isNotEmpty() }, av).getOrThrow()
+            repo.ask(p.asAuthor(), title, body, photo, kind.takeIf { av.isNotEmpty() }, av, mentions).getOrThrow()
         }
         _postFailed.value = sent.isFailure
         _sending.value = false
@@ -160,7 +160,7 @@ class CommunityViewModel(
     }
 
     fun setLiked(questionId: String, liked: Boolean) = withMe { repo.setLiked(questionId, it.uid, liked) }
-    fun ask(title: String, body: String, onDone: () -> Unit) = withMe { p -> repo.ask(p.asAuthor(), title, body).onSuccess { onDone() } }
+    fun ask(title: String, body: String, onDone: () -> Unit, mentions: List<String> = emptyList()) = withMe { p -> repo.ask(p.asAuthor(), title, body, mentions = mentions).onSuccess { onDone() } }
     fun answer(questionId: String, text: String, onDone: () -> Unit) = withMe { p -> repo.answer(questionId, p.asAuthor(), text).onSuccess { onDone() } }
     fun announce(title: String, body: String, onDone: () -> Unit) = withMe { repo.postAnnouncement(title, body).onSuccess { onDone() } }
     fun report(path: String, reason: String, onDone: () -> Unit) = withMe { p -> repo.report(p.uid, path, reason).onSuccess { onDone() } }

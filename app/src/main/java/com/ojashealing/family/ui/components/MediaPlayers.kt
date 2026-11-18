@@ -54,7 +54,7 @@ import kotlinx.coroutines.delay
 private fun rememberPlayer(url: String): ExoPlayer {
     val context = LocalContext.current
     val player = remember(url) {
-        ExoPlayer.Builder(context).build().apply {
+        com.ojashealing.family.data.MediaCache.player(context).apply {
             setMediaItem(MediaItem.fromUri(url))
             prepare()
         }
@@ -73,7 +73,7 @@ class LazyPlayer internal constructor(private val context: android.content.Conte
         private set
 
     /** The player, built and prepared on first use. */
-    fun start(): ExoPlayer = player ?: ExoPlayer.Builder(context).build().apply {
+    fun start(): ExoPlayer = player ?: com.ojashealing.family.data.MediaCache.player(context).apply {
         setMediaItem(MediaItem.fromUri(url))
         prepare()
     }.also { player = it }

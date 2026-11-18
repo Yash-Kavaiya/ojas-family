@@ -24,7 +24,9 @@ data class Thought(
     val text: String,
     val likeCount: Int,
     val commentCount: Int,
-    val imageUrl: String = ""
+    val imageUrl: String = "",
+    /** Members who have seen it, each counted once. */
+    val viewCount: Long = 0,
 )
 
 enum class PostStatus { Visible, Pending }
@@ -78,7 +80,9 @@ data class DailyPost(
     val goalTitle: Map<String, String> = emptyMap(),
     /** An audio clip or video instead of a photo; the photo stays in [imageUrl]. */
     val mediaKind: MediaKind? = null,
-    val mediaUrl: String = ""
+    val mediaUrl: String = "",
+    /** Members who have seen it, each counted once. */
+    val viewCount: Long = 0,
 ) {
     fun goalTitleIn(lang: String) = goalTitle[lang] ?: goalTitle["en"].orEmpty()
 }
@@ -95,7 +99,9 @@ data class Question(
     val imageUrl: String = "",
     /** An audio clip or video instead of a photo; the photo stays in [imageUrl]. */
     val mediaKind: MediaKind? = null,
-    val mediaUrl: String = ""
+    val mediaUrl: String = "",
+    /** Members who have seen it, each counted once. */
+    val viewCount: Long = 0,
 )
 
 /** What an announcement carries besides text. Stored as "image", "audio" or "video"; absent for text only. */
@@ -115,7 +121,9 @@ data class Announcement(
     val mediaKind: MediaKind? = null,
     val mediaUrl: String = "",
     val likeCount: Int = 0,
-    val commentCount: Int = 0
+    val commentCount: Int = 0,
+    /** Members who have seen it, each counted once. */
+    val viewCount: Long = 0,
 )
 
 /** A post waiting for an admin, or a member's report. [path] is the Firestore document path. */
@@ -142,10 +150,6 @@ fun containsLink(text: String): Boolean = linkPattern.containsMatchIn(text)
 
 // Links and pictures wait for an admin (firestore.rules validPost)
 fun needsReview(text: String, imageUrl: String): Boolean = containsLink(text) || imageUrl.isNotEmpty()
-
-/** People named with @ in [text], out of those offered by the mention picker (at most 10, as the rules allow). */
-fun mentionedUids(text: String, candidates: List<Author>): List<String> =
-    candidates.filter { it.name.isNotBlank() && text.contains("@${it.name}") }.map { it.uid }.distinct().take(10)
 
 private val ist: TimeZone = TimeZone.getTimeZone("Asia/Kolkata")
 

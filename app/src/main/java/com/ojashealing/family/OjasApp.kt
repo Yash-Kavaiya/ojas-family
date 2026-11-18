@@ -34,6 +34,16 @@ class OjasApp : Application(), coil.ImageLoaderFactory {
         Channels.create(this)
     }
 
-    /** One image loader for the whole app: pictures fade in over 200ms instead of popping in. */
-    override fun newImageLoader(): coil.ImageLoader = coil.ImageLoader.Builder(this).crossfade(200).build()
+    /**
+     * One image loader for the whole app: pictures fade in over 200ms, stay in memory while the app
+     * runs and on disk (250 MB) between runs, so a picture seen once shows at once, even offline.
+     * Uploaded pictures never change at their URL (a new upload gets a new token), so the server's
+     * cache headers are ignored and the disk copy is always used.
+     */
+    override fun newImageLoader(): coil.ImageLoader = coil.ImageLoader.Builder(this)
+        .crossfade(200)
+        .memoryCache { coil.memory.MemoryCache.Builder(this).maxSizePercent(0.25).build() }
+        .diskCache { coil.disk.DiskCache.Builder().directory(cacheDir.resolve("images")).maxSizeBytes(250L * 1024 * 1024).build() }
+        .respectCacheHeaders(false)
+        .build()
 }

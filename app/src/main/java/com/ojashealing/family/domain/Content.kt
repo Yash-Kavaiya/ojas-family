@@ -26,7 +26,9 @@ data class ContentItem(
     val minUserLevel: Int = 1,
     val minMemberLevel: Int = 0,
     val order: Long = 0,
-    val published: Boolean = true
+    val published: Boolean = true,
+    /** Members who have watched it (each counted once). */
+    val viewCount: Long = 0,
 )
 
 private val videoIdPattern = Regex("^[A-Za-z0-9_-]{11}$")
@@ -65,7 +67,11 @@ data class Book(
     val minUserLevel: Int = 1,
     val minMemberLevel: Int = 0,
     val order: Long = 0,
-    val published: Boolean = true
+    val published: Boolean = true,
+    /** The admin's cover picture (https), or empty for the plain cover. */
+    val coverUrl: String = "",
+    /** Members who have opened it (each counted once). */
+    val viewCount: Long = 0,
 )
 
 fun accessFor(item: ContentItem, viewer: Viewer): Access {

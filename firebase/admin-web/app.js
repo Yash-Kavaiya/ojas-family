@@ -582,6 +582,15 @@ function bookFields(title, author, url, min) {
   if (!/^https:\/\/\S+$/.test(u)) throw new Error("The link must start with https://");
   return { title: t.slice(0, 200), author: author.trim().slice(0, 120), url: u.slice(0, 1990), minUserLevel: clampLevel(min) };
 }
+// A cover picture for a book: a new name each time, so phones never show an old cover from their cache
+async function uploadCover(bookId, file) {
+  if (!file) return null;
+  if (!/^image\//.test(file.type)) throw new Error("The cover must be a picture (JPG or PNG)");
+  if (file.size > 5 * 1024 * 1024) throw new Error("The cover must be under 5 MB");
+  const r = ref(storage, `books/covers/${bookId}-${Date.now()}.jpg`);
+  await uploadBytes(r, file, { contentType: file.type || "image/jpeg" });
+  return getDownloadURL(r);
+}
 async function books() {
   const snap = await getDocs(collection(db, "books"));
   const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
@@ -594,28 +603,41 @@ async function books() {
       <label>Author (optional)<input id="b-author" maxlength="120"></label>
       <label>PDF link<input id="b-url" placeholder="https://drive.google.com/..."></label>
       <label>Min level<input id="b-min" type="number" min="1" max="4" value="1" style="width:80px"></label>
+      <label>Cover picture (optional, upright like a book, e.g. 600 × 900)<input id="b-cover" type="file" accept="image/*"></label>
       <button class="primary" id="b-add">Add</button></div>
     <h2>Books <span class="muted">(${list.length})</span></h2>
-    <table><thead><tr><th>Title</th><th>Author</th><th>Link</th><th>Order</th><th>Min level</th><th>Shown</th><th></th></tr></thead><tbody>${
+    <table><thead><tr><th>Cover</th><th>Title</th><th>Author</th><th>Link</th><th>Order</th><th>Min level</th><th>Shown</th><th></th></tr></thead><tbody>${
       list.map((b) => `<tr data-id="${esc(b.id)}">
+        <td>${b.coverUrl ? `<img src="${esc(b.coverUrl)}" alt="" style="width:48px;height:72px;object-fit:cover;border-radius:4px;display:block">` : '<span class="muted">None</span>'}
+          <input class="b-cover" type="file" accept="image/*" style="width:110px">
+          ${b.coverUrl ? '<button class="link danger b-nocover">Remove</button>' : ""}</td>
         <td><input class="b-title" value="${esc(b.title)}" maxlength="200" style="width:100%"></td>
         <td><input class="b-author" value="${esc(b.author || "")}" maxlength="120"></td>
         <td><input class="b-url" value="${esc(b.url)}" style="width:100%"> <a href="${esc(b.url)}" target="_blank" rel="noopener">Open</a></td>
         <td><input class="b-order" type="number" value="${Number(b.order ?? 0)}" style="width:80px"></td>
         <td><input class="b-min" type="number" min="1" max="4" value="${Number(b.minUserLevel ?? 1)}" style="width:60px"></td>
         <td><input class="b-pub" type="checkbox" ${b.published !== false ? "checked" : ""}></td>
-        <td><button class="b-save">Save</button> <button class="link danger b-del">Delete</button></td></tr>`).join("") || '<tr><td colspan="7" class="muted">No books yet.</td></tr>'
+        <td><button class="b-save">Save</button> <button class="link danger b-del">Delete</button></td></tr>`).join("") || '<tr><td colspan="8" class="muted">No books yet.</td></tr>'
     }</tbody></table>`;
-  $("#b-add").onclick = (e) => run(e.target, () => addDoc(collection(db, "books"), {
-    ...bookFields($("#b-title").value, $("#b-author").value, $("#b-url").value, $("#b-min").value),
-    minMemberLevel: 0, order: list.length, published: true,
-  }), "Added").then(books);
+  $("#b-add").onclick = (e) => run(e.target, async () => {
+    const fields = bookFields($("#b-title").value, $("#b-author").value, $("#b-url").value, $("#b-min").value);
+    const added = await addDoc(collection(db, "books"), { ...fields, minMemberLevel: 0, order: list.length, published: true });
+    const coverUrl = await uploadCover(added.id, $("#b-cover").files[0]);
+    if (coverUrl) await updateDoc(added, { coverUrl });
+  }, "Added").then(books);
   $$("tr[data-id]").forEach((tr) => {
     const id = tr.dataset.id;
-    $(".b-save", tr).onclick = (e) => run(e.target, () => updateDoc(doc(db, "books", id), {
-      ...bookFields($(".b-title", tr).value, $(".b-author", tr).value, $(".b-url", tr).value, $(".b-min", tr).value),
-      order: Math.trunc(Number($(".b-order", tr).value) || 0), published: $(".b-pub", tr).checked,
-    }), "Saved");
+    $(".b-save", tr).onclick = (e) => run(e.target, async () => {
+      const fields = {
+        ...bookFields($(".b-title", tr).value, $(".b-author", tr).value, $(".b-url", tr).value, $(".b-min", tr).value),
+        order: Math.trunc(Number($(".b-order", tr).value) || 0), published: $(".b-pub", tr).checked,
+      };
+      const coverUrl = await uploadCover(id, $(".b-cover", tr).files[0]);
+      if (coverUrl) fields.coverUrl = coverUrl;
+      await updateDoc(doc(db, "books", id), fields);
+    }, "Saved").then(() => $(".b-cover", tr).files.length && books());
+    const noCover = $(".b-nocover", tr);
+    if (noCover) noCover.onclick = (e) => run(e.target, () => updateDoc(doc(db, "books", id), { coverUrl: "" }), "Cover removed").then(books);
     $(".b-del", tr).onclick = (e) => confirm("Delete this book from the app?") && run(e.target, () => deleteDoc(doc(db, "books", id)), "Deleted").then(books);
   });
 }

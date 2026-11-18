@@ -171,7 +171,7 @@ fun PublicProfileScreen(
 private fun Avatar(url: String, size: Int) {
     Row(Modifier.size(size.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center) {
-        if (url.isNotEmpty()) AsyncImage(model = url, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(size.dp))
+        if (url.isNotEmpty()) com.ojashealing.family.ui.components.ShimmerImage(model = url, modifier = Modifier.size(size.dp))
         else Icon(Icons.Outlined.Person, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

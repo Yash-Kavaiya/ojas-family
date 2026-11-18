@@ -1,5 +1,7 @@
 package com.ojashealing.family.ui.community
 
+import androidx.compose.material.icons.outlined.DynamicFeed
+import androidx.compose.material.icons.outlined.QuestionAnswer
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -118,9 +120,9 @@ fun CommunityScreen(
                 containerColor = MaterialTheme.colorScheme.surface,
                 contentColor = MaterialTheme.colorScheme.primary
             ) {
-                Tab(selected = tab == CommunityTab.DAILY, onClick = { onTab(CommunityTab.DAILY) }, text = { SectionLabel(stringResource(R.string.community_daily), badges[CommunityTab.DAILY] ?: 0) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
-                Tab(selected = tab == CommunityTab.NOTICES, onClick = { onTab(CommunityTab.NOTICES) }, text = { SectionLabel(stringResource(R.string.community_notices), badges[CommunityTab.NOTICES] ?: 0) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
-                Tab(selected = tab == CommunityTab.QA, onClick = { onTab(CommunityTab.QA) }, text = { SectionLabel(stringResource(R.string.community_qa), badges[CommunityTab.QA] ?: 0) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
+                Tab(selected = tab == CommunityTab.DAILY, onClick = { onTab(CommunityTab.DAILY) }, text = { com.ojashealing.family.ui.components.TabLabel(androidx.compose.material.icons.Icons.Outlined.DynamicFeed, stringResource(R.string.community_daily), badges[CommunityTab.DAILY] ?: 0) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
+                Tab(selected = tab == CommunityTab.NOTICES, onClick = { onTab(CommunityTab.NOTICES) }, text = { com.ojashealing.family.ui.components.TabLabel(androidx.compose.material.icons.Icons.Outlined.Campaign, stringResource(R.string.community_notices), badges[CommunityTab.NOTICES] ?: 0) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
+                Tab(selected = tab == CommunityTab.QA, onClick = { onTab(CommunityTab.QA) }, text = { com.ojashealing.family.ui.components.TabLabel(androidx.compose.material.icons.Icons.Outlined.QuestionAnswer, stringResource(R.string.community_qa), badges[CommunityTab.QA] ?: 0) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             // The order on screen is Activity, Notices, Q&A; the slide follows that order
             androidx.compose.animation.AnimatedContent(
@@ -186,11 +188,16 @@ private fun QuestionCard(q: Question, onClick: () -> Unit) {
         }
         Text(q.title, style = MaterialTheme.typography.titleLarge, maxLines = 3, overflow = TextOverflow.Ellipsis)
         MediaLabel(if (q.imageUrl.isNotEmpty()) com.ojashealing.family.data.social.MediaKind.Image else q.mediaKind)
-        Text(
-            listOf(pluralStringResource(R.plurals.likes_plural, q.likeCount, q.likeCount), stringResource(R.string.community_answers_count, q.answerCount)).joinToString(" · "),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        com.ojashealing.family.ui.components.TrackView("questions/${q.id}")
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                listOf(pluralStringResource(R.plurals.likes_plural, q.likeCount, q.likeCount), stringResource(R.string.community_answers_count, q.answerCount)).joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+            com.ojashealing.family.ui.components.ViewCount(q.viewCount)
+        }
         if (q.status == PostStatus.Pending) Text(stringResource(R.string.post_pending), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
     }
 }
@@ -242,9 +249,11 @@ fun QuestionDetailScreen(
                     if (q.body.isNotBlank()) Text(com.ojashealing.family.ui.components.linkified(q.body), style = MaterialTheme.typography.bodyLarge)
                     if (q.imageUrl.isNotEmpty()) PostImage(q.imageUrl)
                     com.ojashealing.family.ui.components.PostMedia(q.mediaKind, q.mediaUrl)
+                    com.ojashealing.family.ui.components.TrackView("questions/${q.id}", afterMs = 0)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         LikeButton(liked = liked, enabled = p.canLike, onToggle = { vm.setLiked(q.id, !liked) })
-                        Text(pluralStringResource(R.plurals.likes_plural, q.likeCount, q.likeCount), style = MaterialTheme.typography.labelLarge)
+                        Text(pluralStringResource(R.plurals.likes_plural, q.likeCount, q.likeCount), style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+                        com.ojashealing.family.ui.components.ViewCount(q.viewCount)
                     }
                 }
             }
@@ -488,13 +497,3 @@ fun ComposePostScreen(
     }
 }
 
-/** A section's name, with a red count of what is new in it. */
-@Composable
-private fun SectionLabel(label: String, count: Int) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        Box(Modifier.weight(1f, fill = false)) { com.ojashealing.family.ui.components.FitText(label, MaterialTheme.typography.labelLarge) }
-        if (count > 0) androidx.compose.material3.Badge(containerColor = androidx.compose.ui.graphics.Color(0xFFE11D48), contentColor = androidx.compose.ui.graphics.Color.White) {
-            Text(if (count > 99) "99+" else "$count")
-        }
-    }
-}

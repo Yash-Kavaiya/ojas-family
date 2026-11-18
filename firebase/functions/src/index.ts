@@ -10,6 +10,7 @@ import { claimDailyOpenFor } from "./daily";
 import { addVideoFor, importPlaylistFor } from "./content";
 import { onGoalProgressWritten, tickGoalFor, onFaceDecisionNotify, onGoalDecisionNotify } from "./goals";
 import { onAnswerWritten, onCommentWritten, onLikeChanged, onQuestionWritten } from "./social";
+import { onViewAdded } from "./views";
 import { onDocumentCreated, onDocumentDeleted, onDocumentUpdated, onDocumentWritten } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { onMessagePublished } from "firebase-functions/v2/pubsub";
@@ -415,3 +416,11 @@ export const turnCredentials = onCall({ enforceAppCheck: enforceAppCheck }, asyn
 export const sweepCalls = onSchedule({ schedule: "every 1 minutes", timeZone: "Asia/Kolkata" }, async () => {
   await sweepRingingCalls(db, new Date());
 });
+
+// Views: one per member per item (firestore.rules validView), counted on the item
+export const thoughtViewAdded = onDocumentCreated("thoughts/{id}/views/{uid}", (e) => onViewAdded(db, "thoughts", e.params.id));
+export const questionViewAdded = onDocumentCreated("questions/{id}/views/{uid}", (e) => onViewAdded(db, "questions", e.params.id));
+export const announcementViewAdded = onDocumentCreated("announcements/{id}/views/{uid}", (e) => onViewAdded(db, "announcements", e.params.id));
+export const dailyPostViewAdded = onDocumentCreated("dailyPosts/{id}/views/{uid}", (e) => onViewAdded(db, "dailyPosts", e.params.id));
+export const videoViewAdded = onDocumentCreated("content/{id}/views/{uid}", (e) => onViewAdded(db, "content", e.params.id));
+export const bookViewAdded = onDocumentCreated("books/{id}/views/{uid}", (e) => onViewAdded(db, "books", e.params.id));
