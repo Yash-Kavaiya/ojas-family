@@ -14,3 +14,10 @@ fun groupOnScreen(tab: MainTab, communityTab: Int): NotifGroup? = when (tab) {
     }
     else -> null
 }
+
+/** The bell target a tab shows by itself (goal results, the face photo decision), or null. */
+fun targetOnScreen(tab: MainTab, practicePart: Int): String? = when {
+    tab == MainTab.Spiritual && practicePart == 1 -> "goals"
+    tab == MainTab.Profile -> "profile"
+    else -> null
+}

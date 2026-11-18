@@ -379,6 +379,9 @@ fun MainShell(container: AppContainer) {
         val pending = com.ojashealing.family.data.notify.linesAbout(inboxItems.orEmpty(), target).size
         LaunchedEffect(target, pending, resumed) { if (resumed && pending > 0) readPost(target) }
     }
+    val tabTarget = if (resumed && screenRoute?.contains("TabsRoute") == true) targetOnScreen(tab, practicePart) else null
+    val tabPending = tabTarget?.let { com.ojashealing.family.data.notify.linesAbout(inboxItems.orEmpty(), it).size } ?: 0
+    LaunchedEffect(tabTarget, tabPending) { if (tabTarget != null && tabPending > 0) readPost(tabTarget) }
     var askJump by rememberSaveable { mutableStateOf<String?>(null) }
     val appLanguage = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language
     val about by remember(appLanguage) {
@@ -988,6 +991,7 @@ fun MainShell(container: AppContainer) {
                 )
             }
             composable<CallRequestRoute> { entry ->
+                ClearsBell("callRequests/${entry.toRoute<CallRequestRoute>().id}")
                 com.ojashealing.family.ui.ask.CallRequestScreen(callsVm, entry.toRoute<CallRequestRoute>().id, onBack = { nav.popBackStack() }) { r, iAmStaff ->
                     if (iAmStaff) callMember(r.memberUid, r.memberName, r.video, r.channel, r.id)
                     else callStaff(com.ojashealing.family.data.chat.ChatChannel.fromId(r.channel), r.video, r.id)

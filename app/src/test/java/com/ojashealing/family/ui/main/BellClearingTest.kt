@@ -29,4 +29,12 @@ class BellClearingTest {
         assertEquals(NotifGroup.Qa, groupOnScreen(MainTab.Community, CommunityTab.QA))
         assertNull(groupOnScreen(MainTab.Spiritual, CommunityTab.QA))
     }
+
+    @Test fun theTabOnScreenReadsTheLinesThatOpenIt() {
+        // Goal results open Practice > Freedom Practice; the face photo decision opens Profile
+        assertEquals("goals", targetOnScreen(MainTab.Spiritual, practicePart = 1))
+        assertNull(targetOnScreen(MainTab.Spiritual, practicePart = 0))
+        assertEquals("profile", targetOnScreen(MainTab.Profile, practicePart = 0))
+        assertNull(targetOnScreen(MainTab.Home, practicePart = 1))
+    }
 }
