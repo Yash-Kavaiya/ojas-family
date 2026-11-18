@@ -120,6 +120,8 @@ dependencies {
   implementation(libs.stream.webrtc)
   implementation(libs.media3.exoplayer)
   implementation(libs.media3.ui)
+  implementation(libs.androidx.work.runtime)
+  implementation(libs.okhttp)
   // Ask Swamiji AI: ML Kit reads the words in a member's photo on the phone
   implementation(libs.mlkit.text.recognition)
   implementation(libs.mlkit.text.recognition.devanagari)
