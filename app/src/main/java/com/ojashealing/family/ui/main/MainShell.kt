@@ -862,7 +862,7 @@ fun MainShell(container: AppContainer) {
                     factory = viewModelFactory {
                         initializer {
                             com.ojashealing.family.ui.content.PracticeSessionViewModel(
-                                context.applicationContext, section, container.practiceMedia, progressStore, vm.profile.map { it?.uid }
+                                context.applicationContext, section, container.practiceMedia, container.practiceDownloads, progressStore, vm.profile.map { it?.uid }
                             )
                         }
                     }

@@ -1,5 +1,6 @@
 package com.ojashealing.family.ui.content
 
+import android.net.Uri
 import com.ojashealing.family.ui.theme.LocalReducedMotion
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.pluralStringResource
@@ -77,6 +78,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -113,7 +115,9 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.ojashealing.family.R
+import com.ojashealing.family.data.practice.DownloadState
 import com.ojashealing.family.data.practice.MediaType
+import com.ojashealing.family.data.practice.PracticeDownloads
 import com.ojashealing.family.data.practice.PRACTICE_POINTS
 import com.ojashealing.family.data.practice.PracticeMedia
 import com.ojashealing.family.data.practice.PracticeMediaRepository
@@ -137,6 +141,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.io.File
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -159,8 +164,25 @@ data class SessionUi(
     /** Points the server gave for this session (practice plus any bonuses). */
     val pointsEarned: Int = 0,
     /** Days in a row with at least one practice, after this one; 0 when unknown. */
-    val streak: Int = 0
+    val streak: Int = 0,
+    /** Whether the practice file is on the phone yet; null until the media is known. */
+    val download: DownloadState? = null
 )
+
+/** What the session plays: a downloaded file, the YouTube player, or nothing yet. */
+sealed interface SessionSource {
+    data class Wait(val state: DownloadState) : SessionSource
+    data class PlayFile(val file: File) : SessionSource
+    data object YouTube : SessionSource
+}
+
+/** A video or audio practice plays only from its downloaded [file]; it is never streamed. */
+fun sessionSource(media: PracticeMedia, state: DownloadState, file: File?): SessionSource = when {
+    media.type == MediaType.YouTube -> SessionSource.YouTube
+    file != null -> SessionSource.PlayFile(file)
+    state is DownloadState.Downloading -> SessionSource.Wait(state)
+    else -> SessionSource.Wait(DownloadState.Downloading(0, waitingForWifi = true))
+}
 
 /** What the session asks the embedded YouTube player to do. */
 sealed interface YouTubeCommand {
@@ -206,6 +228,7 @@ class PracticeSessionViewModel(
     context: Context,
     val section: ContentSection,
     private val repo: PracticeMediaRepository,
+    private val downloads: PracticeDownloads,
     private val progress: PracticeProgressStore,
     uid: Flow<String?>
 ) : ViewModel() {
@@ -217,6 +240,7 @@ class PracticeSessionViewModel(
     private val _ui = MutableStateFlow(SessionUi())
     val ui: StateFlow<SessionUi> = _ui.asStateFlow()
     private var started = false
+    private var playingFile: File? = null
 
     // YouTube practices play in a view owned by the screen; it reports back here
     private val _youTube = MutableSharedFlow<YouTubeCommand>(extraBufferCapacity = 8)
@@ -255,9 +279,21 @@ class PracticeSessionViewModel(
                 it.copy(media = media, phase = SessionPhase.Ready, durationMs = media.durationSec * 1000L, positionMs = pos, watchedMs = watched, reachedMs = reached)
             }
             ytPositionMs = pos
-            if (media.type != MediaType.YouTube) {
-                player.setMediaItem(MediaItem.fromUri(media.url), pos)
-                player.prepare()
+            // Waits for the downloaded file and starts it as soon as it is there
+            downloads.state(media).collect { state ->
+                when (val source = sessionSource(media, state, downloads.localFile(media))) {
+                    is SessionSource.Wait -> _ui.update { it.copy(download = source.state) }
+                    SessionSource.YouTube -> _ui.update { it.copy(download = DownloadState.NotNeeded) }
+                    is SessionSource.PlayFile -> {
+                        _ui.update { it.copy(download = DownloadState.Ready) }
+                        if (playingFile == null) {
+                            playingFile = source.file
+                            downloads.hold(source.file)
+                            player.setMediaItem(MediaItem.fromUri(Uri.fromFile(source.file)), pos)
+                            player.prepare()
+                        }
+                    }
+                }
             }
         }
         viewModelScope.launch {
@@ -379,6 +415,9 @@ class PracticeSessionViewModel(
         save()
     }
 
+    /** The member chose to download the practice now over mobile data. */
+    fun useMobileData() = downloads.downloadNowOnMobileData()
+
     /** Back on the Practice tab after finishing: start over if they want to practise again. */
     fun again() {
         seekTo(0)
@@ -388,6 +427,7 @@ class PracticeSessionViewModel(
     override fun onCleared() {
         if (_ui.value.phase != SessionPhase.Complete) save()
         player.release()
+        playingFile?.let(downloads::release)
     }
 
     private companion object {
@@ -463,6 +503,13 @@ fun PracticeSessionScreen(vm: PracticeSessionViewModel, onClose: () -> Unit) {
                 }
                 return@Column
             }
+            val waiting = ui.download as? DownloadState.Downloading
+            if (!isYouTube && waiting != null) {
+                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    DownloadWait(waiting, colors.accent, onMobileData = vm::useMobileData)
+                }
+                return@Column
+            }
 
             val progress = if (ui.durationMs > 0) ui.positionMs.toFloat() / ui.durationMs else 0f
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -519,6 +566,23 @@ fun PracticeSessionScreen(vm: PracticeSessionViewModel, onClose: () -> Unit) {
         }
 
         CompletionOverlay(ui, colors, onBack = onClose, onRetry = vm::finish, onAgain = vm::again)
+    }
+}
+
+/** Shown until the practice file is on the phone: progress, and a way to use mobile data. */
+@Composable
+private fun DownloadWait(state: DownloadState.Downloading, accent: Color, onMobileData: () -> Unit) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
+        if (state.percent > 0) CircularProgressIndicator(progress = { state.percent / 100f }, color = accent, strokeCap = StrokeCap.Round)
+        else CircularProgressIndicator(color = accent, strokeCap = StrokeCap.Round)
+        Text(
+            if (state.waitingForWifi) stringResource(R.string.session_downloading_wifi)
+            else stringResource(R.string.session_downloading, state.percent),
+            color = Color.White.copy(alpha = 0.85f), textAlign = TextAlign.Center
+        )
+        if (state.waitingForWifi) {
+            OutlinedButton(onClick = onMobileData) { Text(stringResource(R.string.session_download_mobile), color = Color.White) }
+        }
     }
 }
 
