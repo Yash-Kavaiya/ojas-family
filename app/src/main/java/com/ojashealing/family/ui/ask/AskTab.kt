@@ -1,5 +1,10 @@
 package com.ojashealing.family.ui.ask
 
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.PlayCircleOutline
 import androidx.compose.animation.core.animateFloat
@@ -249,47 +254,92 @@ private fun VideoPart(
     }
 }
 
-/** Books: PDF books; tapping one opens its link so the phone downloads or shows the PDF. */
+/** Books: a shelf of covers, two across; tapping one opens its link so the phone shows the PDF. */
 @Composable
 private fun BooksPart(
     books: List<Pair<Book, Access>>?,
     onOpen: (Book) -> Unit,
     onLocked: (Access.Locked) -> Unit,
 ) {
-    LazyColumn(contentPadding = PaddingValues(bottom = Spacing.xl), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
-        item(key = "booksHeader") { SectionHeader(stringResource(R.string.ask_part_books)) }
+    val markViewed = com.ojashealing.family.ui.components.rememberMarkViewed()
+    Column(Modifier.fillMaxSize()) {
+    SectionHeader(stringResource(R.string.ask_part_books))
+    androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+        columns = androidx.compose.foundation.lazy.grid.GridCells.Adaptive(minSize = 150.dp),
+        contentPadding = PaddingValues(start = Spacing.l, end = Spacing.l, bottom = Spacing.xl),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.m),
+        verticalArrangement = Arrangement.spacedBy(Spacing.l),
+    ) {
         when {
-            books == null -> item(key = "loading") { com.ojashealing.family.ui.components.LoadingSpinner(Modifier.fillMaxWidth().padding(Spacing.xl)) }
-            books.isEmpty() -> item(key = "empty") {
-                Text(stringResource(R.string.books_empty), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = Spacing.l))
+            books == null -> item(key = "loading", span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) { com.ojashealing.family.ui.components.LoadingSpinner(Modifier.fillMaxWidth().padding(Spacing.xl)) }
+            books.isEmpty() -> item(key = "empty", span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                Text(stringResource(R.string.books_empty), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            else -> items(books, key = { it.first.id }, contentType = { "book" }) { (book, access) ->
-                OjasCard(
-                    onClick = { if (access is Access.Locked) onLocked(access) else onOpen(book) },
-                    modifier = Modifier.padding(horizontal = Spacing.l),
-                ) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.m), verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            Modifier.size(44.dp).clip(androidx.compose.foundation.shape.CircleShape)
-                                .background(MaterialTheme.colorScheme.primaryContainer),
-                            contentAlignment = Alignment.Center
-                        ) { Icon(Icons.AutoMirrored.Outlined.MenuBook, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer) }
-                        Column(Modifier.weight(1f)) {
-                            Text(book.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            if (book.author.isNotBlank()) {
-                                Text(book.author, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                        }
-                        Icon(
-                            if (access is Access.Locked) Icons.Outlined.Lock else Icons.Outlined.Download,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+            else -> items(books.size, key = { books[it].first.id }, contentType = { "book" }) { i ->
+                val (book, access) = books[i]
+                BookCard(book, locked = access is Access.Locked) {
+                    if (access is Access.Locked) onLocked(access) else { markViewed("books/${book.id}"); onOpen(book) }
                 }
             }
+        }
+    }
+    }
+}
+
+// Soft cover colours for books without a picture; each book keeps its own, from its title
+private val plainCovers = listOf(
+    listOf(Color(0xFF3B5BA9), Color(0xFF1E2F63)),
+    listOf(Color(0xFFB4532A), Color(0xFF6E2A12)),
+    listOf(Color(0xFF2E7D6B), Color(0xFF134339)),
+    listOf(Color(0xFF7A4BA8), Color(0xFF3D2260)),
+    listOf(Color(0xFFB08A2E), Color(0xFF5E4612)),
+)
+
+@Composable
+private fun BookCard(book: Book, locked: Boolean, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(topStart = 4.dp, bottomStart = 4.dp, topEnd = 12.dp, bottomEnd = 12.dp)
+    Column(
+        Modifier.clip(RoundedCornerShape(12.dp)).clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onClick),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Box(
+            Modifier.fillMaxWidth().aspectRatio(2f / 3f)
+                .shadow(6.dp, shape, ambientColor = Color.Black.copy(alpha = 0.3f), spotColor = Color.Black.copy(alpha = 0.3f))
+                .clip(shape)
+        ) {
+            if (book.coverUrl.isNotEmpty()) {
+                com.ojashealing.family.ui.components.ShimmerImage(book.coverUrl, Modifier.fillMaxSize(), shape = shape, contentDescription = book.title)
+            } else {
+                val colors = plainCovers[(book.title.hashCode() and 0x7fffffff) % plainCovers.size]
+                Column(
+                    Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.linearGradient(colors)).padding(Spacing.m),
+                    verticalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Icon(Icons.AutoMirrored.Outlined.MenuBook, contentDescription = null, tint = Color.White.copy(alpha = 0.85f), modifier = Modifier.size(28.dp))
+                    Text(
+                        book.title, style = MaterialTheme.typography.titleMedium, color = Color.White,
+                        maxLines = 5, overflow = TextOverflow.Ellipsis,
+                    )
+                    Box(Modifier.size(width = 32.dp, height = 2.dp).background(Color.White.copy(alpha = 0.6f)))
+                }
+            }
+            // The spine: a soft shadow line along the left edge, like a real book
+            Box(Modifier.fillMaxHeight().width(6.dp).background(
+                androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(Color.Black.copy(alpha = 0.25f), Color.Transparent))
+            ))
+            if (locked) Box(
+                Modifier.align(Alignment.TopEnd).padding(Spacing.s).size(28.dp)
+                    .clip(androidx.compose.foundation.shape.CircleShape).background(Color.Black.copy(alpha = 0.55f)),
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Outlined.Lock, contentDescription = stringResource(R.string.locked_title), tint = Color.White, modifier = Modifier.size(16.dp)) }
+        }
+        Text(book.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                book.author, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+            )
+            com.ojashealing.family.ui.components.ViewCount(book.viewCount)
         }
     }
 }

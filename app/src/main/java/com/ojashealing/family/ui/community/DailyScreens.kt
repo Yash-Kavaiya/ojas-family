@@ -248,10 +248,15 @@ private fun DailyCard(post: DailyPost, onClick: () -> Unit) {
             style = if (wordsOnly) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodyMedium,
             maxLines = if (wordsOnly) 8 else 3, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
-        Text(
-            listOf(pluralStringResource(R.plurals.likes_plural, post.likeCount, post.likeCount), stringResource(R.string.replies_count, post.replyCount)).joinToString(" · "),
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        com.ojashealing.family.ui.components.TrackView("dailyPosts/${post.id}")
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                listOf(pluralStringResource(R.plurals.likes_plural, post.likeCount, post.likeCount), stringResource(R.string.replies_count, post.replyCount)).joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+            com.ojashealing.family.ui.components.ViewCount(post.viewCount)
+        }
         if (post.status == PostStatus.Pending) Text(stringResource(R.string.post_pending), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
     }
 }
@@ -291,9 +296,11 @@ fun DailyPostScreen(vm: DailyViewModel, postId: String, onBack: () -> Unit, show
                     com.ojashealing.family.ui.components.PostMedia(post.mediaKind, post.mediaUrl)
                     GoalLabel(post)
                     if (post.text.isNotBlank()) Text(com.ojashealing.family.ui.components.linkified(post.text), style = if (post.imageUrl.isEmpty()) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodyMedium)
+                    com.ojashealing.family.ui.components.TrackView("dailyPosts/${post.id}", afterMs = 0)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         LikeButton(liked = liked, enabled = true, onToggle = { vm.setLiked(post.id, !liked) })
-                        Text(pluralStringResource(R.plurals.likes_plural, post.likeCount, post.likeCount), style = MaterialTheme.typography.labelMedium)
+                        Text(pluralStringResource(R.plurals.likes_plural, post.likeCount, post.likeCount), style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
+                        com.ojashealing.family.ui.components.ViewCount(post.viewCount)
                     }
                 }
             }

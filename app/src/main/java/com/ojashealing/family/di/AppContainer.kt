@@ -78,5 +78,10 @@ class AppContainer(context: Context) {
     val images = PostImages(Firebase.storage, app.contentResolver)
     val about = com.ojashealing.family.data.about.AboutRepository(Firebase.firestore)
     val callRequests = com.ojashealing.family.data.call.CallRequestRepository(Firebase.firestore)
+    // Views of posts, videos and books: once per member per item
+    val views = com.ojashealing.family.data.social.ViewTracker.firestore(
+        Firebase.firestore, uid = { Firebase.auth.currentUser?.uid },
+        seen = com.ojashealing.family.data.social.PrefsSeenStore(app),
+    )
     val locations = LocationRepository { name -> app.assets.open(name).bufferedReader().use { it.readText() } }
 }

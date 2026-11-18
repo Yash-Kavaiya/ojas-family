@@ -432,3 +432,34 @@ describe("usage dashboard", () => {
     await assertFails(setDoc(doc(as("adm"), "stats", "2026-11-07"), { day: "2026-11-07" }));
   });
 });
+
+describe("views", () => {
+  const paths = ["thoughts/t1", "questions/q1", "announcements/n1", "dailyPosts/p1", "content/yt_x", "books/b1"];
+
+  test("a member counts their own view once, with nothing but the time", async () => {
+    for (const p of paths) {
+      await assertSucceeds(setDoc(doc(as("paid"), `${p}/views/paid`), { createdAt: serverTimestamp() }));
+      // A second write would be an update: refused, so a view is never counted twice
+      await assertFails(setDoc(doc(as("paid"), `${p}/views/paid`), { createdAt: serverTimestamp() }));
+    }
+  });
+
+  test("nobody can count a view for someone else, add fields, or set the count", async () => {
+    await assertFails(setDoc(doc(as("paid"), "announcements/n1/views/free"), { createdAt: serverTimestamp() }));
+    await assertFails(setDoc(doc(as("paid"), "books/b1/views/paid"), { createdAt: serverTimestamp(), n: 5 }));
+    await assertFails(deleteDoc(doc(as("paid"), "books/b1/views/paid")));
+    await assertFails(setDoc(doc(env.unauthenticatedContext().firestore(), "books/b1/views/x"), { createdAt: serverTimestamp() }));
+    await assertFails(updateDoc(doc(as("paid"), "dailyPosts/p1"), { viewCount: 99 }));
+  });
+});
+
+describe("book covers", () => {
+  const book = { title: "Book", url: "https://x/b.pdf", minUserLevel: 1, minMemberLevel: 0, order: 0, published: true };
+
+  test("an admin can give a book an https cover picture, or none", async () => {
+    await assertSucceeds(setDoc(doc(as("adm"), "books/b2"), { ...book, coverUrl: "https://x/c.jpg" }));
+    await assertSucceeds(setDoc(doc(as("adm"), "books/b3"), { ...book, coverUrl: "" }));
+    await assertFails(setDoc(doc(as("adm"), "books/b4"), { ...book, coverUrl: "javascript:alert(1)" }));
+    await assertFails(setDoc(doc(as("paid"), "books/b5"), { ...book, coverUrl: "https://x/c.jpg" }));
+  });
+});

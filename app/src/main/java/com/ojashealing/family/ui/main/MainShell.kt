@@ -566,6 +566,7 @@ fun MainShell(container: AppContainer) {
     }.collectAsStateWithLifecycle(emptyList())
     CompositionLocalProvider(
         com.ojashealing.family.ui.components.LocalStaffMentions provides staffMentions,
+        com.ojashealing.family.ui.components.LocalViewTracker provides container.views,
         LocalOpenProfile provides openProfile,
         com.ojashealing.family.ui.components.LocalCommentLikes provides commentLikes,
         com.ojashealing.family.ui.community.LocalPostActions provides postActions

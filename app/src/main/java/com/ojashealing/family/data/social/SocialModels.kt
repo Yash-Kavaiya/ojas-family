@@ -24,7 +24,9 @@ data class Thought(
     val text: String,
     val likeCount: Int,
     val commentCount: Int,
-    val imageUrl: String = ""
+    val imageUrl: String = "",
+    /** Members who have seen it, each counted once. */
+    val viewCount: Long = 0,
 )
 
 enum class PostStatus { Visible, Pending }
@@ -78,7 +80,9 @@ data class DailyPost(
     val goalTitle: Map<String, String> = emptyMap(),
     /** An audio clip or video instead of a photo; the photo stays in [imageUrl]. */
     val mediaKind: MediaKind? = null,
-    val mediaUrl: String = ""
+    val mediaUrl: String = "",
+    /** Members who have seen it, each counted once. */
+    val viewCount: Long = 0,
 ) {
     fun goalTitleIn(lang: String) = goalTitle[lang] ?: goalTitle["en"].orEmpty()
 }
@@ -95,7 +99,9 @@ data class Question(
     val imageUrl: String = "",
     /** An audio clip or video instead of a photo; the photo stays in [imageUrl]. */
     val mediaKind: MediaKind? = null,
-    val mediaUrl: String = ""
+    val mediaUrl: String = "",
+    /** Members who have seen it, each counted once. */
+    val viewCount: Long = 0,
 )
 
 /** What an announcement carries besides text. Stored as "image", "audio" or "video"; absent for text only. */
@@ -115,7 +121,9 @@ data class Announcement(
     val mediaKind: MediaKind? = null,
     val mediaUrl: String = "",
     val likeCount: Int = 0,
-    val commentCount: Int = 0
+    val commentCount: Int = 0,
+    /** Members who have seen it, each counted once. */
+    val viewCount: Long = 0,
 )
 
 /** A post waiting for an admin, or a member's report. [path] is the Firestore document path. */

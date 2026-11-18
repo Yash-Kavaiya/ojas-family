@@ -188,11 +188,16 @@ private fun QuestionCard(q: Question, onClick: () -> Unit) {
         }
         Text(q.title, style = MaterialTheme.typography.titleLarge, maxLines = 3, overflow = TextOverflow.Ellipsis)
         MediaLabel(if (q.imageUrl.isNotEmpty()) com.ojashealing.family.data.social.MediaKind.Image else q.mediaKind)
-        Text(
-            listOf(pluralStringResource(R.plurals.likes_plural, q.likeCount, q.likeCount), stringResource(R.string.community_answers_count, q.answerCount)).joinToString(" · "),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        com.ojashealing.family.ui.components.TrackView("questions/${q.id}")
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                listOf(pluralStringResource(R.plurals.likes_plural, q.likeCount, q.likeCount), stringResource(R.string.community_answers_count, q.answerCount)).joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+            com.ojashealing.family.ui.components.ViewCount(q.viewCount)
+        }
         if (q.status == PostStatus.Pending) Text(stringResource(R.string.post_pending), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
     }
 }
@@ -244,9 +249,11 @@ fun QuestionDetailScreen(
                     if (q.body.isNotBlank()) Text(com.ojashealing.family.ui.components.linkified(q.body), style = MaterialTheme.typography.bodyLarge)
                     if (q.imageUrl.isNotEmpty()) PostImage(q.imageUrl)
                     com.ojashealing.family.ui.components.PostMedia(q.mediaKind, q.mediaUrl)
+                    com.ojashealing.family.ui.components.TrackView("questions/${q.id}", afterMs = 0)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         LikeButton(liked = liked, enabled = p.canLike, onToggle = { vm.setLiked(q.id, !liked) })
-                        Text(pluralStringResource(R.plurals.likes_plural, q.likeCount, q.likeCount), style = MaterialTheme.typography.labelLarge)
+                        Text(pluralStringResource(R.plurals.likes_plural, q.likeCount, q.likeCount), style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+                        com.ojashealing.family.ui.components.ViewCount(q.viewCount)
                     }
                 }
             }

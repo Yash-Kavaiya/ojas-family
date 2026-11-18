@@ -60,7 +60,7 @@ private fun buildLinked(raw: AnnotatedString, linkColor: Color, open: (String) -
     // Every "@Name" is coloured too, so a mention stands out wherever the post is shown
     val mentions = com.ojashealing.family.data.social.typedMentionRanges(raw.text)
     val text = if (mentions.isEmpty()) raw else AnnotatedString.Builder(raw).apply {
-        mentions.forEach { addStyle(SpanStyle(color = linkColor, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), it.first, it.last + 1) }
+        mentions.forEach { addStyle(SpanStyle(color = linkColor), it.first, it.last + 1) }
     }.toAnnotatedString()
     val links = findLinks(text.text)
     if (links.isEmpty()) return text

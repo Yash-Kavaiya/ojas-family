@@ -363,10 +363,12 @@ fun ThoughtCard(
             maxLines = if (preview) 3 else Int.MAX_VALUE,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
+        com.ojashealing.family.ui.components.TrackView("thoughts/${thought.id}")
         Row(verticalAlignment = Alignment.CenterVertically) {
             LikeButton(liked = liked, enabled = canLike, onToggle = onLike)
             com.ojashealing.family.ui.components.RollingCount(thought.likeCount, { pluralStringResource(R.plurals.likes_plural, it, it) })
             Box(Modifier.weight(1f))
+            com.ojashealing.family.ui.components.ViewCount(thought.viewCount, Modifier.padding(end = Spacing.m))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                 Text(

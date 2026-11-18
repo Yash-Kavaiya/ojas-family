@@ -213,7 +213,7 @@ private class MentionHighlight(private val names: List<String>, private val colo
         val ranges = com.ojashealing.family.data.social.mentionRanges(text.text, names)
         if (ranges.isEmpty()) return androidx.compose.ui.text.input.TransformedText(text, androidx.compose.ui.text.input.OffsetMapping.Identity)
         val styled = androidx.compose.ui.text.AnnotatedString.Builder(text).apply {
-            ranges.forEach { addStyle(androidx.compose.ui.text.SpanStyle(color = color, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), it.first, it.last + 1) }
+            ranges.forEach { addStyle(androidx.compose.ui.text.SpanStyle(color = color), it.first, it.last + 1) }
         }.toAnnotatedString()
         return androidx.compose.ui.text.input.TransformedText(styled, androidx.compose.ui.text.input.OffsetMapping.Identity)
     }

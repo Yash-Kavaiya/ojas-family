@@ -99,7 +99,8 @@ class ThoughtRepository(private val db: FirebaseFirestore) {
         text = getString("text").orEmpty(),
         likeCount = getLong("likeCount")?.toInt() ?: 0,
         commentCount = getLong("commentCount")?.toInt() ?: 0,
-        imageUrl = getString("imageUrl").orEmpty()
+        imageUrl = getString("imageUrl").orEmpty(),
+        viewCount = getLong("viewCount") ?: 0,
     )
 
     fun observeLiked(thoughtId: String, uid: String): Flow<Boolean> = callbackFlow {
@@ -144,13 +145,15 @@ class CommunityRepository(private val db: FirebaseFirestore) {
         createdAt = millis("createdAt"), likeCount = getLong("likeCount")?.toInt() ?: 0,
         answerCount = getLong("answerCount")?.toInt() ?: 0, status = status(),
         imageUrl = getString("imageUrl").orEmpty(),
-        mediaKind = avKind(), mediaUrl = if (avKind() != null) getString("mediaUrl").orEmpty() else ""
+        mediaKind = avKind(), mediaUrl = if (avKind() != null) getString("mediaUrl").orEmpty() else "",
+        viewCount = getLong("viewCount") ?: 0,
     )
 
     private fun DocumentSnapshot.toAnnouncement() = Announcement(
         id, getString("title").orEmpty(), getString("body").orEmpty(), millis("createdAt"),
         MediaKind.fromId(getString("mediaType")), getString("mediaUrl").orEmpty(),
-        (getLong("likeCount") ?: 0L).toInt().coerceAtLeast(0), (getLong("commentCount") ?: 0L).toInt().coerceAtLeast(0)
+        (getLong("likeCount") ?: 0L).toInt().coerceAtLeast(0), (getLong("commentCount") ?: 0L).toInt().coerceAtLeast(0),
+        viewCount = getLong("viewCount") ?: 0,
     )
 
     fun observeQuestions(viewer: Viewer, uid: String): Flow<List<Question>> {
@@ -298,7 +301,8 @@ class DailyRepository(private val db: FirebaseFirestore) {
         createdAt = millis("createdAt"), likeCount = getLong("likeCount")?.toInt() ?: 0,
         replyCount = getLong("replyCount")?.toInt() ?: 0, status = status(),
         goalTitle = (get("goalTitle") as? Map<*, *>).orEmpty().entries.associate { it.key.toString() to it.value?.toString().orEmpty() },
-        mediaKind = avKind(), mediaUrl = if (avKind() != null) getString("mediaUrl").orEmpty() else ""
+        mediaKind = avKind(), mediaUrl = if (avKind() != null) getString("mediaUrl").orEmpty() else "",
+        viewCount = getLong("viewCount") ?: 0,
     )
 
     fun observePosts(viewer: Viewer, uid: String): Flow<List<DailyPost>> {

@@ -72,8 +72,9 @@ private fun thumbnail(videoId: String) = "https://i.ytimg.com/vi/$videoId/hqdefa
 @Composable
 fun VideoTile(item: ContentItem, access: Access, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val locked = access is Access.Locked
+    val markViewed = com.ojashealing.family.ui.components.rememberMarkViewed()
     Column(
-        modifier = modifier.clickable(role = Role.Button, onClick = onClick),
+        modifier = modifier.clickable(role = Role.Button) { if (!locked) markViewed("content/${item.id}"); onClick() },
         verticalArrangement = Arrangement.spacedBy(Spacing.s)
     ) {
         Box(
@@ -104,6 +105,7 @@ fun VideoTile(item: ContentItem, access: Access, onClick: () -> Unit, modifier: 
             maxLines = 2,
             overflow = TextOverflow.Ellipsis
         )
+        com.ojashealing.family.ui.components.ViewCount(item.viewCount)
     }
 }
 

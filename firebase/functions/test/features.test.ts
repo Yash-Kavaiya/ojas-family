@@ -1,4 +1,5 @@
 import { Timestamp } from "firebase-admin/firestore";
+import { onViewAdded } from "../src/views";
 import { ensureUserDoc } from "../src/auth";
 import { adminGrantFor, countPaidDay, memberLevelFor, verifyPurchaseFor, type PlayApi } from "../src/billing";
 import { onCallUpdated, onChatMessage, sweepRingingCalls } from "../src/chat";
@@ -531,5 +532,16 @@ describe("admin team chat, call log and scheduled calls", () => {
     expect(sent.map((s) => s.to).sort()).toEqual(["tM1", "tSw"]);
     expect(await sendCallReminders(db, m, new Date(NOW.getTime() + 10 * 60_000))).toBe(1);
     expect((await db.doc("callRequests/r2").get()).get("remindedStart")).toBe(true);
+  });
+});
+
+describe("views", () => {
+  test("a member's first view adds one to the post's count; a deleted post is left alone", async () => {
+    await db.doc("books/b1").set({ title: "Book" });
+    await onViewAdded(db, "books", "b1");
+    await onViewAdded(db, "books", "b1");
+    expect((await db.doc("books/b1").get()).get("viewCount")).toBe(2);
+    await expect(onViewAdded(db, "books", "gone")).resolves.toBeUndefined();
+    expect((await db.doc("books/gone").get()).exists).toBe(false);
   });
 });

@@ -125,9 +125,21 @@ service cloud.firestore {
         && data.get('published', true) is bool;
     }
 
+    // A member's own "I saw this", once: the doc can't be changed or removed, so a view is never
+    // counted twice. A function then adds one to the post's viewCount, which members can't write.
+    function validView(uid) {
+      return signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['createdAt'])
+        && request.resource.data.createdAt == request.time;
+    }
+
     // Ojas Healing videos: every member can browse; unlock levels are applied by the app,
     // since the videos themselves are public on YouTube
     match /content/{id} {
+      match /views/{uid} {
+        allow read: if signedIn() && request.auth.uid == uid;
+        allow create: if validView(uid);
+      }
       allow read: if signedIn();
       allow create, update: if isAdmin() && validContent(request.resource.data);
       allow delete: if isAdmin();
@@ -140,12 +152,19 @@ service cloud.firestore {
         && data.get('minUserLevel', 1) is int
         && data.get('minMemberLevel', 0) is int
         && data.get('order', 0) is int
-        && data.get('published', true) is bool;
+        && data.get('published', true) is bool
+        // The cover picture the admin uploaded (Storage books/covers), or none
+        && data.get('coverUrl', '') is string && data.get('coverUrl', '').size() <= 2000
+        && (data.get('coverUrl', '') == '' || data.get('coverUrl', '').matches('^https://[^\\s]+$'));
     }
 
     // PDF books on the Ask tab: an admin pastes each book's link; like the videos, the
     // unlock level is applied by the app
     match /books/{id} {
+      match /views/{uid} {
+        allow read: if signedIn() && request.auth.uid == uid;
+        allow create: if validView(uid);
+      }
       allow read: if signedIn();
       allow create, update: if isAdmin() && validBook(request.resource.data);
       allow delete: if isAdmin();
@@ -259,6 +278,10 @@ service cloud.firestore {
     }
 
     match /thoughts/{thoughtId} {
+      match /views/{uid} {
+        allow read: if signedIn() && request.auth.uid == uid;
+        allow create: if validView(uid);
+      }
       // Members see today and the six days before; scheduled thoughts stay hidden until their day
       allow read: if isAdmin() || (signedIn()
         && resource.data.publishAt <= request.time
@@ -290,6 +313,10 @@ service cloud.firestore {
     }
 
     match /questions/{questionId} {
+      match /views/{uid} {
+        allow read: if signedIn() && request.auth.uid == uid;
+        allow create: if validView(uid);
+      }
       allow read: if readablePost();
       allow create: if canComment()
         && request.resource.data.authorUid == request.auth.uid
@@ -324,6 +351,10 @@ service cloud.firestore {
     }
 
     match /announcements/{id} {
+      match /views/{uid} {
+        allow read: if signedIn() && request.auth.uid == uid;
+        allow create: if validView(uid);
+      }
       allow read: if signedIn();
       allow write: if isAdmin();
 
@@ -452,6 +483,10 @@ service cloud.firestore {
     }
 
     match /dailyPosts/{postId} {
+      match /views/{uid} {
+        allow read: if signedIn() && request.auth.uid == uid;
+        allow create: if validView(uid);
+      }
       allow read: if isPaid()
         && (resource.data.status == 'visible' || resource.data.authorUid == request.auth.uid || isAdmin());
       allow create: if signedIn() && (isStaff() || rank('memberLevel') >= 3)
