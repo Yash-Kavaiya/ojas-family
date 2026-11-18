@@ -117,6 +117,7 @@ fun AnnouncementCard(
         }
         Text(n.title, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
         if (n.body.isNotBlank()) Text(com.ojashealing.family.ui.components.linkified(n.body), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+        if (n.mediaUrl.isEmpty()) com.ojashealing.family.ui.components.LinkPreviewFor(n.body)
         if (n.mediaUrl.isNotEmpty()) when (n.mediaKind) {
             MediaKind.Image -> PostImage(n.mediaUrl)
             MediaKind.Audio -> AudioPlayer(n.mediaUrl)

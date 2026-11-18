@@ -399,6 +399,7 @@ fun ThoughtCard(
             maxLines = if (preview) 3 else Int.MAX_VALUE,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
+        if (!preview) com.ojashealing.family.ui.components.LinkPreviewFor(thought.text)
         com.ojashealing.family.ui.components.TrackView("thoughts/${thought.id}")
         Row(verticalAlignment = Alignment.CenterVertically) {
             LikeButton(liked = liked, enabled = canLike, onToggle = onLike)
@@ -675,6 +676,7 @@ fun PostRow(
                 }
             } else androidx.compose.ui.text.AnnotatedString(post.text)
             Text(com.ojashealing.family.ui.components.linkified(body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+            if (post.imageUrl.isEmpty()) com.ojashealing.family.ui.components.LinkPreviewFor(post.text, Modifier.padding(top = Spacing.xs))
             if (post.imageUrl.isNotEmpty()) PostImage(post.imageUrl, Modifier.padding(top = Spacing.xs), maxHeight = 260.dp)
             if (post.status == PostStatus.Pending) {
                 Text(stringResource(R.string.post_pending), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)

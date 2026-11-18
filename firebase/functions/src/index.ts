@@ -31,6 +31,7 @@ import { sweepBell, type Messenger } from "./notify";
 import { applyAdminList, applyAdminListNow, givePointsFor, statsFor } from "./admin";
 import { backfillStatsFor, todayStatsFor, userCountsFor, writeDailyStats } from "./stats";
 import { onThoughtPushTick } from "./thoughtTime";
+import { fetchPublicPage, linkPreviewFor } from "./linkPreview";
 import { findGiftRecipientsFor, reverseTransferFor, setTransfersFrozenFor, staffAdjustPointsFor, transferPointsFor, updatePointsConfigFor } from "./transfer";
 import { onProfileWritten } from "./profilePoints";
 import { askSwamijiFor, rateAiAnswerFor, remainingToday } from "./ai";
@@ -111,6 +112,12 @@ export const adminDayStats = onCall({ timeoutSeconds: 120 }, async (req) => {
 export const userCounts = onCall(async (req) => {
   requireUid(req);
   return userCountsFor(db, req.auth?.token);
+});
+
+/** The title, picture and site of a web address someone wrote, for the card under their message. */
+export const linkPreview = onCall({ timeoutSeconds: 20 }, async (req) => {
+  requireUid(req);
+  return (await linkPreviewFor(db, (req.data as { url?: unknown } | null)?.url, { fetchPage: fetchPublicPage, now: new Date() })) ?? {};
 });
 
 /** Counts past days the dashboard has no numbers for yet (up to 90). */

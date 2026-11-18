@@ -248,6 +248,8 @@ private fun DailyCard(post: DailyPost, onClick: () -> Unit) {
             style = if (wordsOnly) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodyMedium,
             maxLines = if (wordsOnly) 8 else 3, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
+        // A shared link shows its card when the post has no photo of its own
+        if (wordsOnly && post.mediaUrl.isEmpty()) com.ojashealing.family.ui.components.LinkPreviewFor(post.text)
         com.ojashealing.family.ui.components.TrackView("dailyPosts/${post.id}")
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -296,6 +298,7 @@ fun DailyPostScreen(vm: DailyViewModel, postId: String, onBack: () -> Unit, show
                     com.ojashealing.family.ui.components.PostMedia(post.mediaKind, post.mediaUrl)
                     GoalLabel(post)
                     if (post.text.isNotBlank()) Text(com.ojashealing.family.ui.components.linkified(post.text), style = if (post.imageUrl.isEmpty()) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodyMedium)
+                    com.ojashealing.family.ui.components.LinkPreviewFor(post.text)
                     com.ojashealing.family.ui.components.TrackView("dailyPosts/${post.id}", afterMs = 0)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         LikeButton(liked = liked, enabled = true, onToggle = { vm.setLiked(post.id, !liked) })

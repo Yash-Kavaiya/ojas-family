@@ -247,6 +247,7 @@ fun QuestionDetailScreen(
                     }
                     Text(q.title, style = MaterialTheme.typography.titleLarge)
                     if (q.body.isNotBlank()) Text(com.ojashealing.family.ui.components.linkified(q.body), style = MaterialTheme.typography.bodyLarge)
+                    com.ojashealing.family.ui.components.LinkPreviewFor(q.body)
                     if (q.imageUrl.isNotEmpty()) PostImage(q.imageUrl)
                     com.ojashealing.family.ui.components.PostMedia(q.mediaKind, q.mediaUrl)
                     com.ojashealing.family.ui.components.TrackView("questions/${q.id}", afterMs = 0)
