@@ -66,6 +66,9 @@ fun mergeInbox(
         .sortedByDescending { it.createdAt }
 }
 
+/** The unread lines about [target] ("questions/abc"): opening that post reads them, however it was reached. */
+fun linesAbout(items: List<InboxItem>, target: String): List<InboxItem> = items.filter { it.unread && it.target == target }
+
 /** Unread lines per group, for the bell and the tabs. */
 fun unreadByGroup(items: List<InboxItem>): Map<NotifGroup, Int> =
     items.filter { it.unread }.groupingBy { it.group }.eachCount()
@@ -142,6 +145,20 @@ class NotificationInbox(private val db: FirebaseFirestore) {
             val opened = (shown.filter { !it.personal && !it.unread }.map { it.id } + item.id).distinct().take(250)
             stateDoc(uid).set(mapOf("opened" to opened), SetOptions.merge()).await()
         }
+        Unit
+    }
+
+    /** The member opened a post: its lines are read, the own ones one by one and the shared ones in the opened list. */
+    suspend fun markLinesRead(uid: String, lines: List<InboxItem>, shown: List<InboxItem>) = runCatching {
+        if (lines.isEmpty()) return@runCatching
+        val batch = db.batch()
+        lines.filter { it.personal }.take(400).forEach { batch.update(db.document("users/$uid/notifications/${it.id}"), "read", true) }
+        val shared = lines.filter { !it.personal }.map { it.id }
+        if (shared.isNotEmpty()) {
+            val opened = (shown.filter { !it.personal && !it.unread }.map { it.id } + shared).distinct().take(250)
+            batch.set(stateDoc(uid), mapOf("opened" to opened), SetOptions.merge())
+        }
+        batch.commit().await()
         Unit
     }
 

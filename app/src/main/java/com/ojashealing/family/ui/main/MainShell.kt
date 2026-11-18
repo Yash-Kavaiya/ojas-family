@@ -1,5 +1,6 @@
 package com.ojashealing.family.ui.main
 
+import androidx.lifecycle.compose.currentStateAsState
 import com.ojashealing.family.data.retryBriefly
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.outlined.Call
@@ -360,6 +361,24 @@ fun MainShell(container: AppContainer) {
     // Q&A, Daily or Announcements inside Community; held here so notifications can pick it
     var communityTab by rememberSaveable { androidx.compose.runtime.mutableIntStateOf(com.ojashealing.family.ui.community.CommunityTab.DAILY) }
     var communityJump by rememberSaveable { mutableStateOf<String?>(null) }
+    // The bell clears by itself: a tab on screen sees its new posts, an opened post reads its lines.
+    // Only while the app is in front, so nothing is cleared that the member did not see.
+    val resumed = lifecycleOwner.lifecycle.currentStateAsState().value.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
+    val groupShown = if (resumed && screenRoute?.contains("TabsRoute") == true) groupOnScreen(tab, communityTab) else null
+    val groupNew = groupShown?.let { g -> inboxItems.orEmpty().count { !it.personal && it.unread && it.group == g } } ?: 0
+    LaunchedEffect(groupShown, groupNew) { if (groupShown != null && groupNew > 0) markGroupSeen(groupShown) }
+    val readPost: (String) -> Unit = { target ->
+        val uid = profile?.uid
+        val lines = com.ojashealing.family.data.notify.linesAbout(inboxItems.orEmpty(), target)
+        if (uid != null && lines.isNotEmpty()) {
+            inboxScope.launch { container.inbox.markLinesRead(uid, lines, inboxItems.orEmpty()) }
+            com.ojashealing.family.push.AppBadge.clear(context, target)
+        }
+    }
+    val ClearsBell: @Composable (String) -> Unit = { target ->
+        val pending = com.ojashealing.family.data.notify.linesAbout(inboxItems.orEmpty(), target).size
+        LaunchedEffect(target, pending, resumed) { if (resumed && pending > 0) readPost(target) }
+    }
     var askJump by rememberSaveable { mutableStateOf<String?>(null) }
     val appLanguage = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language
     val about by remember(appLanguage) {
@@ -688,6 +707,7 @@ fun MainShell(container: AppContainer) {
                                             )
                                         },
                                         detail = { kind, id, onBack, showBack ->
+                                            ClearsBell(when (kind) { "daily" -> "dailyPosts/$id"; "announcement" -> "announcements/$id"; else -> "questions/$id" })
                                             when (kind) {
                                                 "daily" -> DailyPostScreen(dailyVm, id, onBack, showBack, embedded = true)
                                                 "announcement" -> AnnouncementDetailScreen(communityVm, id, onBack, showBack, embedded = true)
@@ -818,6 +838,7 @@ fun MainShell(container: AppContainer) {
                 }
             }
             composable<QuestionRoute> { entry ->
+                ClearsBell("questions/${entry.toRoute<QuestionRoute>().id}")
                 QuestionDetailScreen(communityVm, entry.toRoute<QuestionRoute>().id, onBack = { nav.popBackStack() })
             }
             composable<AskRoute> {
@@ -835,7 +856,9 @@ fun MainShell(container: AppContainer) {
                 )
             }
             composable<AnnounceRoute> { ComposeAnnouncementScreen(communityVm, onBack = { nav.popBackStack() }) }
-            composable<DailyPostRoute> { entry -> DailyPostScreen(dailyVm, entry.toRoute<DailyPostRoute>().id, onBack = { nav.popBackStack() }) }
+            composable<DailyPostRoute> { entry ->
+                ClearsBell("dailyPosts/${entry.toRoute<DailyPostRoute>().id}")
+                DailyPostScreen(dailyVm, entry.toRoute<DailyPostRoute>().id, onBack = { nav.popBackStack() }) }
             composable<ComposeDailyRoute> { ComposeDailyScreen(dailyVm, onBack = { nav.popBackStack() }) }
             composable<ScheduleThoughtRoute> { entry ->
                 ScheduleThoughtScreen(thoughtVm, editDate = entry.toRoute<ScheduleThoughtRoute>().date, onDone = { nav.popBackStack() })
@@ -1018,9 +1041,12 @@ fun MainShell(container: AppContainer) {
             }
             composable<ThoughtRoute> { entry ->
                 LaunchedEffect(Unit) { markGroupSeen(com.ojashealing.family.data.notify.NotifGroup.Thought) }
+                ClearsBell("thoughts/${entry.toRoute<ThoughtRoute>().id}")
                 ThoughtDetailScreen(thoughtVm, entry.toRoute<ThoughtRoute>().id, onBack = { nav.popBackStack() })
             }
-            composable<AnnouncementRoute> { entry -> AnnouncementDetailScreen(communityVm, entry.toRoute<AnnouncementRoute>().id, onBack = { nav.popBackStack() }) }
+            composable<AnnouncementRoute> { entry ->
+                ClearsBell("announcements/${entry.toRoute<AnnouncementRoute>().id}")
+                AnnouncementDetailScreen(communityVm, entry.toRoute<AnnouncementRoute>().id, onBack = { nav.popBackStack() }) }
             composable<AboutRoute> { entry -> AboutScreen(entry.toRoute<AboutRoute>().kind, about, onBack = { nav.popBackStack() }) }
             composable<NotificationsRoute> {
                 NotificationsScreenHost(
