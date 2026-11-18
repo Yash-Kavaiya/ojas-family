@@ -425,7 +425,7 @@ private fun RecipientRow(m: GiftRecipient, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.m),
     ) {
         if (m.photoUrl.isNotEmpty()) {
-            AsyncImage(m.photoUrl, null, contentScale = ContentScale.Crop, modifier = Modifier.size(40.dp).clip(CircleShape))
+            com.ojashealing.family.ui.components.ShimmerImage(m.photoUrl, Modifier.size(40.dp), shape = CircleShape)
         } else {
             Box(Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
                 Text(m.name.take(1).uppercase(), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)

@@ -9,6 +9,8 @@ import com.ojashealing.family.domain.ContentSection
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.tasks.await
 
 interface ContentRepository {
@@ -25,10 +27,20 @@ interface ContentRepository {
 
 class FirestoreContentRepository(
     private val db: FirebaseFirestore,
-    private val functions: FirebaseFunctions
+    private val functions: FirebaseFunctions,
+    private val scope: kotlinx.coroutines.CoroutineScope =
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default),
 ) : ContentRepository {
 
-    override fun observe(): Flow<List<ContentItem>> = callbackFlow {
+    // One live listener each, shared by every screen and kept 5 s after the last one leaves, so
+    // switching tabs shows the last list at once instead of starting over
+    private val sharedContent by lazy { contentFlow().shareIn(scope, SharingStarted.WhileSubscribed(5_000), replay = 1) }
+    private val sharedBooks by lazy { booksFlow().shareIn(scope, SharingStarted.WhileSubscribed(5_000), replay = 1) }
+
+    override fun observe(): Flow<List<ContentItem>> = sharedContent
+    override fun observeBooks(): Flow<List<Book>> = sharedBooks
+
+    private fun contentFlow(): Flow<List<ContentItem>> = callbackFlow {
         val registration = db.collection("content").limit(500).addSnapshotListener { snap, error ->
             if (error != null || snap == null) return@addSnapshotListener
             val items = snap.documents.mapNotNull { it.toContentItem() }
@@ -38,7 +50,7 @@ class FirestoreContentRepository(
         awaitClose { registration.remove() }
     }
 
-    override fun observeBooks(): Flow<List<Book>> = callbackFlow {
+    private fun booksFlow(): Flow<List<Book>> = callbackFlow {
         val registration = db.collection("books").limit(300).addSnapshotListener { snap, error ->
             // Shown as "no books yet" rather than a spinner that never ends (e.g. before the rules are deployed)
             if (error != null || snap == null) { trySend(emptyList()); return@addSnapshotListener }
@@ -81,7 +93,9 @@ private fun DocumentSnapshot.toBook(): Book? {
         minUserLevel = getLong("minUserLevel")?.toInt() ?: 1,
         minMemberLevel = getLong("minMemberLevel")?.toInt() ?: 0,
         order = getLong("order") ?: 0,
-        published = getBoolean("published") ?: true
+        published = getBoolean("published") ?: true,
+        coverUrl = getString("coverUrl")?.trim()?.takeIf { it.startsWith("https://") }.orEmpty(),
+        viewCount = getLong("viewCount") ?: 0,
     )
 }
 
@@ -97,6 +111,7 @@ private fun DocumentSnapshot.toContentItem(): ContentItem? {
         minUserLevel = getLong("minUserLevel")?.toInt() ?: 1,
         minMemberLevel = getLong("minMemberLevel")?.toInt() ?: 0,
         order = getLong("order") ?: 0,
-        published = getBoolean("published") ?: true
+        published = getBoolean("published") ?: true,
+        viewCount = getLong("viewCount") ?: 0,
     )
 }

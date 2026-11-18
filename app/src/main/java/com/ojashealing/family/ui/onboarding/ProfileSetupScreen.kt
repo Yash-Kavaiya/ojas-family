@@ -110,7 +110,7 @@ fun ProfileSetupScreen(
             ) {
                 val model: Any? = state.pendingPhoto ?: state.photoUrl.takeIf { it.isNotEmpty() }
                 if (model != null) {
-                    AsyncImage(model = model, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(96.dp))
+                    com.ojashealing.family.ui.components.ShimmerImage(model = model, modifier = Modifier.size(96.dp))
                 } else {
                     Icon(Icons.Outlined.AddAPhoto, contentDescription = stringResource(R.string.field_photo), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }

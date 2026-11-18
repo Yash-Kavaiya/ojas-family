@@ -18,6 +18,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.outlined.Image
 import coil.compose.AsyncImage
 import coil.compose.AsyncImagePainter
 
@@ -53,13 +54,17 @@ fun ResponsiveImage(
 ) {
     val key = model?.toString().orEmpty()
     var ratio by remember(key) { mutableStateOf(knownRatios[key]) }
+    var loading by remember(key) { mutableStateOf(true) }
     BoxWithConstraints(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         val (w, h) = fitSize(ratio ?: LOADING_RATIO, maxWidth, maxHeight)
+        // A shimmering box the picture's shape while it loads
+        if (loading) com.ojashealing.family.ui.theme.ShimmerBlock(Modifier.size(w, h))
         AsyncImage(
             model = model,
             contentDescription = contentDescription,
             contentScale = ContentScale.Fit,
             onState = { state ->
+                loading = state is AsyncImagePainter.State.Loading
                 if (state is AsyncImagePainter.State.Success) {
                     val size = state.painter.intrinsicSize
                     if (size.width > 0f && size.height > 0f) {
@@ -72,8 +77,45 @@ fun ResponsiveImage(
             modifier = Modifier
                 .size(w, h)
                 .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .then(if (loading) Modifier else Modifier.background(MaterialTheme.colorScheme.surfaceVariant))
                 .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+        )
+    }
+}
+
+/**
+ * A picture that shows a shimmering placeholder of the same [shape] while it loads (from the
+ * network or the cache), and a plain surface with a picture icon if it can't be loaded.
+ */
+@Composable
+fun ShimmerImage(
+    model: Any?,
+    modifier: Modifier = Modifier,
+    shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(12.dp),
+    contentScale: ContentScale = ContentScale.Crop,
+    contentDescription: String? = null,
+) {
+    var state by remember(model) { mutableStateOf<AsyncImagePainter.State>(AsyncImagePainter.State.Empty) }
+    androidx.compose.foundation.layout.Box(modifier.clip(shape), contentAlignment = Alignment.Center) {
+        when (state) {
+            is AsyncImagePainter.State.Error -> androidx.compose.foundation.layout.Box(
+                Modifier.matchParentSize().background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center,
+            ) {
+                androidx.compose.material3.Icon(
+                    androidx.compose.material.icons.Icons.Outlined.Image, contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                )
+            }
+            is AsyncImagePainter.State.Success -> {}
+            else -> com.ojashealing.family.ui.theme.ShimmerBlock(Modifier.matchParentSize(), shape)
+        }
+        AsyncImage(
+            model = model,
+            contentDescription = contentDescription,
+            contentScale = contentScale,
+            onState = { state = it },
+            modifier = Modifier.matchParentSize(),
         )
     }
 }

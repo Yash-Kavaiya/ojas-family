@@ -260,7 +260,7 @@ private fun MemberAvatar(photoUrl: String) {
         modifier = Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center
     ) {
-        if (photoUrl.isNotEmpty()) AsyncImage(model = photoUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(40.dp))
+        if (photoUrl.isNotEmpty()) com.ojashealing.family.ui.components.ShimmerImage(model = photoUrl, modifier = Modifier.size(40.dp))
         else Icon(Icons.Outlined.Person, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

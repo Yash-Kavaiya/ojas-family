@@ -168,7 +168,7 @@ private fun IdentityCard(
                 contentAlignment = Alignment.Center
             ) {
                 if (profile.photoUrl.isNotEmpty()) {
-                    AsyncImage(model = profile.photoUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(88.dp))
+                    com.ojashealing.family.ui.components.ShimmerImage(model = profile.photoUrl, modifier = Modifier.size(88.dp))
                 } else {
                     Icon(Icons.Outlined.Person, contentDescription = null, modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }

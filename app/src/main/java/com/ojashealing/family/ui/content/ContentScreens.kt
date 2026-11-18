@@ -84,7 +84,7 @@ fun VideoTile(item: ContentItem, access: Access, onClick: () -> Unit, modifier: 
                 .background(MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center
         ) {
-            AsyncImage(model = thumbnail(item.videoId), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            com.ojashealing.family.ui.components.ShimmerImage(model = thumbnail(item.videoId), modifier = Modifier.fillMaxSize())
             // Dim locked videos so the lock reads before the thumbnail does
             if (locked) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)))
             Box(

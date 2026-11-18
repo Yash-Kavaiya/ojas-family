@@ -34,6 +34,16 @@ import com.ojashealing.family.data.user.PublicProfileRepository
 class AppContainer(context: Context) {
     private val app = context.applicationContext
 
+    init {
+        // Everything read is kept on the phone (up to 100 MB): screens open from it at once, also
+        // offline, and the live listeners then bring what changed. Must be set before first use.
+        runCatching {
+            Firebase.firestore.firestoreSettings = com.google.firebase.firestore.firestoreSettings {
+                setLocalCacheSettings(com.google.firebase.firestore.persistentCacheSettings { setSizeBytes(100L * 1024 * 1024) })
+            }
+        }
+    }
+
     // Functions are deployed to Mumbai, next to Firestore
     private val functions = Firebase.functions("asia-south1")
 

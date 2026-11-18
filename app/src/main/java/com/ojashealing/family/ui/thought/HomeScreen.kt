@@ -163,7 +163,6 @@ fun HomeScreen(
                 }
                 item(key = "card", contentType = "card") {
                     // The thought sits in its own box; tapping it opens the thought with all its comments.
-                    // The yellow-orange "Thought of the Day" strip stays off Home for every role.
                     // Changing the day fades the old thought out and lifts the new one in.
                     androidx.compose.animation.AnimatedContent(
                         targetState = thought,
@@ -178,13 +177,11 @@ fun HomeScreen(
                     ) { shown ->
                         ThoughtCard(
                             thought = shown,
-                            dayText = if (shown.id == vm.todayId) stringResource(R.string.home_today) else dayLabel(shown.id),
                             liked = liked,
                             canLike = state.canLike,
                             onLike = vm::toggleLike,
                             onOpen = { onOpenThought(shown.id) },
                             preview = true,
-                            showBanner = false,
                             modifier = Modifier.padding(horizontal = Spacing.l)
                         )
                     }
@@ -344,29 +341,14 @@ fun ScheduledThoughtsScreen(vm: ThoughtViewModel, onEdit: (String) -> Unit, onBa
 @Composable
 fun ThoughtCard(
     thought: com.ojashealing.family.data.social.Thought,
-    dayText: String,
     liked: Boolean,
     canLike: Boolean,
     onLike: () -> Unit,
     onOpen: (() -> Unit)?,
     preview: Boolean,
     modifier: Modifier = Modifier,
-    showBanner: Boolean = true,
 ) {
     OjasCard(modifier = modifier, onClick = onOpen, tintKey = thought.id) {
-        if (showBanner) {
-            Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
-                    .background(Brush.linearGradient(OjasGradients.sunrise))
-                    .padding(horizontal = Spacing.m, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(Spacing.s)
-            ) {
-                Icon(Icons.Outlined.WbSunny, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                Text(stringResource(R.string.notif_thought), style = MaterialTheme.typography.labelMedium, color = Color.White, modifier = Modifier.weight(1f))
-                Text(dayText, style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.9f))
-            }
-        }
         if (thought.imageUrl.isNotEmpty()) {
             // Picture first, then the words, as the thought cards used to be. A little shorter on Home.
             if (preview) com.ojashealing.family.ui.components.ResponsiveImage(thought.imageUrl, maxHeight = 320.dp)
@@ -465,8 +447,7 @@ fun ThoughtDetailScreen(vm: ThoughtViewModel, thoughtId: String, onBack: () -> U
                 }
                 item(key = "card") {
                     ThoughtCard(
-                        thought, if (thought.id == vm.todayId) stringResource(R.string.home_today) else dayLabel(thought.id),
-                        liked, state.canLike, vm::toggleLike, onOpen = null, preview = false,
+                        thought, liked, state.canLike, vm::toggleLike, onOpen = null, preview = false,
                         modifier = Modifier.padding(horizontal = Spacing.l)
                     )
                 }
@@ -583,7 +564,7 @@ fun AuthorAvatar(author: Author, size: Int = 36) {
             .then(if (open != null && author.uid.isNotEmpty()) Modifier.clickable { open(author.uid) } else Modifier),
         contentAlignment = Alignment.Center
     ) {
-        if (author.photo.isNotEmpty()) AsyncImage(model = author.photo, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(size.dp))
+        if (author.photo.isNotEmpty()) com.ojashealing.family.ui.components.ShimmerImage(model = author.photo, modifier = Modifier.size(size.dp))
         else Icon(Icons.Outlined.Person, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
