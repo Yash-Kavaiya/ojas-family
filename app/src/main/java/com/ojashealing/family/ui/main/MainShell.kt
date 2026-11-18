@@ -249,6 +249,12 @@ fun MainShell(container: AppContainer) {
         initializer { com.ojashealing.family.ui.content.GuidedPracticeViewModel(container.practiceMedia, vm.profile, progressStore) }
     })
     val guided by guidedVm.cards.collectAsStateWithLifecycle()
+    // Keeps the downloaded guided practice files in step with the admin's choice (Wi-Fi downloads)
+    LaunchedEffect(Unit) {
+        container.auth.currentUid
+            .flatMapLatest { uid -> if (uid == null) flowOf(emptyMap()) else container.practiceMedia.observeMedia() }
+            .collect { media -> kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { container.practiceDownloads.sync(media) } }
+    }
     val thoughtVm: ThoughtViewModel = viewModel(factory = viewModelFactory {
         initializer {
             ThoughtViewModel(
