@@ -246,7 +246,7 @@ fun MainShell(container: AppContainer) {
     val practiceMessage by practiceVm.message.collectAsStateWithLifecycle()
     val progressStore = remember { com.ojashealing.family.ui.content.PracticeProgressStore(context.applicationContext) }
     val guidedVm: com.ojashealing.family.ui.content.GuidedPracticeViewModel = viewModel(factory = viewModelFactory {
-        initializer { com.ojashealing.family.ui.content.GuidedPracticeViewModel(container.practiceMedia, vm.profile, progressStore) }
+        initializer { com.ojashealing.family.ui.content.GuidedPracticeViewModel(container.practiceMedia, container.practiceDownloads, vm.profile, progressStore) }
     })
     val guided by guidedVm.cards.collectAsStateWithLifecycle()
     // Keeps the downloaded guided practice files in step with the admin's choice (Wi-Fi downloads)

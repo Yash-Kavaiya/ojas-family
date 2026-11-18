@@ -118,6 +118,9 @@ open class PracticeDownloads(
         }.distinctUntilChanged()
     }
 
+    /** Emits whenever the download job moves along, and once at the start. */
+    open fun changes(): Flow<Unit> = WorkManager.getInstance(app).getWorkInfosForUniqueWorkFlow(WORK).map { }
+
     /** Practice URLs the last sync asked for. */
     internal fun wantedUrls(): List<String> = prefs.getStringSet(KEY_URLS, emptySet()).orEmpty().sorted()
 
