@@ -14,6 +14,8 @@ function becameVisible(before: PostData | undefined, after: PostData | undefined
   return after?.status === "visible" && before?.status !== "visible";
 }
 
+const DAY_MS = 24 * 3600 * 1000;
+
 function publishedOn(data: FirebaseFirestore.DocumentData | undefined): string | null {
   const at = (data?.publishAt ?? data?.createdAt) as Timestamp | undefined;
   return at ? istDay(at.toDate()) : null;
@@ -29,8 +31,11 @@ export async function onLikeChanged(db: Firestore, parentPath: string, uid: stri
   if (!(await bumpCount(db, parentPath, "likeCount", delta)) || delta < 0) return;
 
   const today = istDay(now);
-  if (publishedOn((await parent.get()).data()) !== today) return;
   const [kind, id] = parentPath.split("/");
+  const day = publishedOn((await parent.get()).data());
+  // Thoughts come at 4 am local time, so the thought someone sees as today can be India's yesterday or tomorrow
+  const days = kind === "thoughts" ? [istDay(new Date(now.getTime() - DAY_MS)), today, istDay(new Date(now.getTime() + DAY_MS))] : [today];
+  if (!day || !days.includes(day)) return;
   await awardPoints(db, uid, {
     eventKey: `like:${kind === "thoughts" ? "thought" : "question"}:${id}`,
     amount: (await loadPointsConfig(db)).like,

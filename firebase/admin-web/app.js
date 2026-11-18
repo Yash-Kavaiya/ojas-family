@@ -452,7 +452,7 @@ async function thoughts(prefill) {
   const days = Array.from({ length: 38 }, (_, i) => addDays(today, i - 7));
   view().innerHTML = `
     <h1>Thought of the Day</h1>
-    <p class="muted">Each thought appears at 00:00 IST on its day; members can open the last 7 days. A push goes out at 06:00 IST.</p>
+    <p class="muted">Each thought appears at 4 am on its day in each member's own time (4 am IST in India, 4 am in New York for someone there), with a notification at the same moment. Members can open the last 7 days.</p>
     <div class="split">
       <div class="card stack">
         <h3>Write or edit</h3>

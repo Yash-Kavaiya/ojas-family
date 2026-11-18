@@ -282,10 +282,12 @@ service cloud.firestore {
         allow read: if signedIn() && request.auth.uid == uid;
         allow create: if validView(uid);
       }
-      // Members see today and the six days before; scheduled thoughts stay hidden until their day
+      // Members see today and the six days before. publishAt is midnight India time on the thought's day;
+      // a day starts at 4 am local time, which comes first in UTC+14, 4.5 hours before midnight in India,
+      // and last in UTC-12, so the window is a little wider than seven days. The app picks the local day.
       allow read: if isAdmin() || (signedIn()
-        && resource.data.publishAt <= request.time
-        && resource.data.publishAt > request.time - duration.value(7, 'd'));
+        && resource.data.publishAt <= request.time + duration.value(270, 'm')
+        && resource.data.publishAt > request.time - duration.value(8, 'd'));
       allow create, update: if isAdmin()
         && request.resource.data.title is string && request.resource.data.title.size() <= 150
         && request.resource.data.text is string && request.resource.data.text.size() <= 5000

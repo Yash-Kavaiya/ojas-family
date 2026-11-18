@@ -394,7 +394,8 @@ fun MainShell(container: AppContainer) {
             }
         }
     }
-    LaunchedEffect(p?.uid, p?.notificationPrefs, p?.viewer?.memberLevel, p?.viewer?.role) {
+    // The time zone is a key too: the thought topic follows the phone's zone
+    LaunchedEffect(p?.uid, p?.notificationPrefs, p?.viewer?.memberLevel, p?.viewer?.role, com.ojashealing.family.data.social.currentThoughtTopic()) {
         if (p == null) return@LaunchedEffect
         com.ojashealing.family.data.analytics.Analytics.setMember(p.language, p.viewer.userLevel.rank, p.viewer.memberLevel.name, paid = Permissions.canViewDailyActivities(p.viewer))
         PushTopics.registerToken()

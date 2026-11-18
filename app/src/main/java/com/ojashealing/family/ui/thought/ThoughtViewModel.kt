@@ -11,7 +11,6 @@ import kotlinx.coroutines.flow.map
 import com.ojashealing.family.data.social.ReplyTo
 import com.ojashealing.family.data.social.Thought
 import com.ojashealing.family.data.social.ThoughtRepository
-import com.ojashealing.family.data.social.todayIst
 import com.ojashealing.family.data.user.UserProfile
 import com.ojashealing.family.domain.LocalDateLike
 import com.ojashealing.family.domain.Permissions
@@ -79,13 +78,13 @@ class ThoughtViewModel(
     private val blocked: Flow<Set<String>> = flowOf(emptySet())
 ) : ViewModel() {
 
-    // "Today" moves on at midnight in India. The app is often still open from the day before when the
-    // 6 am notification arrives, so the day is re-read whenever the app comes forward or a thought is opened
-    private val today = MutableStateFlow(todayIst())
+    // "Today" moves on at 4 am local time, wherever the member is. The app is often still open from the day
+    // before when the 4 am notification arrives, so the day is re-read whenever the app comes forward or a thought is opened
+    private val today = MutableStateFlow(com.ojashealing.family.data.social.thoughtToday())
     val todayId: String get() = today.value.iso()
 
     fun refreshDay() {
-        today.value = todayIst()
+        today.value = com.ojashealing.family.data.social.thoughtToday()
     }
     private val selectedId = MutableStateFlow<String?>(null)
     private val me = profile.filterNotNull()

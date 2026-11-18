@@ -47,12 +47,18 @@ fun mergeInbox(
     state: SeenState,
     prefs: Map<String, Boolean>,
     myUid: String,
+    now: Long = System.currentTimeMillis(),
+    zone: java.util.TimeZone = java.util.TimeZone.getDefault(),
 ): List<InboxItem> {
-    val sharedItems = shared.filter { it.fromUid != myUid }.map { s ->
+    val sharedItems = shared.filter { it.fromUid != myUid }.mapNotNull { s ->
         val seenAt = state.seen[s.group.id] ?: 0L
+        // A thought arrives at 4 am local time: hidden until then here, and new from then on
+        val start = if (s.group == NotifGroup.Thought) com.ojashealing.family.data.social.thoughtStartMillis(s.target.substringAfter("thoughts/"), zone) else null
+        if (start != null && start > now) return@mapNotNull null
+        val at = maxOf(s.createdAt, start ?: 0L)
         InboxItem(
-            s.id, personal = false, s.group, NotifAction.Post, s.type, s.title, s.body, s.target, s.fromUid, 1, s.createdAt,
-            unread = s.createdAt > seenAt && s.id !in state.opened,
+            s.id, personal = false, s.group, NotifAction.Post, s.type, s.title, s.body, s.target, s.fromUid, 1, at,
+            unread = at > seenAt && s.id !in state.opened,
         )
     }
     return (personal + sharedItems)

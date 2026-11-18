@@ -161,8 +161,23 @@ object PushTopics {
         for ((group, topic) in topics) {
             val on = com.ojashealing.family.data.notify.switchOn(prefs, group, com.ojashealing.family.data.notify.NotifAction.Post) &&
                 (group != com.ojashealing.family.data.notify.NotifGroup.Activity || paid)
-            runCatching { if (on) fcm.subscribeToTopic(topic).await() else fcm.unsubscribeFromTopic(topic).await() }
+            if (group == com.ojashealing.family.data.notify.NotifGroup.Thought) syncThought(fcm, topic, on)
+            else runCatching { if (on) fcm.subscribeToTopic(topic).await() else fcm.unsubscribeFromTopic(topic).await() }
         }
+    }
+
+    /**
+     * The thought comes at 4 am local time, on a topic for this phone's time zone. The zone last used is
+     * remembered, so travelling or a clock change moves the phone to the new zone's topic.
+     */
+    private suspend fun syncThought(fcm: FirebaseMessaging, legacy: String, on: Boolean) {
+        val prefs = com.google.firebase.FirebaseApp.getInstance().applicationContext.getSharedPreferences("push_topics", android.content.Context.MODE_PRIVATE)
+        val now = com.ojashealing.family.data.social.currentThoughtTopic()
+        val before = prefs.getString("thought", null)
+        runCatching { fcm.unsubscribeFromTopic(legacy).await() }
+        if (before != null && (before != now || !on)) runCatching { fcm.unsubscribeFromTopic(before).await() }
+        if (on) runCatching { fcm.subscribeToTopic(now).await() }.onSuccess { prefs.edit().putString("thought", now).apply() }
+        else prefs.edit().remove("thought").apply()
     }
 
     suspend fun registerToken() {
@@ -183,5 +198,6 @@ object PushTopics {
             Firebase.firestore.document("users/$uid").update("fcmTokens", FieldValue.arrayRemove(token)).await()
         }
         topics.values.forEach { topic -> runCatching { FirebaseMessaging.getInstance().unsubscribeFromTopic(topic).await() } }
+        runCatching { FirebaseMessaging.getInstance().unsubscribeFromTopic(com.ojashealing.family.data.social.currentThoughtTopic()).await() }
     }
 }

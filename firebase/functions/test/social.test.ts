@@ -5,7 +5,7 @@ import { clearDb, testDb } from "./emulator";
 
 const db = testDb();
 const NOW = new Date("2026-11-03T06:00:00Z"); // 11:30 IST
-const YESTERDAY = new Date("2026-11-02T06:00:00Z");
+const YESTERDAY = new Date("2026-11-01T06:00:00Z"); // two days before NOW
 const points = async (uid: string) => (await db.doc(`users/${uid}`).get()).get("mokshaPoints") ?? 0;
 
 beforeEach(async () => {
@@ -30,7 +30,7 @@ test("relike earns nothing", async () => {
   expect((await db.doc("thoughts/today").get()).get("likeCount")).toBe(1);
 });
 
-test("like on yesterday's thought: no point", async () => {
+test("like on a thought from two days ago: no point (yesterday can still be today somewhere)", async () => {
   await onLikeChanged(db, "thoughts/yesterday", "u1", +1, NOW);
   expect(await points("u1")).toBe(0);
   expect((await db.doc("thoughts/yesterday").get()).get("likeCount")).toBe(1);

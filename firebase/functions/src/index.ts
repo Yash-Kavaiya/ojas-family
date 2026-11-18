@@ -25,12 +25,12 @@ import { onCallCreated, onCallUpdated, onChatMessage, sweepRingingCalls } from "
 import { onCallRequestWritten, sendCallReminders } from "./schedule";
 import {
   onAnnouncementCommentNotify, onAnnouncementCountChanged, onCommentLikeChanged, onAnnouncementCreated, onAnswerNotify, onDailyLikeChanged, onDailyPostWritten, onDailyReplyWritten,
-  onLikeNotify, onQuestionNotify, onThoughtCommentNotify, onThoughtOfDay,
+  onLikeNotify, onQuestionNotify, onThoughtCommentNotify,
 } from "./community";
 import { sweepBell, type Messenger } from "./notify";
-import { istDay } from "./time";
 import { applyAdminList, applyAdminListNow, givePointsFor, statsFor } from "./admin";
 import { backfillStatsFor, todayStatsFor, userCountsFor, writeDailyStats } from "./stats";
+import { onThoughtPushTick } from "./thoughtTime";
 import { findGiftRecipientsFor, reverseTransferFor, setTransfersFrozenFor, staffAdjustPointsFor, transferPointsFor, updatePointsConfigFor } from "./transfer";
 import { onProfileWritten } from "./profilePoints";
 import { askSwamijiFor, rateAiAnswerFor, remainingToday } from "./ai";
@@ -308,8 +308,9 @@ export const bellSweep = onSchedule({ schedule: "30 3 * * *", timeZone: "Asia/Ko
   await sweepBell(db, new Date());
 });
 
-export const thoughtOfDayPush = onSchedule({ schedule: "0 6 * * *", timeZone: "Asia/Kolkata" }, async () => {
-  await onThoughtOfDay(db, messenger, istDay(new Date()));
+// Every 15 minutes: the time zones where it is now 4 am get their day's thought
+export const thoughtOfDayPush = onSchedule({ schedule: "*/15 * * * *", timeZone: "UTC" }, async () => {
+  await onThoughtPushTick(db, messenger, new Date());
 });
 
 // ---- Daily Activities (paid members) ----

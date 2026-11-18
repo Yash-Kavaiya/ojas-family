@@ -284,6 +284,9 @@ describe("social", () => {
       await setDoc(doc(db, "thoughts", "today"), thought(now - HOUR));
       await setDoc(doc(db, "thoughts", "old"), thought(now - 8 * 24 * HOUR));
       await setDoc(doc(db, "thoughts", "future"), thought(now + 24 * HOUR));
+      await setDoc(doc(db, "thoughts", "soon"), thought(now + 4 * HOUR));
+      await setDoc(doc(db, "thoughts", "later"), thought(now + 5 * HOUR));
+      await setDoc(doc(db, "thoughts", "week"), thought(now - 7.5 * 24 * HOUR));
       await setDoc(doc(db, "thoughts", "today", "comments", "pending1"), comment(L3, "see https://x.com", "pending"));
       await setDoc(doc(db, "questions", "q1"), { authorUid: L3, authorName: "Carol", authorPhoto: "", authorRole: "member", title: "Q", body: "B", status: "visible", createdAt: ts(now), likeCount: 0, answerCount: 0 });
     });
@@ -294,6 +297,13 @@ describe("social", () => {
   });
   test("member cannot read a thought older than 7 days", async () => {
     await assertFails(getDoc(doc(asUser(ALICE), "thoughts", "old")));
+  });
+  test("a thought can be read up to 4.5 hours before midnight in India (4 am in UTC+14), not earlier", async () => {
+    await assertSucceeds(getDoc(doc(asUser(ALICE), "thoughts", "soon")));
+    await assertFails(getDoc(doc(asUser(ALICE), "thoughts", "later")));
+  });
+  test("the seventh day back stays readable for the zones behind India", async () => {
+    await assertSucceeds(getDoc(doc(asUser(ALICE), "thoughts", "week")));
   });
   test("member cannot read a scheduled future thought", async () => {
     await assertFails(getDoc(doc(asUser(ALICE), "thoughts", "future")));
