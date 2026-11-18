@@ -8,6 +8,9 @@ object Permissions {
 
     fun isStaff(v: Viewer): Boolean = v.role != Role.Member
 
+    /** The total users and members on Home. */
+    fun canSeeUserCounts(v: Viewer): Boolean = v.role == Role.Swamiji || v.role == Role.Admin
+
     // A paid member starts with Second User Level rights, whatever their free level
     private fun effectiveFreeRank(v: Viewer): Int =
         if (v.memberLevel >= MemberLevel.M1) maxOf(v.userLevel.rank, UserLevel.L2.rank) else v.userLevel.rank

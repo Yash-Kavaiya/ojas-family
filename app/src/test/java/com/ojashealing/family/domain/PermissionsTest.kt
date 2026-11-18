@@ -58,4 +58,11 @@ class PermissionsTest {
         )
         all.forEach { assertTrue(it.name, it(admin)) }
     }
+
+    @Test fun onlySwamijiAndAdminsSeeHowManyUsersAndMembers() {
+        assertTrue(Permissions.canSeeUserCounts(v(UserLevel.L1, r = Role.Swamiji)))
+        assertTrue(Permissions.canSeeUserCounts(v(UserLevel.L1, r = Role.Admin)))
+        assertFalse(Permissions.canSeeUserCounts(v(UserLevel.L4, MemberLevel.M3, Role.SeniorMember)))
+        assertFalse(Permissions.canSeeUserCounts(v(UserLevel.L4, MemberLevel.M3)))
+    }
 }

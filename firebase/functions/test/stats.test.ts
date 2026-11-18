@@ -1,5 +1,5 @@
 import { Timestamp } from "firebase-admin/firestore";
-import { backfillStatsFor, computeDay, dayRange, daysBefore, todayStatsFor, writeDailyStats } from "../src/stats";
+import { backfillStatsFor, computeDay, dayRange, daysBefore, todayStatsFor, userCountsFor, writeDailyStats } from "../src/stats";
 import { clearDb, testDb } from "./emulator";
 
 const db = testDb();
@@ -91,5 +91,22 @@ describe("usage dashboard numbers", () => {
     expect(r.filled).toEqual(["2026-11-06", "2026-11-04"]);
     expect((await db.doc("stats/2026-11-05").get()).get("kept")).toBe(true);
     expect((await db.doc("stats/2026-11-06").get()).get("rebuilt")).toBe(true);
+  });
+});
+
+describe("people count on Home for Swamiji and admins", () => {
+  test("counts everyone who signed up, and the members with a membership level", async () => {
+    await db.doc("users/a").set({ userLevel: 1 });
+    await db.doc("users/b").set({ userLevel: 2, memberLevel: 1 });
+    await db.doc("users/c").set({ userLevel: 1, memberLevel: 3 });
+    await db.doc("users/d").set({ userLevel: 1, memberLevel: 0 });
+    expect(await userCountsFor(db, { role: "swamiji" })).toEqual({ users: 4, members: 2 });
+    expect(await userCountsFor(db, ADMIN)).toEqual({ users: 4, members: 2 });
+  });
+
+  test("other people may not see it", async () => {
+    for (const role of [undefined, "member", "senior_member"]) {
+      await expect(userCountsFor(db, role ? { role } : undefined)).rejects.toThrow(/Swamiji and admins/);
+    }
   });
 });

@@ -724,6 +724,10 @@
         <item quantity="other">તમારો %d દિવસનો સિલસિલો ચાલુ રાખો</item>
     </plurals>
     <string name="home_practice_sub">બ્લૂ હીલિંગ લાઇટ, પ્રોટેક્શન, સવાર અને રાત</string>
+    <string name="home_counts_title">અત્યાર સુધીનો ઓજસ પરિવાર</string>
+    <string name="home_counts_users">કુલ વપરાશકર્તા</string>
+    <string name="home_counts_members">કુલ સભ્યો</string>
+    <string name="home_counts_note">આ ફક્ત સ્વામીજી અને એડમિનને દેખાય છે</string>
     <string name="session_youtube_blocked">આ વિડિયો હજી એપની અંદર ચાલી શકતો નથી. તેને YouTube પર જુઓ; ગુણ ત્યારે મળે છે જ્યારે તે અહીં ચાલે.</string>
     <string name="ai_stage_searching">સ્વામીજીના ઉપદેશમાં જોઈ રહ્યો છું…</string>
     <string name="ai_photo_add">ફોટો ઉમેરો</string>

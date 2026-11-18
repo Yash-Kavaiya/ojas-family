@@ -350,6 +350,10 @@ fun MainShell(container: AppContainer) {
     val anchors = remember { RewardAnchors() }
     // Held above the NavHost so sub-screens keep the tab, but not saved: every fresh open starts on Home
     var tab by rememberSaveable { mutableStateOf(MainTab.Home) }
+    // Swamiji and admins: counted again each time Home is opened
+    val userCounts by androidx.compose.runtime.produceState<com.ojashealing.family.data.social.UserCounts?>(null, profile?.viewer?.role, tab == MainTab.Home) {
+        if (profile?.viewer?.let { Permissions.canSeeUserCounts(it) } == true && tab == MainTab.Home) container.userCounts()?.let { value = it }
+    }
     // Google Analytics: which screen is open (the tab's name on the tabs screen)
     val screenRoute = nav.currentBackStackEntryAsState().value?.destination?.route
     LaunchedEffect(screenRoute, tab) { com.ojashealing.family.data.analytics.Analytics.screen(com.ojashealing.family.data.analytics.Events.screenName(screenRoute, if (tab == MainTab.Spiritual) "Practice" else tab.name)) }
@@ -725,6 +729,7 @@ fun MainShell(container: AppContainer) {
                                         about = about,
                                         onOpenAbout = { nav.navigate(AboutRoute(it)) },
                                         onOpenScheduled = { nav.navigate(ScheduledThoughtsRoute) },
+                                        userCounts = userCounts,
                                     )
                                     MainTab.Ask -> AskPanes(
                                         beside = beside,

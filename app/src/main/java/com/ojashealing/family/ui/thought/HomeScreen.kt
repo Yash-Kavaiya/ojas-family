@@ -47,6 +47,8 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.WbSunny
+import androidx.compose.material.icons.outlined.Groups
+import androidx.compose.material.icons.outlined.WorkspacePremium
 import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
@@ -128,6 +130,8 @@ fun HomeScreen(
     /** The same two practices as coloured boxes of videos, for the ones that have no guided practice yet. */
     quickSections: List<com.ojashealing.family.ui.content.SectionUi> = emptyList(),
     onPlay: (com.ojashealing.family.domain.ContentItem) -> Unit = {},
+    /** Swamiji and admins only: how many users and members the app has; null hides it. */
+    userCounts: com.ojashealing.family.data.social.UserCounts? = null,
 ) {
     var locked by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<com.ojashealing.family.domain.Access.Locked?>(null) }
     locked?.let { com.ojashealing.family.ui.content.LockedDialog(it) { locked = null } }
@@ -220,6 +224,7 @@ fun HomeScreen(
             }
             item(key = "about", contentType = "about") { AboutBox(about, onOpenAbout, Modifier.padding(horizontal = Spacing.l)) }
             item(key = "social", contentType = "social") { SocialRow(about.links, Modifier.padding(horizontal = Spacing.l, vertical = Spacing.s)) }
+            userCounts?.let { c -> item(key = "userCounts", contentType = "userCounts") { UserCountsBox(c, Modifier.padding(horizontal = Spacing.l)) } }
         }
         if (state.canSchedule) {
             FloatingActionButton(
@@ -281,6 +286,37 @@ private fun PracticeNudge(streak: com.ojashealing.family.data.practice.StreakSum
                 Text(stringResource(R.string.home_practice_sub), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.75f))
             }
             Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = Color.White)
+        }
+    }
+}
+
+/** Swamiji and admins only: the total users and members, side by side. */
+@Composable
+private fun UserCountsBox(c: com.ojashealing.family.data.social.UserCounts, modifier: Modifier = Modifier) {
+    val fmt = androidx.compose.runtime.remember { java.text.NumberFormat.getIntegerInstance() }
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
+            Text(stringResource(R.string.home_counts_title), style = MaterialTheme.typography.titleMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.m)) {
+                CountTile(Icons.Outlined.Groups, fmt.format(c.users), stringResource(R.string.home_counts_users), Modifier.weight(1f))
+                CountTile(Icons.Outlined.WorkspacePremium, fmt.format(c.members), stringResource(R.string.home_counts_members), Modifier.weight(1f))
+            }
+            Text(stringResource(R.string.home_counts_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun CountTile(icon: androidx.compose.ui.graphics.vector.ImageVector, value: String, label: String, modifier: Modifier = Modifier) {
+    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer, modifier = modifier) {
+        Column(Modifier.padding(Spacing.m), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+            Icon(icon, null, modifier = Modifier.size(22.dp))
+            Text(value, style = MaterialTheme.typography.headlineSmall, maxLines = 1)
+            Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 2)
         }
     }
 }

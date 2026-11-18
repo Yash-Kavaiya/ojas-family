@@ -30,7 +30,7 @@ import {
 import { sweepBell, type Messenger } from "./notify";
 import { istDay } from "./time";
 import { applyAdminList, applyAdminListNow, givePointsFor, statsFor } from "./admin";
-import { backfillStatsFor, todayStatsFor, writeDailyStats } from "./stats";
+import { backfillStatsFor, todayStatsFor, userCountsFor, writeDailyStats } from "./stats";
 import { findGiftRecipientsFor, reverseTransferFor, setTransfersFrozenFor, staffAdjustPointsFor, transferPointsFor, updatePointsConfigFor } from "./transfer";
 import { onProfileWritten } from "./profilePoints";
 import { askSwamijiFor, rateAiAnswerFor, remainingToday } from "./ai";
@@ -105,6 +105,12 @@ export const adminStats = onCall({ timeoutSeconds: 120 }, async (req) => {
 export const adminDayStats = onCall({ timeoutSeconds: 120 }, async (req) => {
   requireUid(req);
   return todayStatsFor(db, req.auth?.token, new Date());
+});
+
+/** How many users and members the app has, shown on Home to Swamiji and admins. */
+export const userCounts = onCall(async (req) => {
+  requireUid(req);
+  return userCountsFor(db, req.auth?.token);
 });
 
 /** Counts past days the dashboard has no numbers for yet (up to 90). */

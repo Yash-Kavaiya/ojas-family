@@ -50,6 +50,7 @@ class AppContainer(context: Context) {
     val auth: AuthRepository = FirebaseAuthRepository(Firebase.auth, app.getString(R.string.default_web_client_id))
     val users: UserRepository = FirestoreUserRepository(Firebase.firestore, Firebase.storage, app.contentResolver)
     val points: PointsRepository = FirebasePointsRepository(Firebase.firestore, functions)
+    suspend fun userCounts() = com.ojashealing.family.data.social.loadUserCounts(functions)
     // Ask Swamiji AI: the server answers from Swamiji's teachings; chats stay on the phone
     val ai: com.ojashealing.family.data.ai.AiRepository by lazy {
         com.ojashealing.family.data.ai.RemoteAiRepository(app, Firebase.auth, functions)
