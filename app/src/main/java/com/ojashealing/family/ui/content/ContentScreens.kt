@@ -1,5 +1,6 @@
 package com.ojashealing.family.ui.content
 
+import androidx.compose.material.icons.outlined.WbSunny
 import com.ojashealing.family.ui.theme.staggeredEntrance
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -159,10 +160,13 @@ fun PracticeTab(
             containerColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.primary
         ) {
-            listOf(R.string.practice_tab_daily, R.string.practice_tab_freedom).forEachIndexed { i, label ->
+            listOf(
+                R.string.practice_tab_daily to androidx.compose.material.icons.Icons.Outlined.WbSunny,
+                R.string.practice_tab_freedom to androidx.compose.material.icons.Icons.Outlined.SelfImprovement,
+            ).forEachIndexed { i, (label, icon) ->
                 androidx.compose.material3.Tab(
                     selected = part == i, onClick = { onPart(i) },
-                    text = { com.ojashealing.family.ui.components.FitText(stringResource(label), MaterialTheme.typography.labelLarge) },
+                    text = { com.ojashealing.family.ui.components.TabLabel(icon, stringResource(label)) },
                     unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }

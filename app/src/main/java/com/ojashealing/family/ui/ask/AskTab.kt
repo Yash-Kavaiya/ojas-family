@@ -1,5 +1,7 @@
 package com.ojashealing.family.ui.ask
 
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.PlayCircleOutline
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.ui.draw.drawWithContent
 import com.ojashealing.family.ui.theme.staggeredEntrance
@@ -105,10 +107,14 @@ fun AskTab(
             containerColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.primary
         ) {
-            listOf(R.string.ask_part_ask, R.string.ask_part_video, R.string.ask_part_books).forEachIndexed { i, label ->
+            listOf(
+                R.string.ask_part_ask to androidx.compose.material.icons.Icons.Outlined.ChatBubbleOutline,
+                R.string.ask_part_video to androidx.compose.material.icons.Icons.Outlined.PlayCircleOutline,
+                R.string.ask_part_books to androidx.compose.material.icons.Icons.AutoMirrored.Outlined.MenuBook,
+            ).forEachIndexed { i, (label, icon) ->
                 androidx.compose.material3.Tab(
                     selected = part == i, onClick = { onPart(i) },
-                    text = { com.ojashealing.family.ui.components.FitText(stringResource(label), MaterialTheme.typography.labelLarge) },
+                    text = { com.ojashealing.family.ui.components.TabLabel(icon, stringResource(label)) },
                     unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
