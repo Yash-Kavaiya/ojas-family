@@ -54,6 +54,12 @@ import com.ojashealing.family.data.social.Author
 import com.ojashealing.family.data.social.mentionedUids
 import com.ojashealing.family.ui.theme.Spacing
 
+/**
+ * Swamiji and the admin team (from config/staff), offered for @mentions under announcements and
+ * thoughts: they wrote the post, so a comment there often talks to them.
+ */
+val LocalStaffMentions = androidx.compose.runtime.compositionLocalOf<List<Author>> { emptyList() }
+
 /** What a composer sends: text, an optional picked photo, and the people @mentioned. */
 /** [reply] is set when the text answers a comment rather than the post itself. */
 data class Draft(val text: String, val photo: Uri?, val mentions: List<String>, val reply: com.ojashealing.family.data.social.ReplyTo? = null)
@@ -73,7 +79,10 @@ fun PostComposer(
     replyingTo: com.ojashealing.family.data.social.Post? = null,
     onCancelReply: () -> Unit = {}
 ) {
-    var text by rememberSaveable { mutableStateOf("") }
+    var field by rememberSaveable(stateSaver = androidx.compose.ui.text.input.TextFieldValue.Saver) {
+        mutableStateOf(androidx.compose.ui.text.input.TextFieldValue(""))
+    }
+    val text = field.text
     var photo by rememberSaveable { mutableStateOf<Uri?>(null) }
     // The + menu inside the box: 1 = photo / mention, 2 = the people to mention
     var menu by remember { mutableStateOf(0) }
@@ -110,16 +119,25 @@ fun PostComposer(
                 ) { Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.post_remove_photo), tint = Color.White) }
             }
         }
+        val people = mentionable.distinctBy { it.uid }.take(20)
+        // Typing "@" (and the start of a name) offers the people in this thread right above the box
+        val query = if (field.selection.collapsed) com.ojashealing.family.data.social.mentionQuery(text, field.selection.start) else null
+        val suggestions = query?.let { com.ojashealing.family.data.social.mentionMatches(it, people) }.orEmpty()
+        if (suggestions.isNotEmpty()) MentionSuggestions(suggestions) { a ->
+            val (t, c) = com.ojashealing.family.data.social.insertMention(text, field.selection.start, a.name)
+            field = androidx.compose.ui.text.input.TextFieldValue(t.take(1000), androidx.compose.ui.text.TextRange(c.coerceAtMost(1000)))
+        }
+        val mentionColor = MaterialTheme.colorScheme.primary
         OutlinedTextField(
-            value = text,
-            onValueChange = { text = it.take(1000) },
+            value = field,
+            onValueChange = { field = if (it.text.length > 1000) it.copy(text = it.text.take(1000)) else it },
+            visualTransformation = remember(people, mentionColor) { MentionHighlight(people.map { it.name }, mentionColor) },
             placeholder = { Text(hint, style = MaterialTheme.typography.bodyMedium) },
             textStyle = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.fillMaxWidth().focusRequester(focus),
             shape = RoundedCornerShape(24.dp),
             trailingIcon = {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = 6.dp)) {
-                    val people = mentionable.distinctBy { it.uid }.take(20)
                     if (canAttachImage || people.isNotEmpty()) {
                         Box {
                             IconButton(onClick = { menu = 1 }, enabled = !busy) {
@@ -140,7 +158,8 @@ fun PostComposer(
                             DropdownMenu(expanded = menu == 2, onDismissRequest = { menu = 0 }) {
                                 people.forEach { a ->
                                     DropdownMenuItem(text = { Text(a.name) }, onClick = {
-                                        text = (text.trimEnd() + " @" + a.name + " ").trimStart()
+                                        val (t, c) = com.ojashealing.family.data.social.insertMention(text, field.selection.start, a.name)
+                                        field = androidx.compose.ui.text.input.TextFieldValue(t.take(1000), androidx.compose.ui.text.TextRange(c.coerceAtMost(1000)))
                                         menu = 0
                                     })
                                 }
@@ -150,7 +169,7 @@ fun PostComposer(
                     SendButton(
                         onClick = {
                             val reply = replyingTo?.let { replyTargetFor(it) }
-                            onSend(Draft(text, photo, mentionedUids(text, mentionable), reply)) { text = ""; photo = null; onCancelReply() }
+                            onSend(Draft(text, photo, mentionedUids(text, mentionable), reply)) { field = androidx.compose.ui.text.input.TextFieldValue(""); photo = null; onCancelReply() }
                         },
                         enabled = text.isNotBlank(),
                         busy = busy,
@@ -183,6 +202,39 @@ fun ImageViewer(url: String, onClose: () -> Unit) {
             IconButton(onClick = onClose, modifier = Modifier.align(Alignment.TopEnd).padding(Spacing.l)) {
                 Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.action_close), tint = Color.White)
             }
+        }
+    }
+}
+
+/** Colours each "@Name" of a known person while it is typed. */
+private class MentionHighlight(private val names: List<String>, private val color: Color) :
+    androidx.compose.ui.text.input.VisualTransformation {
+    override fun filter(text: androidx.compose.ui.text.AnnotatedString): androidx.compose.ui.text.input.TransformedText {
+        val ranges = com.ojashealing.family.data.social.mentionRanges(text.text, names)
+        if (ranges.isEmpty()) return androidx.compose.ui.text.input.TransformedText(text, androidx.compose.ui.text.input.OffsetMapping.Identity)
+        val styled = androidx.compose.ui.text.AnnotatedString.Builder(text).apply {
+            ranges.forEach { addStyle(androidx.compose.ui.text.SpanStyle(color = color, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), it.first, it.last + 1) }
+        }.toAnnotatedString()
+        return androidx.compose.ui.text.input.TransformedText(styled, androidx.compose.ui.text.input.OffsetMapping.Identity)
+    }
+    override fun equals(other: Any?) = other is MentionHighlight && other.names == names && other.color == color
+    override fun hashCode() = names.hashCode() * 31 + color.hashCode()
+}
+
+/** The people matching what is typed after "@", as a row of chips; tapping one puts the name in. */
+@Composable
+private fun MentionSuggestions(people: List<Author>, onPick: (Author) -> Unit) {
+    androidx.compose.foundation.lazy.LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = Spacing.xs),
+    ) {
+        items(people.size, key = { people[it].uid }) { i ->
+            val a = people[i]
+            androidx.compose.material3.AssistChip(
+                onClick = { onPick(a) },
+                label = { Text(a.name, maxLines = 1) },
+                leadingIcon = { Icon(Icons.Outlined.AlternateEmail, contentDescription = null, modifier = Modifier.size(16.dp)) },
+            )
         }
     }
 }

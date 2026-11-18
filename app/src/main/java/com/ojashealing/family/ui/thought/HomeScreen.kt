@@ -475,7 +475,7 @@ fun ThoughtDetailScreen(vm: ThoughtViewModel, thoughtId: String, onBack: () -> U
                         PostComposer(
                             hint = stringResource(R.string.home_comment_hint),
                             canAttachImage = state.canAttachImage,
-                            mentionable = comments.map { it.author },
+                            mentionable = com.ojashealing.family.ui.components.LocalStaffMentions.current + comments.map { it.author },
                             busy = sending,
                             onSend = { d, sent -> vm.comment(d.text, d.photo, d.mentions, d.reply, sent) },
                             replyingTo = replyingTo,

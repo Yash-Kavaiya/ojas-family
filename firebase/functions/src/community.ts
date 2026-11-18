@@ -46,10 +46,17 @@ async function notifyCommentReply(
   return parentAuthor;
 }
 
-/** Announcement comments only keep counts, except that a reply tells the comment's author. */
+/** A visible announcement comment tells the people mentioned in it; a reply tells the comment's author. */
 export async function onAnnouncementCommentNotify(db: Firestore, m: Messenger, id: string, before: Data, after: Data): Promise<void> {
   if (!becameVisible(before, after)) return;
   await notifyCommentReply(db, m, `announcements/${id}/comments`, after, `announcements/${id}`, "announcement");
+  // A mentioned person gets the mention (notifyCommentReply leaves them out, so they are told once)
+  for (const uid of mentionsOf(after)) {
+    if (uid === str(after?.authorUid)) continue;
+    await notifyUser(db, m, uid, { group: "announcement", action: "mention" }, {
+      type: "mention", title: str(after?.authorName), body: str(after?.text), target: `announcements/${id}`, fromUid: str(after?.authorUid),
+    }, `mention:announcements/${id}`);
+  }
 }
 
 /** A visible answer tells the person who asked, and anyone mentioned in it. */

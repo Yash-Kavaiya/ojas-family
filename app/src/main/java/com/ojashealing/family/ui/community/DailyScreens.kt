@@ -155,7 +155,7 @@ class DailyViewModel(
     }
 
     /** Words, a photo / audio / video, or both. */
-    fun post(text: String, media: Uri?, kind: com.ojashealing.family.data.social.MediaKind?, onDone: () -> Unit) {
+    fun post(text: String, media: Uri?, kind: com.ojashealing.family.data.social.MediaKind?, onDone: () -> Unit, mentions: List<String> = emptyList()) {
         val p = meNow.value ?: return
         if (_busy.value) return
         _busy.value = true
@@ -163,7 +163,7 @@ class DailyViewModel(
         viewModelScope.launch {
             val ok = runCatching { if (media != null && kind != null) uploadMedia(p.uid, media, kind) else "" }.mapCatching { url ->
                 val isPhoto = kind == com.ojashealing.family.data.social.MediaKind.Image
-                repo.post(p.asAuthor(), text, if (isPhoto) url else "", emptyList(), kind.takeIf { !isPhoto && url.isNotEmpty() }, if (isPhoto) "" else url).getOrThrow()
+                repo.post(p.asAuthor(), text, if (isPhoto) url else "", mentions, kind.takeIf { !isPhoto && url.isNotEmpty() }, if (isPhoto) "" else url).getOrThrow()
             }.isSuccess
             _busy.value = false
             if (ok) { com.ojashealing.family.data.analytics.Analytics.post("activity"); onDone() } else _failed.value = true
@@ -335,6 +335,8 @@ fun ComposeDailyScreen(vm: DailyViewModel, onBack: () -> Unit) {
     val kind = com.ojashealing.family.data.social.MediaKind.fromId(kindId)
     val busy by vm.busy.collectAsStateWithLifecycle()
     val failed by vm.failed.collectAsStateWithLifecycle()
+    // "@Swamiji" in a new post tells him (the same as in a reply)
+    val staff = com.ojashealing.family.ui.components.LocalStaffMentions.current
     OnboardingLayout(
         title = stringResource(R.string.daily_new),
         subtitle = null,
@@ -342,7 +344,7 @@ fun ComposeDailyScreen(vm: DailyViewModel, onBack: () -> Unit) {
         bottom = {
             PrimaryButton(
                 stringResource(if (busy && mediaUri != null) R.string.announce_uploading else R.string.action_send),
-                onClick = { vm.post(text, mediaUri?.let(Uri::parse), kind, onBack) },
+                onClick = { vm.post(text, mediaUri?.let(Uri::parse), kind, onBack, com.ojashealing.family.data.social.mentionedUids(text, staff)) },
                 busy = busy, enabled = mediaUri != null || text.isNotBlank()
             )
         }

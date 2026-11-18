@@ -555,7 +555,17 @@ fun MainShell(container: AppContainer) {
             )
         }
     }
+    val staffMentions by remember(profile?.uid) {
+        if (profile?.uid == null) flowOf(emptyList())
+        else container.chat.observeStaffContact().map { c ->
+            listOfNotNull(
+                c?.swamijiUid?.takeIf { it.isNotEmpty() }?.let { com.ojashealing.family.data.social.Author(it, swamijiName, "", com.ojashealing.family.domain.Role.Swamiji) },
+                c?.supportUid?.takeIf { it.isNotEmpty() && c.supportName.isNotBlank() }?.let { com.ojashealing.family.data.social.Author(it, c.supportName, "", com.ojashealing.family.domain.Role.Admin) },
+            )
+        }
+    }.collectAsStateWithLifecycle(emptyList())
     CompositionLocalProvider(
+        com.ojashealing.family.ui.components.LocalStaffMentions provides staffMentions,
         LocalOpenProfile provides openProfile,
         com.ojashealing.family.ui.components.LocalCommentLikes provides commentLikes,
         com.ojashealing.family.ui.community.LocalPostActions provides postActions
@@ -810,9 +820,9 @@ fun MainShell(container: AppContainer) {
                     firstLabel = stringResource(R.string.community_question_title),
                     secondLabel = stringResource(R.string.community_question_body),
                     onBack = { nav.popBackStack() },
-                    onSubmit = { t, b, done -> communityVm.ask(t, b, done) },
+                    onSubmit = { t, b, done -> communityVm.ask(t, b, done, com.ojashealing.family.data.social.mentionedUids("$t $b", staffMentions)) },
                     canAttachImage = perms?.canAttachImage == true,
-                    onSubmitWithMedia = { t, b, media, kind, done -> communityVm.ask(t, b, media, kind, done) },
+                    onSubmitWithMedia = { t, b, media, kind, done -> communityVm.ask(t, b, media, kind, done, com.ojashealing.family.data.social.mentionedUids("$t $b", staffMentions)) },
                     sending = communityVm.sending.collectAsStateWithLifecycle().value,
                     failed = communityVm.postFailed.collectAsStateWithLifecycle().value
                 )

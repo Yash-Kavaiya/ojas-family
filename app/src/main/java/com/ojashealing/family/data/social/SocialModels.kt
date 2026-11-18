@@ -143,10 +143,6 @@ fun containsLink(text: String): Boolean = linkPattern.containsMatchIn(text)
 // Links and pictures wait for an admin (firestore.rules validPost)
 fun needsReview(text: String, imageUrl: String): Boolean = containsLink(text) || imageUrl.isNotEmpty()
 
-/** People named with @ in [text], out of those offered by the mention picker (at most 10, as the rules allow). */
-fun mentionedUids(text: String, candidates: List<Author>): List<String> =
-    candidates.filter { it.name.isNotBlank() && text.contains("@${it.name}") }.map { it.uid }.distinct().take(10)
-
 private val ist: TimeZone = TimeZone.getTimeZone("Asia/Kolkata")
 
 fun todayIst(): LocalDateLike = Calendar.getInstance(ist).let {

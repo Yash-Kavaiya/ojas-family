@@ -214,7 +214,7 @@ class CommunityRepository(private val db: FirebaseFirestore) {
         Unit
     }
 
-    suspend fun ask(author: Author, title: String, body: String, imageUrl: String = "", media: MediaKind? = null, mediaUrl: String = ""): Result<Unit> = runCatching {
+    suspend fun ask(author: Author, title: String, body: String, imageUrl: String = "", media: MediaKind? = null, mediaUrl: String = "", mentions: List<String> = emptyList()): Result<Unit> = runCatching {
         db.collection("questions").add(
             buildMap<String, Any> {
                 put("authorUid", author.uid); put("authorName", author.name); put("authorPhoto", author.photo)
@@ -224,6 +224,7 @@ class CommunityRepository(private val db: FirebaseFirestore) {
                 put("createdAt", FieldValue.serverTimestamp())
                 if (imageUrl.isNotEmpty()) put("imageUrl", imageUrl)
                 putAv(media, mediaUrl)
+                if (mentions.isNotEmpty()) put("mentions", mentions.distinct().take(10))
             }
         ).await()
         Unit

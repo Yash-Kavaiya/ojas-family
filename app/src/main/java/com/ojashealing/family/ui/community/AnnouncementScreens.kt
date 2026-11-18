@@ -192,7 +192,7 @@ fun AnnouncementDetailScreen(vm: CommunityViewModel, id: String, onBack: () -> U
                         hint = stringResource(R.string.home_comment_hint),
                         // Replies to an announcement are words only
                         canAttachImage = false,
-                        mentionable = comments.map { it.author },
+                        mentionable = com.ojashealing.family.ui.components.LocalStaffMentions.current + comments.map { it.author },
                         busy = sending,
                         onSend = { d, sent -> vm.commentOnAnnouncement(id, d.text, d.photo, d.mentions, d.reply, sent) },
                         replyingTo = replyingTo,

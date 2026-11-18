@@ -2,7 +2,7 @@ import { Timestamp } from "firebase-admin/firestore";
 import { ensureUserDoc } from "../src/auth";
 import { adminGrantFor, countPaidDay, memberLevelFor, verifyPurchaseFor, type PlayApi } from "../src/billing";
 import { onCallUpdated, onChatMessage, sweepRingingCalls } from "../src/chat";
-import { onAnswerNotify, onCommentLikeChanged, onDailyPostWritten, onDailyReplyWritten, onLikeNotify, onQuestionNotify, onThoughtCommentNotify } from "../src/community";
+import { onAnnouncementCommentNotify, onAnswerNotify, onCommentLikeChanged, onDailyPostWritten, onDailyReplyWritten, onLikeNotify, onQuestionNotify, onThoughtCommentNotify } from "../src/community";
 import { onFaceDecisionNotify, onGoalDecisionNotify, onGoalProgressWritten } from "../src/goals";
 import { notifyUser, sweepBell, switchOn, wantsPersonal, type Messenger } from "../src/notify";
 import { dayBefore, logPracticeFor, streak } from "../src/practice";
@@ -247,6 +247,15 @@ describe("notifications", () => {
     const self = fakeMessenger();
     await onThoughtCommentNotify(db, self.m, "t1", undefined, { status: "visible", authorUid: "m1", text: "Thanks", parentId: "c1" });
     expect(self.sent).toHaveLength(0);
+  });
+
+  test("a mention in an announcement comment tells that person, also when it replies to them", async () => {
+    await db.doc("announcements/n1/comments/c1").set({ authorUid: "m1", text: "Jai" });
+    for (const u of ["m1", "sw"]) await db.doc(`users/${u}`).set({ fcmTokens: [`tok-${u}`] }, { merge: true });
+    const { m, sent } = fakeMessenger();
+    await onAnnouncementCommentNotify(db, m, "n1", undefined, { status: "visible", authorUid: "m2", authorName: "Amit", text: "@Swamiji @Asha thank you", parentId: "c1", mentions: ["sw", "m1"] });
+    expect(sent.map((s) => [s.to, s.data.type])).toEqual([["tok-sw", "mention"], ["tok-m1", "mention"]]);
+    expect(sent[0].data.category).toBe("announcement");
   });
 
   test("replying to an answer tells its author once, and the asker separately", async () => {
