@@ -416,7 +416,9 @@ class PracticeSessionViewModel(
     }
 
     /** The member chose to download the practice now over mobile data. */
-    fun useMobileData() = downloads.downloadNowOnMobileData()
+    fun useMobileData() {
+        _ui.value.media?.let(downloads::downloadNowOnMobileData)
+    }
 
     /** Back on the Practice tab after finishing: start over if they want to practise again. */
     fun again() {

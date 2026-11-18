@@ -89,37 +89,44 @@ open class PracticeDownloads(
         val plan = planSync(media, dir.list()?.toList().orEmpty())
         plan.delete.filter { it.removeSuffix(".part") !in held }.forEach { File(dir, it).delete() }
         prefs.edit().putStringSet(KEY_URLS, media.values.filter { it.isFile }.map { it.url }.toSet()).apply()
-        if (plan.download.isNotEmpty()) enqueue(NetworkType.UNMETERED, ExistingWorkPolicy.KEEP)
+        if (plan.download.isNotEmpty()) enqueue(WORK, NetworkType.UNMETERED, ExistingWorkPolicy.KEEP)
     }
 
-    /** The member chose to download now, over mobile data too. */
-    open fun downloadNowOnMobileData() = enqueue(NetworkType.CONNECTED, ExistingWorkPolicy.REPLACE)
+    /**
+     * The member chose to download [media] now, over mobile data too. Only that practice is fetched
+     * this way; the others still wait for Wi-Fi.
+     */
+    open fun downloadNowOnMobileData(media: PracticeMedia) =
+        enqueue(WORK_NOW, NetworkType.CONNECTED, ExistingWorkPolicy.REPLACE, only = media.url)
 
-    private fun enqueue(network: NetworkType, policy: ExistingWorkPolicy) {
+    private fun enqueue(name: String, network: NetworkType, policy: ExistingWorkPolicy, only: String? = null) {
         val request = OneTimeWorkRequestBuilder<PracticeDownloadWorker>()
             .setConstraints(Constraints.Builder().setRequiredNetworkType(network).setRequiresStorageNotLow(true).build())
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+            .addTag(TAG)
+            .apply { if (only != null) setInputData(workDataOf(KEY_ONLY to only)) }
             .build()
-        WorkManager.getInstance(app).enqueueUniqueWork(WORK, policy, request)
+        WorkManager.getInstance(app).enqueueUniqueWork(name, policy, request)
     }
+
+    private fun workInfos() = WorkManager.getInstance(app).getWorkInfosByTagFlow(TAG)
 
     /** [DownloadState] of one practice, updated as the download moves along. */
     open fun state(media: PracticeMedia): Flow<DownloadState> {
         if (!media.isFile) return kotlinx.coroutines.flow.flowOf(DownloadState.NotNeeded)
-        return WorkManager.getInstance(app).getWorkInfosForUniqueWorkFlow(WORK).map { infos ->
+        return workInfos().map { infos ->
             if (localFile(media) != null) return@map DownloadState.Ready
-            val running = infos.firstOrNull { it.state == WorkInfo.State.RUNNING }
-            if (running == null) DownloadState.Downloading(0, waitingForWifi = true)
+            val running = infos.filter { it.state == WorkInfo.State.RUNNING }
+            if (running.isEmpty()) DownloadState.Downloading(0, waitingForWifi = true)
             else {
-                val p = running.progress
-                val percent = if (p.getString(KEY_URL) == media.url) p.getInt(KEY_PERCENT, 0) else 0
-                DownloadState.Downloading(percent, waitingForWifi = false)
+                val mine = running.firstOrNull { it.progress.getString(KEY_URL) == media.url }
+                DownloadState.Downloading(mine?.progress?.getInt(KEY_PERCENT, 0) ?: 0, waitingForWifi = false)
             }
         }.distinctUntilChanged()
     }
 
-    /** Emits whenever the download job moves along, and once at the start. */
-    open fun changes(): Flow<Unit> = WorkManager.getInstance(app).getWorkInfosForUniqueWorkFlow(WORK).map { }
+    /** Emits whenever a download job moves along, and once at the start. */
+    open fun changes(): Flow<Unit> = workInfos().map { }
 
     /** Practice URLs the last sync asked for. */
     internal fun wantedUrls(): List<String> = prefs.getStringSet(KEY_URLS, emptySet()).orEmpty().sorted()
@@ -129,6 +136,9 @@ open class PracticeDownloads(
     companion object {
         const val DIR = "practice"
         const val WORK = "practice-downloads"
+        const val WORK_NOW = "practice-download-now"
+        private const val TAG = "practice-download"
+        const val KEY_ONLY = "only"
         private const val PREFS = "practice_downloads"
         private const val KEY_URLS = "urls"
         const val KEY_URL = "url"
@@ -136,10 +146,67 @@ open class PracticeDownloads(
     }
 }
 
+
+/** The wanted URLs still to download; with [only] (mobile data), just that one if still wanted. */
+fun urlsToFetch(wanted: List<String>, only: String?, have: (String) -> Boolean): List<String> =
+    (if (only != null) wanted.filter { it == only } else wanted).filterNot(have)
+
 /**
- * Downloads every wanted practice file that is not on the phone yet, one at a time. It re-reads the
- * wanted list before each file, so a video the admin replaced meanwhile is not fetched. A file is
- * written to "<name>.part" and renamed only once complete, so a cut-off download is never played.
+ * Runs [fetch] for every URL; one that fails (HTTP error, bad URL, cut-off connection) does not
+ * stop the others. Returns the URLs that failed.
+ */
+suspend fun fetchEach(urls: List<String>, fetch: suspend (String) -> Unit): List<String> {
+    val failed = mutableListOf<String>()
+    for (url in urls) {
+        try {
+            fetch(url)
+        } catch (e: IOException) {
+            failed += url
+        } catch (e: IllegalArgumentException) {
+            failed += url
+        }
+    }
+    return failed
+}
+
+/**
+ * Writes [input] to "<target>.part" and renames it to [target] only when all [total] bytes (when
+ * known) arrived. On any failure the ".part" is deleted, so no partial video is left taking space.
+ * [onProgress] gets whole percents and may throw to stop.
+ */
+fun saveDownload(input: java.io.InputStream, total: Long, target: File, onProgress: (Int) -> Unit) {
+    val part = File(target.parentFile, target.name + ".part")
+    try {
+        var done = 0L
+        var shown = 0
+        input.use { inp ->
+            part.outputStream().use { out ->
+                val buf = ByteArray(64 * 1024)
+                while (true) {
+                    val n = inp.read(buf)
+                    if (n < 0) break
+                    out.write(buf, 0, n)
+                    done += n
+                    val pct = if (total > 0) (done * 100 / total).toInt() else 0
+                    if (pct > shown) {
+                        shown = pct
+                        onProgress(pct)
+                    }
+                }
+            }
+        }
+        if (total > 0 && done != total) throw IOException("cut off at $done of $total")
+        if (!part.renameTo(target)) throw IOException("could not save ${target.name}")
+    } catch (t: Throwable) {
+        part.delete()
+        throw t
+    }
+}
+
+/**
+ * Downloads the wanted practice files that are not on the phone yet, one at a time (or only the
+ * one in [PracticeDownloads.KEY_ONLY]). A file the admin replaced meanwhile is skipped. If any
+ * file failed, the job is retried later with backoff; the files that did arrive are kept.
  */
 class PracticeDownloadWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     private val downloads = PracticeDownloads(context)
@@ -147,46 +214,26 @@ class PracticeDownloadWorker(context: Context, params: WorkerParameters) : Corou
 
     override suspend fun doWork(): Result {
         val dir = downloads.folder().apply { mkdirs() }
-        while (true) {
-            val url = downloads.wantedUrls().firstOrNull { !File(dir, practiceFileName(it)).isFile } ?: return Result.success()
-            try {
-                fetch(url, File(dir, practiceFileName(url)))
-            } catch (e: IOException) {
-                return Result.retry()
-            }
+        val only = inputData.getString(PracticeDownloads.KEY_ONLY)
+        val urls = urlsToFetch(downloads.wantedUrls(), only) { File(dir, practiceFileName(it)).isFile }
+        val failed = fetchEach(urls) { url ->
+            if (url in downloads.wantedUrls()) fetch(url, File(dir, practiceFileName(url)))
         }
+        return if (failed.isEmpty()) Result.success() else Result.retry()
     }
 
     private suspend fun fetch(url: String, target: File) {
-        val part = File(target.parentFile, target.name + ".part")
         setProgress(workDataOf(PracticeDownloads.KEY_URL to url, PracticeDownloads.KEY_PERCENT to 0))
-        val response = withContext(Dispatchers.IO) { client.newCall(Request.Builder().url(url).build()).execute() }
-        response.use { r ->
-            if (!r.isSuccessful) throw IOException("HTTP ${r.code}")
-            val body = r.body ?: throw IOException("empty body")
-            val total = body.contentLength()
-            var done = 0L
-            var shown = 0
-            withContext(Dispatchers.IO) {
-                body.byteStream().use { input ->
-                    part.outputStream().use { out ->
-                        val buf = ByteArray(64 * 1024)
-                        while (true) {
-                            val n = input.read(buf)
-                            if (n < 0) break
-                            out.write(buf, 0, n)
-                            done += n
-                            val pct = if (total > 0) (done * 100 / total).toInt() else 0
-                            if (pct > shown) {
-                                shown = pct
-                                setProgress(workDataOf(PracticeDownloads.KEY_URL to url, PracticeDownloads.KEY_PERCENT to pct))
-                            }
-                        }
-                    }
+        withContext(Dispatchers.IO) {
+            client.newCall(Request.Builder().url(url).build()).execute().use { r ->
+                if (!r.isSuccessful) throw IOException("HTTP ${r.code}")
+                val body = r.body ?: throw IOException("empty body")
+                saveDownload(body.byteStream(), body.contentLength(), target) { pct ->
+                    // A stopped job (e.g. storage got low) ends here, and its .part is deleted
+                    if (isStopped) throw IOException("stopped")
+                    setProgressAsync(workDataOf(PracticeDownloads.KEY_URL to url, PracticeDownloads.KEY_PERCENT to pct))
                 }
             }
-            if (total > 0 && done != total) throw IOException("cut off at $done of $total")
         }
-        if (!part.renameTo(target)) throw IOException("could not save ${target.name}")
     }
 }

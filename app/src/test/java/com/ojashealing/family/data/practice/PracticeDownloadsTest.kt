@@ -45,3 +45,42 @@ class PracticeDownloadsTest {
         assertEquals(SyncPlan(emptyList(), emptyList()), planSync(mapOf(ContentSection.QuickProtection to yt), emptyList()))
     }
 }
+
+class PracticeDownloadWorkerLogicTest {
+    private val a = "https://x/o/a.mp4"; private val b = "https://x/o/b.mp4"; private val c = "https://x/o/c.mp4"
+
+    @Test fun mobileDataFetchesOnlyThePracticeAskedFor() {
+        assertEquals(listOf(c), urlsToFetch(listOf(a, b, c), only = c) { false })
+        assertEquals(listOf(b, c), urlsToFetch(listOf(a, b, c), only = null) { it == a })
+        // A practice the admin replaced meanwhile is no longer wanted: nothing to fetch
+        assertEquals(emptyList<String>(), urlsToFetch(listOf(a, b), only = c) { false })
+    }
+
+    @Test fun oneFailingPracticeDoesNotBlockTheOthers() = kotlinx.coroutines.test.runTest {
+        val fetched = mutableListOf<String>()
+        val failed = fetchEach(listOf(a, b, c)) { url ->
+            if (url == a) throw java.io.IOException("403")
+            if (url == b) throw IllegalArgumentException("bad url")
+            fetched += url
+        }
+        assertEquals(listOf(c), fetched)
+        assertEquals(listOf(a, b), failed)
+    }
+
+    @Test fun cutOffDownloadLeavesNoPartFile() {
+        val dir = kotlin.io.path.createTempDirectory().toFile()
+        val target = java.io.File(dir, "v.mp4")
+        val broken = object : java.io.InputStream() {
+            var n = 0
+            override fun read(): Int = if (n++ < 1000) 1 else throw java.io.IOException("connection reset")
+        }
+        try { saveDownload(broken, 5000, target) {}; org.junit.Assert.fail("should throw") } catch (_: java.io.IOException) {}
+        assertTrue(dir.list()!!.isEmpty())
+        // Shorter than announced also counts as cut off
+        try { saveDownload(ByteArray(10).inputStream(), 20, target) {}; org.junit.Assert.fail("should throw") } catch (_: java.io.IOException) {}
+        assertTrue(dir.list()!!.isEmpty())
+        saveDownload(ByteArray(20).inputStream(), 20, target) {}
+        assertEquals(listOf("v.mp4"), dir.list()!!.toList())
+        assertEquals(20L, target.length())
+    }
+}
