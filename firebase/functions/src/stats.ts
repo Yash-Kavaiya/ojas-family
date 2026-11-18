@@ -1,6 +1,7 @@
 import { HttpsError } from "firebase-functions/v2/https";
 import { AggregateField, Timestamp, type Firestore, type Query } from "firebase-admin/firestore";
 import { istDay } from "./time";
+import { cached } from "./configCache";
 
 type Claims = Record<string, unknown> | undefined;
 
@@ -150,7 +151,9 @@ export async function writeDailyStats(db: Firestore, now: Date): Promise<string>
 /** Admin: today's numbers so far (not stored), with the latest member breakdown. */
 export async function todayStatsFor(db: Firestore, token: Claims, now: Date): Promise<DayStats> {
   requireAdmin(token);
-  return { ...(await computeDay(db, istDay(now))), snapshot: await computeSnapshot(db, now) };
+  // The member breakdown reads every user; admins opening the dashboard again within 10 minutes reuse it
+  const snapshot = await cached("stats:snapshot", () => computeSnapshot(db, now), 10 * 60_000);
+  return { ...(await computeDay(db, istDay(now))), snapshot };
 }
 
 /**

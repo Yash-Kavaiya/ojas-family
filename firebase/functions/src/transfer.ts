@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
+import { clearConfigCache } from "./configCache";
 import { computeUserLevel, loadLevelConfig } from "./levels";
 import { earnedOf } from "./points";
 import { cleanPointsConfig, loadPointsConfig } from "./pointsConfig";
@@ -188,6 +189,7 @@ export async function updatePointsConfigFor(
   const current = (await db.doc("config/points").get()).data() ?? {};
   const next = cleanPointsConfig({ ...current, ...input });
   await db.doc("config/points").set({ ...next, updatedBy: staffUid, updatedAt: FieldValue.serverTimestamp() });
+  clearConfigCache("config/points");
   return { ok: true };
 }
 

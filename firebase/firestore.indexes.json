@@ -507,6 +507,294 @@
           "queryScope": "COLLECTION_GROUP"
         }
       ]
+    },
+    {
+      "collectionGroup": "messages",
+      "fieldPath": "text",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "messages",
+      "fieldPath": "attachment",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "calls",
+      "fieldPath": "offer",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "calls",
+      "fieldPath": "answer",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "calls",
+      "fieldPath": "restartOffer",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "calls",
+      "fieldPath": "restartAnswer",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "candidates",
+      "fieldPath": "candidate",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "candidates",
+      "fieldPath": "sdpMid",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "aiFeedback",
+      "fieldPath": "question",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "aiFeedback",
+      "fieldPath": "answer",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "aiFeedback",
+      "fieldPath": "comment",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "knowledge",
+      "fieldPath": "text",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "linkPreviews",
+      "fieldPath": "title",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "linkPreviews",
+      "fieldPath": "description",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "linkPreviews",
+      "fieldPath": "image",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "linkPreviews",
+      "fieldPath": "url",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "notifications",
+      "fieldPath": "title",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "notifications",
+      "fieldPath": "body",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "broadcasts",
+      "fieldPath": "title",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "broadcasts",
+      "fieldPath": "body",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "paidBroadcasts",
+      "fieldPath": "title",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "paidBroadcasts",
+      "fieldPath": "body",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "comments",
+      "fieldPath": "text",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "answers",
+      "fieldPath": "text",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "replies",
+      "fieldPath": "text",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "dailyPosts",
+      "fieldPath": "text",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "questions",
+      "fieldPath": "body",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "thoughts",
+      "fieldPath": "text",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "users",
+      "fieldPath": "fcmTokens",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "users",
+      "fieldPath": "notificationPrefs",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "users",
+      "fieldPath": "about",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "users",
+      "fieldPath": "goalDays",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "publicProfiles",
+      "fieldPath": "about",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "publicProfiles",
+      "fieldPath": "goalDays",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "notificationState",
+      "fieldPath": "opened",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "notificationState",
+      "fieldPath": "seen",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "stats",
+      "fieldPath": "snapshot",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "chats",
+      "fieldPath": "typingMember",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "chats",
+      "fieldPath": "typingStaff",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "chats",
+      "fieldPath": "lastMessage",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "adminChats",
+      "fieldPath": "typingMember",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "adminChats",
+      "fieldPath": "typingStaff",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "adminChats",
+      "fieldPath": "lastMessage",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "candidates",
+      "fieldPath": "expireAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "linkPreviews",
+      "fieldPath": "expireAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "notifications",
+      "fieldPath": "expireAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "broadcasts",
+      "fieldPath": "expireAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "paidBroadcasts",
+      "fieldPath": "expireAt",
+      "ttl": true,
+      "indexes": []
     }
   ]
 }

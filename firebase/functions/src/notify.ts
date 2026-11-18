@@ -1,4 +1,4 @@
-import { FieldValue, type Firestore } from "firebase-admin/firestore";
+import { FieldValue, Timestamp, type Firestore } from "firebase-admin/firestore";
 
 /**
  * Push messages are data-only: the app builds the visible notification itself, so it is shown in the
@@ -114,7 +114,7 @@ export async function announcePost(db: Firestore, m: Messenger, topic: Topic, ke
   // Activity is for paid members: its lines live where only they can read them
   const col = group === "activity" ? "paidBroadcasts" : "broadcasts";
   try {
-    await db.doc(`${col}/${inboxId(key)}`).set({ ...INBOX_FIELDS(msg, group, "post"), createdAt: FieldValue.serverTimestamp() });
+    await db.doc(`${col}/${inboxId(key)}`).set({ ...INBOX_FIELDS(msg, group, "post"), createdAt: FieldValue.serverTimestamp(), expireAt: bellExpiry() });
   } catch (e) {
     console.warn(`bell line for ${key} failed`, e);
   }
@@ -158,7 +158,7 @@ async function keepInBell(db: Firestore, uid: string, group: Group, action: Acti
     const old = await tx.get(ref);
     // Still unread: one line, counted ("Meera and 2 others liked your post"); read: a fresh line
     const count = old.exists && old.get("read") === false ? Number(old.get("count") ?? 1) + 1 : 1;
-    tx.set(ref, { ...INBOX_FIELDS(msg, group, action), count, read: false, createdAt: FieldValue.serverTimestamp() });
+    tx.set(ref, { ...INBOX_FIELDS(msg, group, action), count, read: false, createdAt: FieldValue.serverTimestamp(), expireAt: bellExpiry() });
     return count;
   });
 }
@@ -172,7 +172,16 @@ export function mentionsOf(data: Record<string, unknown> | undefined): string[] 
 /** Bell lines are kept for 30 days. */
 export const BELL_DAYS = 30;
 
-/** Removes bell lines older than [BELL_DAYS]; runs once a day. Returns how many went. */
+/** When Firestore's TTL policy on expireAt deletes a bell line (no read needed, unlike the sweep). */
+export function bellExpiry(now: Date = new Date()): Timestamp {
+  return Timestamp.fromMillis(now.getTime() + BELL_DAYS * 24 * 3600 * 1000);
+}
+
+/**
+ * Removes bell lines older than [BELL_DAYS]; runs once a day. Returns how many went.
+ * Lines written since expireAt was added are deleted by the TTL policy; this sweep is the fallback for
+ * older lines and a TTL that runs late, and finds next to nothing once those are gone.
+ */
 export async function sweepBell(db: Firestore, now: Date): Promise<number> {
   const cutoff = new Date(now.getTime() - BELL_DAYS * 24 * 3600 * 1000);
   let removed = 0;

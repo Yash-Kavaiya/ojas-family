@@ -1,4 +1,5 @@
-import { PRACTICE_POINTS, completePracticeFor, startPracticeFor } from "../src/practiceMedia";
+import { PRACTICE_POINTS, completePracticeFor, currentStreak, startPracticeFor } from "../src/practiceMedia";
+import { dayBefore } from "../src/practice";
 import { DEFAULT_POINTS } from "../src/pointsConfig";
 import { ensureUserDoc } from "../src/auth";
 import { clearDb, testDb } from "./emulator";
@@ -102,4 +103,33 @@ test("night practice is locked below Level 4 without membership, and counts as t
 test("a practice with no media cannot start", async () => {
   await expect(startPracticeFor(db, "u1", undefined, "quick_protection", at("2026-11-08T04:00:00Z"))).rejects.toThrow(/no media/);
   await expect(startPracticeFor(db, "u1", undefined, "yoga", at("2026-11-08T04:00:00Z"))).rejects.toThrow(/Unknown/);
+});
+
+describe("currentStreak reads a month at a time", () => {
+  const today = "2026-11-18";
+  const seed = async (days: number, gapAt?: number) => {
+    const batch = db.batch();
+    for (let i = 0; i < days; i++) {
+      if (i === gapAt) continue;
+      batch.set(db.doc(`users/u1/practiceLog/${dayBefore(today, i)}`), { any: true });
+    }
+    await batch.commit();
+  };
+  test.each([0, 5, 30, 31, 32, 40, 62, 100])("an unbroken %i-day run", async (days) => {
+    await seed(days);
+    expect(await currentStreak(db, "u1", today)).toBe(days);
+  });
+  test("a missed day ends the streak, even past the first month", async () => {
+    await seed(80, 45);
+    expect(await currentStreak(db, "u1", today)).toBe(45);
+  });
+  test("a day logged with only a check-in counts; other fields don't", async () => {
+    await db.doc(`users/u1/practiceLog/${today}`).set({ morning: true });
+    await db.doc(`users/u1/practiceLog/${dayBefore(today, 1)}`).set({ updatedAt: 1 });
+    expect(await currentStreak(db, "u1", today)).toBe(1);
+  });
+  test("stops at 400", async () => {
+    await seed(420);
+    expect(await currentStreak(db, "u1", today)).toBe(400);
+  }, 60000);
 });

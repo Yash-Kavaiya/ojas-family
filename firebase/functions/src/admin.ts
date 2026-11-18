@@ -1,6 +1,8 @@
 import { randomUUID } from "crypto";
 import { Timestamp, type Firestore } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
+import { cached } from "./configCache";
+import { inChunks } from "./billing";
 import { awardPoints } from "./points";
 import { istDay } from "./time";
 
@@ -15,7 +17,7 @@ const normal = (e: unknown) => (typeof e === "string" ? e.trim().toLowerCase() :
 
 /** config/admins.emails: people who become admins as soon as they sign in with that (verified) email. */
 export async function adminEmails(db: Firestore): Promise<string[]> {
-  const list = (await db.doc("config/admins").get()).get("emails");
+  const list = (await cached("config/admins", () => db.doc("config/admins").get())).get("emails");
   return Array.isArray(list) ? list.map(normal).filter(Boolean) : [];
 }
 
@@ -38,19 +40,20 @@ export async function givePointsFor(
   const uids = (Array.isArray(input.uids) ? input.uids : []).filter((u): u is string => typeof u === "string").slice(0, 500);
   const amount = Math.floor(Number(input.amount));
   if (uids.length === 0 || !(amount >= 1 && amount <= 100000)) throw new HttpsError("invalid-argument", "uids and an amount from 1 to 100000 are required");
+  const note = typeof input.note === "string" && input.note ? input.note.slice(0, 200) : undefined;
+  const users = await db.getAll(...[...new Set(uids)].map((u) => db.doc(`users/${u}`)), { fieldMask: [] });
   let given = 0;
-  for (const uid of uids) {
-    if (!(await db.doc(`users/${uid}`).get()).exists) continue;
-    const ok = await awardPoints(db, uid, {
+  await inChunks(users.filter((u) => u.exists), 20, async (u) => {
+    const ok = await awardPoints(db, u.id, {
       eventKey: `gift:${Date.now()}:${randomUUID().slice(0, 8)}`,
       amount,
       reason: "gift",
       milestone: true,
-      note: typeof input.note === "string" && input.note ? input.note.slice(0, 200) : undefined,
-      extra: typeof input.note === "string" && input.note ? { lastGiftNote: input.note.slice(0, 200) } : undefined,
+      note,
+      extra: note ? { lastGiftNote: note } : undefined,
     });
     if (ok) given++;
-  }
+  });
   return { given };
 }
 
@@ -70,7 +73,7 @@ export async function statsFor(db: Firestore, token: Claims, now: Date): Promise
     ...["admin", "swamiji", "senior_member"].map((r) => count(users.where("role", "==", r))),
   ]);
 
-  const ents = await db.collectionGroup("entitlements").where("expiresAt", ">", nowTs).get();
+  const ents = await db.collectionGroup("entitlements").where("expiresAt", ">", nowTs).select().get();
   const paid = { membership: 0, chat: 0, call: 0 } as Record<string, number>;
   ents.forEach((d) => { if (d.id in paid) paid[d.id]++; });
 
@@ -91,7 +94,7 @@ export async function statsFor(db: Firestore, token: Claims, now: Date): Promise
   ]);
 
   // The next 30 days without a scheduled Thought of the Day
-  const ahead = await db.collection("thoughts").where("publishAt", ">=", dayStart).get();
+  const ahead = await db.collection("thoughts").where("publishAt", ">=", dayStart).select().get();
   const have = new Set(ahead.docs.map((d) => d.id));
   const missingThoughts: string[] = [];
   for (let i = 0; i < 30; i++) {

@@ -39,12 +39,21 @@ export async function embed(texts: string[], inputType: "query" | "passage", tim
 
 // The passages and their vectors are two small files; keep them in memory between questions and look for new ones now and then
 const KNOWLEDGE_TTL_MS = 10 * 60 * 1000;
-let cached: { path: string; at: number; search: KnowledgeSearch; vectors: Vectors | null } | null = null;
+let cached: { path: string; at: number; version: string; search: KnowledgeSearch; vectors: Vectors | null } | null = null;
 
 async function knowledge(path: string): Promise<{ search: KnowledgeSearch; vectors: Vectors | null }> {
   if (cached && cached.path === path && Date.now() - cached.at < KNOWLEDGE_TTL_MS) return cached;
   try {
     const bucket = getStorage().bucket();
+    // Both files are re-uploaded together; download again only when either has a new generation
+    const gen = async (p: string) => {
+      try { return String((await bucket.file(p).getMetadata())[0].generation ?? ""); } catch { return ""; }
+    };
+    const version = `${await gen(path)}/${await gen(vectorsPath(path))}`;
+    if (cached && cached.path === path && version !== "/" && cached.version === version) {
+      cached.at = Date.now();
+      return cached;
+    }
     const [bytes] = await bucket.file(path).download();
     const passages = (JSON.parse(bytes.toString("utf8")) as { passages?: Passage[] }).passages ?? [];
     // Without the vectors file (or with one from another build) the keyword search still answers
@@ -57,7 +66,7 @@ async function knowledge(path: string): Promise<{ search: KnowledgeSearch; vecto
     } catch (e) {
       console.warn("no vectors file; using keyword search only", (e as Error).message);
     }
-    cached = { path, at: Date.now(), search: new KnowledgeSearch(passages), vectors };
+    cached = { path, at: Date.now(), version, search: new KnowledgeSearch(passages), vectors };
   } catch (e) {
     // Keep answering from the last good copy if Storage hiccups
     if (!cached || cached.path !== path) throw e;

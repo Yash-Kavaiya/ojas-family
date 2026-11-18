@@ -1,4 +1,5 @@
 import type { Firestore } from "firebase-admin/firestore";
+import { cached } from "./configCache";
 
 export interface Threshold {
   days: number;
@@ -29,7 +30,7 @@ export function computeUserLevel(input: { activeDays: number; points: number }, 
 }
 
 export async function loadLevelConfig(db: Firestore): Promise<LevelConfig> {
-  const snap = await db.doc("config/levels").get();
+  const snap = await cached("config/levels", () => db.doc("config/levels").get());
   const data = (snap.data() ?? {}) as Partial<LevelConfig>;
   return {
     l2: { ...DEFAULT_LEVELS.l2, ...data.l2 },

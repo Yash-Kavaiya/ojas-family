@@ -245,7 +245,7 @@ export const completePractice = onCall({ enforceAppCheck: enforceAppCheck }, asy
 // ---- Profiles visible to others ----
 
 export const userWritten = onDocumentWritten("users/{uid}", async (e) => {
-  await syncPublicProfile(db, e.params.uid, e.data?.after.data());
+  await syncPublicProfile(db, e.params.uid, e.data?.after.data(), e.data?.before.data());
   await refreshAuthorSnapshots(db, e.params.uid, e.data?.before.data(), e.data?.after.data());
   // Points for each profile item filled in, and a bonus at 100%; once each
   await onProfileWritten(db, e.params.uid, e.data?.before.data(), e.data?.after.data());
@@ -394,7 +394,7 @@ export const playNotification = onMessagePublished("play-rtdn", async (e) => {
   if (token) await onSubscriptionNotice(db, playApi(), token, new Date());
 });
 
-export const paidDayTick = onSchedule({ schedule: "5 0 * * *", timeZone: "Asia/Kolkata" }, async () => {
+export const paidDayTick = onSchedule({ schedule: "5 0 * * *", timeZone: "Asia/Kolkata", timeoutSeconds: 300 }, async () => {
   await countPaidDay(db, new Date());
 });
 

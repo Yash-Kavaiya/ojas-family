@@ -1,4 +1,5 @@
 import type { Firestore } from "firebase-admin/firestore";
+import { cached } from "./configCache";
 
 /**
  * TURN relays let a call through networks that block direct (peer-to-peer) connections, such as some
@@ -16,7 +17,7 @@ type FetchFn = (url: string, init: { method: string; headers: Record<string, str
 export const TURN_TTL_SECONDS = 24 * 3600;
 
 export async function turnCredentialsFor(db: Firestore, fetchFn: FetchFn): Promise<{ iceServers: IceServer[] }> {
-  const cfg = (await db.doc("serverConfig/turn").get()).data();
+  const cfg = (await cached("serverConfig/turn", () => db.doc("serverConfig/turn").get())).data();
   const keyId = typeof cfg?.keyId === "string" ? cfg.keyId : "";
   const apiToken = typeof cfg?.apiToken === "string" ? cfg.apiToken : "";
   if (!keyId || !apiToken) return { iceServers: [] };

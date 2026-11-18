@@ -1,5 +1,6 @@
 import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
+import { cached } from "./configCache";
 import { istDay } from "./time";
 
 export type PracticeKind = "morning" | "night";
@@ -53,7 +54,7 @@ export async function logPracticeFor(
 
   const completed: string[] = [];
   // Seeded goals carry no "active" field; only an explicit false switches a goal off
-  const goals = await db.collection("goals").get();
+  const goals = await cached("goals", () => db.collection("goals").get());
   for (const g of goals.docs) {
     if (g.get("active") === false) continue;
     const k = g.get("kind");

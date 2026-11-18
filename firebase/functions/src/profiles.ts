@@ -31,13 +31,18 @@ export function publicProfileOf(user: Record<string, unknown>): Record<string, u
 // Firestore may return map keys in a different order than they were written
 const stable = (o: Record<string, unknown>) => JSON.stringify(Object.keys(o).sort().map((k) => [k, o[k]]));
 
-export async function syncPublicProfile(db: Firestore, uid: string, after: Record<string, unknown> | undefined): Promise<void> {
+export async function syncPublicProfile(
+  db: Firestore, uid: string, after: Record<string, unknown> | undefined, before?: Record<string, unknown>,
+): Promise<void> {
   const ref = db.doc(`publicProfiles/${uid}`);
   if (!after) {
     await ref.delete();
     return;
   }
   const next = publicProfileOf(after);
+  // Most user writes (tokens, counters, private fields) change nothing public: skip the read too.
+  // The mirror was already synced from [before], so equal projections mean nothing to do.
+  if (before && stable(publicProfileOf(before)) === stable(next)) return;
   const cur = (await ref.get()).data();
   // Skip no-op writes: most user updates (points ledger, tokens) change nothing public
   if (cur && stable(cur) === stable(next)) return;

@@ -179,6 +179,13 @@ describe("storage", () => {
     await assertFails(uploadBytes(ref(storage, `users/${ALICE}/avatar.jpg`), image(10), { contentType: "application/pdf" }));
   });
 
+  test("cannot upload an SVG, to the profile folder or a chat", async () => {
+    const storage = env.authenticatedContext(ALICE).storage();
+    await assertFails(uploadBytes(ref(storage, `users/${ALICE}/avatar.svg`), image(10), { contentType: "image/svg+xml" }));
+    await assertFails(uploadBytes(ref(storage, `chats/${ALICE}/a.svg`), image(10), { contentType: "image/svg+xml" }));
+    await assertSucceeds(uploadBytes(ref(storage, `chats/${ALICE}/a.png`), image(10), { contentType: "image/png" }));
+  });
+
   test("a member uploads audio and video for their own posts, within each size limit", async () => {
     const alice = env.authenticatedContext(ALICE).storage();
     const bob = env.authenticatedContext(BOB).storage();

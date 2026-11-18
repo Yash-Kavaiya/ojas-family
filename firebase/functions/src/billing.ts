@@ -83,14 +83,19 @@ export async function revokeEntitlement(db: Firestore, uid: string, entitlement:
   if (entitlement === "membership") await refreshMemberLevel(db, uid, now);
 }
 
+/** Runs [fn] over [items], [size] at a time. */
+export async function inChunks<T>(items: T[], size: number, fn: (item: T) => Promise<unknown>): Promise<void> {
+  for (let i = 0; i < items.length; i += size) await Promise.all(items.slice(i, i + size).map(fn));
+}
+
 /** Daily: every active member earns one paid day; expired members drop to memberLevel 0. */
 export async function countPaidDay(db: Firestore, now: Date): Promise<number> {
   const snap = await db.collectionGroup("entitlements").where("expiresAt", ">", Timestamp.fromDate(now)).get();
   const day = istDay(now);
+  const refreshed = new Set<string>();
+  const members = snap.docs.filter((d) => d.id === "membership").map((d) => d.ref.parent.parent!);
   let counted = 0;
-  for (const d of snap.docs) {
-    if (d.id !== "membership") continue;
-    const userRef = d.ref.parent.parent!;
+  await inChunks(members, 20, async (userRef) => {
     // Scheduled functions can run twice for one tick: a day is counted once per member
     const added = await db.runTransaction(async (tx) => {
       const user = await tx.get(userRef);
@@ -99,11 +104,13 @@ export async function countPaidDay(db: Firestore, now: Date): Promise<number> {
       return true;
     });
     await refreshMemberLevel(db, userRef.id, now);
+    refreshed.add(userRef.id);
     if (added) counted++;
-  }
+  });
   // Members whose membership lapsed since yesterday lose their level until they renew
-  const lapsed = await db.collection("users").where("memberLevel", ">", 0).get();
-  for (const u of lapsed.docs) await refreshMemberLevel(db, u.id, now);
+  // (active members were refreshed just above)
+  const lapsed = await db.collection("users").where("memberLevel", ">", 0).select().get();
+  await inChunks(lapsed.docs.filter((u) => !refreshed.has(u.id)), 20, (u) => refreshMemberLevel(db, u.id, now));
   return counted;
 }
 

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
-import type { Firestore } from "firebase-admin/firestore";
+import { Timestamp, type Firestore } from "firebase-admin/firestore";
 
 /** What a link card shows: the page's title, a line about it, its picture and the site's name. */
 export interface LinkPreview { title: string; description: string; image: string; site: string }
@@ -139,7 +139,9 @@ export async function linkPreviewFor(
   } catch {
     preview = null;
   }
-  await ref.set(preview ? { url, ok: true, fetchedAt: now, ...preview } : { url, ok: false, fetchedAt: now });
+  // Unused previews are removed by the TTL policy on expireAt 30 days after the last look-up
+  const expireAt = Timestamp.fromMillis(now + 30 * DAY_MS);
+  await ref.set(preview ? { url, ok: true, fetchedAt: now, expireAt, ...preview } : { url, ok: false, fetchedAt: now, expireAt });
   return preview;
 }
 

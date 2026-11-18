@@ -168,13 +168,10 @@ export const RING_GIVE_UP_MS = 60_000;
 /** Marks stale ringing calls missed; onCallUpdated then logs them and tells the person called. */
 export async function sweepRingingCalls(db: Firestore, now: Date): Promise<number> {
   const ringing = await db.collection("calls").where("status", "==", "ringing").get();
-  let n = 0;
-  for (const d of ringing.docs) {
+  const stale = ringing.docs.filter((d) => {
     const created = millis(d.get("createdAt"));
-    if (created > 0 && now.getTime() - created > RING_GIVE_UP_MS) {
-      await d.ref.update({ status: "missed", endedAt: FieldValue.serverTimestamp() });
-      n++;
-    }
-  }
-  return n;
+    return created > 0 && now.getTime() - created > RING_GIVE_UP_MS;
+  });
+  await Promise.all(stale.map((d) => d.ref.update({ status: "missed", endedAt: FieldValue.serverTimestamp() })));
+  return stale.length;
 }

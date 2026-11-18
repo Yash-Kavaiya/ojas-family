@@ -8,7 +8,6 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.storage.FirebaseStorage
-import com.google.firebase.storage.StorageMetadata
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -171,7 +170,7 @@ class GoalRepository(
     /** Uploads the photo first; the submission is only written if the upload succeeded. */
     suspend fun submit(uid: String, goalId: String, photo: Uri, note: String): Result<Unit> = runCatching {
         val ref = storage.reference.child("users/$uid/goals/$goalId.jpg")
-        ref.putBytes(resolver.shrunkJpeg(photo, 1600), StorageMetadata.Builder().setContentType("image/jpeg").build()).await()
+        ref.putBytes(resolver.shrunkJpeg(photo, 1600), com.ojashealing.family.data.uploadMetadata("image/jpeg", reusedName = true)).await()
         val url = ref.downloadUrl.await().toString()
         db.document("users/$uid/goalProgress/$goalId").set(
             mapOf("status" to "submitted", "photoUrl" to url, "note" to note.take(500), "submittedAt" to FieldValue.serverTimestamp())

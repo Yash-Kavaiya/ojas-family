@@ -52,6 +52,27 @@ suspend fun ContentResolver.shrunkJpeg(photo: Uri, maxEdge: Int): ByteArray = wi
     }
 }
 
+/**
+ * Upload metadata with a cache lifetime. Files saved under a new name each time never change, so
+ * phones and browsers may keep them for a year; [reusedName] is for paths written again in place
+ * (a thought's picture, a resubmitted goal photo). "private": chat files must not sit in shared caches.
+ */
+fun uploadMetadata(contentType: String, reusedName: Boolean = false): StorageMetadata =
+    StorageMetadata.Builder()
+        .setContentType(contentType)
+        .setCacheControl(if (reusedName) "private, max-age=3600" else "private, max-age=31536000")
+        .build()
+
+/** Like [shrunkJpeg] but keeps a PNG's see-through background (a cut-out face photo). */
+suspend fun ContentResolver.shrunkPng(photo: Uri, maxEdge: Int): ByteArray = withContext(Dispatchers.IO) {
+    val bitmap = decodeUpright(photo, maxEdge)
+    ByteArrayOutputStream().use { out ->
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        bitmap.recycle()
+        out.toByteArray()
+    }
+}
+
 /** Uploads a picked photo for a post and returns its download URL. */
 class PostImages(
     private val storage: FirebaseStorage,
@@ -69,7 +90,7 @@ class PostImages(
         val type = resolver.getType(media) ?: if (kind == com.ojashealing.family.data.social.MediaKind.Audio) "audio/mpeg" else "video/mp4"
         val ext = type.substringAfter('/').substringBefore(';').ifEmpty { "bin" }.take(5)
         val ref = storage.reference.child("users/$uid/media/${UUID.randomUUID()}.$ext")
-        ref.putFile(media, StorageMetadata.Builder().setContentType(type).build()).await()
+        ref.putFile(media, uploadMetadata(type)).await()
         return ref.downloadUrl.await().toString()
     }
 
@@ -86,7 +107,7 @@ class PostImages(
         val type = resolver.getType(media) ?: if (kind == com.ojashealing.family.data.social.MediaKind.Audio) "audio/mpeg" else "video/mp4"
         val ext = type.substringAfter('/').substringBefore(';').ifEmpty { "bin" }
         val ref = storage.reference.child("announcements/$id.$ext")
-        ref.putFile(media, StorageMetadata.Builder().setContentType(type).build()).await()
+        ref.putFile(media, uploadMetadata(type)).await()
         return ref.downloadUrl.await().toString()
     }
 
@@ -107,18 +128,19 @@ class PostImages(
         if (type.startsWith("image/")) {
             val bytes = resolver.shrunkJpeg(file, 1600)
             val ref = storage.reference.child("$collection/$memberUid/$id.jpg")
-            ref.putBytes(bytes, StorageMetadata.Builder().setContentType("image/jpeg").build()).await()
+            ref.putBytes(bytes, uploadMetadata("image/jpeg")).await()
             return com.ojashealing.family.data.chat.Attachment(ref.downloadUrl.await().toString(), name?.first ?: "photo.jpg", "image/jpeg", bytes.size.toLong())
         }
         val ext = name?.first?.substringAfterLast('.', "")?.take(5)?.ifEmpty { null } ?: type.substringAfter('/').take(5)
         val ref = storage.reference.child("$collection/$memberUid/$id.$ext")
-        ref.putFile(file, StorageMetadata.Builder().setContentType(type).build()).await()
+        ref.putFile(file, uploadMetadata(type)).await()
         return com.ojashealing.family.data.chat.Attachment(ref.downloadUrl.await().toString(), name?.first ?: "file.$ext", type, name?.second ?: 0L)
     }
 
     private suspend fun put(path: String, photo: Uri): String {
         val ref = storage.reference.child(path)
-        val meta = StorageMetadata.Builder().setContentType("image/jpeg").build()
+        // Thought pictures keep the thought's id as their name; every other photo gets a new one
+        val meta = uploadMetadata("image/jpeg", reusedName = path.startsWith("thoughts/"))
         ref.putBytes(resolver.shrunkJpeg(photo, 1600), meta).await()
         return ref.downloadUrl.await().toString()
     }

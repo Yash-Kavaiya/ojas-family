@@ -1,5 +1,6 @@
 import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
+import { cached } from "./configCache";
 import { type Passage, questionLanguage } from "./knowledgeSearch";
 import { awardPoints } from "./points";
 import { loadPointsConfig } from "./pointsConfig";
@@ -34,7 +35,7 @@ export const DEFAULT_AI: AiConfig = {
 };
 
 export async function loadAiConfig(db: Firestore): Promise<AiConfig> {
-  const d = ((await db.doc("config/ai").get()).data() ?? {}) as Partial<AiConfig>;
+  const d = ((await cached("config/ai", () => db.doc("config/ai").get())).data() ?? {}) as Partial<AiConfig>;
   const num = (v: unknown, fallback: number) => (Number.isFinite(Number(v)) && v !== undefined ? Number(v) : fallback);
   const str = (v: unknown, fallback: string) => (typeof v === "string" && v.trim() ? v.trim() : fallback);
   return {

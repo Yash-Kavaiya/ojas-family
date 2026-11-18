@@ -121,13 +121,27 @@ class ChatRepository(private val db: FirebaseFirestore, private val channel: Cha
         awaitClose { reg.remove() }
     }
 
+    private fun inboxQuery(viewer: Viewer, uid: String): Query {
+        val base = db.collection(col)
+        return if (viewer.role == Role.SeniorMember && this@ChatRepository.channel == ChatChannel.Swamiji) base.whereEqualTo("assigneeUid", uid).orderBy("lastAt", Query.Direction.DESCENDING)
+        else base.orderBy("lastAt", Query.Direction.DESCENDING)
+    }
+
     /** Staff inbox: Swamiji and admins see every chat, a senior member only the ones assigned to them. */
     fun observeInbox(viewer: Viewer, uid: String): Flow<List<ChatThread>> = callbackFlow {
-        val base = db.collection(col)
-        val q = if (viewer.role == Role.SeniorMember && this@ChatRepository.channel == ChatChannel.Swamiji) base.whereEqualTo("assigneeUid", uid).orderBy("lastAt", Query.Direction.DESCENDING)
-        else base.orderBy("lastAt", Query.Direction.DESCENDING)
-        inboxPager.observe(q, ::thread).collect { trySend(it) }
+        inboxPager.observe(inboxQuery(viewer, uid), ::thread).collect { trySend(it) }
         awaitClose { }
+    }
+
+    /**
+     * The newest page of the inbox, for the unread badge. Kept apart from [observeInbox] so the badge
+     * never resets the inbox screen's older pages; it is the same query as the inbox's live page, so
+     * Firestore serves both from one listen and bills it once.
+     */
+    fun observeInboxHead(viewer: Viewer, uid: String): Flow<List<ChatThread>> = callbackFlow {
+        val reg = inboxQuery(viewer, uid).limit(com.ojashealing.family.data.paging.FEED_PAGE_SIZE.toLong())
+            .addSnapshotListener { snap, _ -> if (snap != null) trySend(snap.documents.map(::thread)) }
+        awaitClose { reg.remove() }
     }
 
     suspend fun loadOlderInbox() = inboxPager.loadMore()

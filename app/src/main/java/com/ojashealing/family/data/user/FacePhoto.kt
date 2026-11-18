@@ -1,14 +1,13 @@
 package com.ojashealing.family.data.user
 
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.Dispatchers
 import android.content.ContentResolver
 import android.net.Uri
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
-import com.google.firebase.storage.StorageMetadata
+import com.ojashealing.family.data.shrunkPng
+import com.ojashealing.family.data.uploadMetadata
 import com.ojashealing.family.data.shrunkJpeg
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.awaitClose
@@ -65,10 +64,10 @@ class FacePhotoRepository(
         val cutOut = photo.lastPathSegment.orEmpty().endsWith(".png", ignoreCase = true)
         val ref = storage.reference.child("users/$uid/face_${System.currentTimeMillis()}.${if (cutOut) "png" else "jpg"}")
         if (cutOut) {
-            val bytes = withContext(Dispatchers.IO) { resolver.openInputStream(photo)?.use { it.readBytes() } } ?: error("Could not read the photo")
-            ref.putBytes(bytes, StorageMetadata.Builder().setContentType("image/png").build()).await()
+            // Shrunk like any photo (a full-size PNG can be several MB), still a PNG so the background stays clear
+            ref.putBytes(resolver.shrunkPng(photo, 1024), uploadMetadata("image/png")).await()
         } else {
-            ref.putBytes(resolver.shrunkJpeg(photo, 1600), StorageMetadata.Builder().setContentType("image/jpeg").build()).await()
+            ref.putBytes(resolver.shrunkJpeg(photo, 1600), uploadMetadata("image/jpeg")).await()
         }
         val url = ref.downloadUrl.await().toString()
         db.document("facePhotos/$uid").set(
@@ -84,13 +83,16 @@ class FacePhotoRepository(
         }
         awaitClose { reg.remove() }
     }.mapLatest { list ->
-        list.map { f ->
-            runCatching {
-                val d = db.document("users/${f.uid}").get().await()
-                f.copy(memberName = d.getString("displayName").orEmpty(), memberPhotoUrl = d.getString("photoUrl").orEmpty())
-            }.getOrDefault(f)
-        }
+        list.map { f -> memberOf(f.uid)?.let { (name, photo) -> f.copy(memberName = name, memberPhotoUrl = photo) } ?: f }
     }
+
+    // Each snapshot of the list would otherwise read every sender's profile again; looked up once per member
+    private val members = java.util.concurrent.ConcurrentHashMap<String, Pair<String, String>>()
+
+    private suspend fun memberOf(uid: String): Pair<String, String>? = members[uid] ?: runCatching {
+        val d = db.document("users/$uid").get().await()
+        (d.getString("displayName").orEmpty() to d.getString("photoUrl").orEmpty()).also { members[uid] = it }
+    }.getOrNull()
 
     suspend fun review(uid: String, approve: Boolean): Result<Unit> = runCatching {
         db.document("facePhotos/$uid")

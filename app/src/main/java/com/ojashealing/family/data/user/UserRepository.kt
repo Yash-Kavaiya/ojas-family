@@ -6,7 +6,6 @@ import com.ojashealing.family.data.shrunkJpeg
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.storage.FirebaseStorage
-import com.google.firebase.storage.StorageMetadata
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -67,7 +66,7 @@ class FirestoreUserRepository(
         // A new name each time, so the new picture's URL differs and no screen shows a cached old one
         val ref = storage.reference.child("users/$uid/avatar_${System.currentTimeMillis()}.jpg")
         // A profile picture never needs more than this; large camera photos would break the 5 MB rule
-        ref.putBytes(resolver.shrunkJpeg(uri, 1024), StorageMetadata.Builder().setContentType("image/jpeg").build()).await()
+        ref.putBytes(resolver.shrunkJpeg(uri, 1024), com.ojashealing.family.data.uploadMetadata("image/jpeg")).await()
         val url = ref.downloadUrl.await().toString()
         db.collection("users").document(uid).set(mapOf("photoUrl" to url), SetOptions.merge()).await()
         url

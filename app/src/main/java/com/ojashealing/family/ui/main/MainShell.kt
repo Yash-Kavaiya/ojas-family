@@ -235,7 +235,6 @@ fun MainShell(container: AppContainer) {
     })
     val practice by contentVm.practice.collectAsStateWithLifecycle()
     val understanding by contentVm.understanding.collectAsStateWithLifecycle()
-    val books by contentVm.books.collectAsStateWithLifecycle()
     // Ask, Video or Books inside the Ask tab
     var askPart by rememberSaveable { androidx.compose.runtime.mutableIntStateOf(0) }
     val practiceVm: PracticeViewModel = viewModel(factory = viewModelFactory { initializer { PracticeViewModel(container.practice, vm.profile) } })
@@ -302,9 +301,9 @@ fun MainShell(container: AppContainer) {
         when {
             p0 == null -> flowOf(0)
             Permissions.isChatStaff(p0.viewer) -> {
-                val swamiji = container.chat.observeInbox(p0.viewer, p0.uid).map { l -> l.sumOf { com.ojashealing.family.data.chat.unreadFor(it, iAmStaff = true) } }
+                val swamiji = container.chat.observeInboxHead(p0.viewer, p0.uid).map { l -> l.sumOf { com.ojashealing.family.data.chat.unreadFor(it, iAmStaff = true) } }
                 val admin = if (p0.viewer.role == com.ojashealing.family.domain.Role.Admin)
-                    container.chat.on(com.ojashealing.family.data.chat.ChatChannel.Admin).observeInbox(p0.viewer, p0.uid)
+                    container.chat.on(com.ojashealing.family.data.chat.ChatChannel.Admin).observeInboxHead(p0.viewer, p0.uid)
                         .map { l -> l.sumOf { com.ojashealing.family.data.chat.unreadFor(it, iAmStaff = true) } }
                 else flowOf(0)
                 combine(swamiji, admin) { a, b -> a + b }
@@ -351,9 +350,13 @@ fun MainShell(container: AppContainer) {
     val anchors = remember { RewardAnchors() }
     // Held above the NavHost so sub-screens keep the tab, but not saved: every fresh open starts on Home
     var tab by rememberSaveable { mutableStateOf(MainTab.Home) }
-    // Swamiji and admins: counted again each time Home is opened
-    val userCounts by androidx.compose.runtime.produceState<com.ojashealing.family.data.social.UserCounts?>(null, profile?.viewer?.role, tab == MainTab.Home) {
-        if (profile?.viewer?.let { Permissions.canSeeUserCounts(it) } == true && tab == MainTab.Home) container.userCounts()?.let { value = it }
+    // Swamiji and admins: counted again when Home is opened, at most every 5 minutes (each count is a server call)
+    val userCountsCache = remember { arrayOfNulls<Pair<Long, com.ojashealing.family.data.social.UserCounts>>(1) }
+    val userCounts by androidx.compose.runtime.produceState(userCountsCache[0]?.second, profile?.viewer?.role, tab == MainTab.Home) {
+        if (profile?.viewer?.let { Permissions.canSeeUserCounts(it) } != true || tab != MainTab.Home) return@produceState
+        val cached = userCountsCache[0]
+        if (cached != null && System.currentTimeMillis() - cached.first < 5 * 60_000L) { value = cached.second; return@produceState }
+        container.userCounts()?.let { value = it; userCountsCache[0] = System.currentTimeMillis() to it }
     }
     // Google Analytics: which screen is open (the tab's name on the tabs screen)
     val screenRoute = nav.currentBackStackEntryAsState().value?.destination?.route
@@ -762,6 +765,8 @@ fun MainShell(container: AppContainer) {
                                         hub = { openChat, openInbox ->
                                             // Read while composing (lint: no resource lookups through LocalContext)
                                             val booksOpenFailed = androidx.compose.ui.res.stringResource(com.ojashealing.family.R.string.books_open_failed)
+                                            // Collected only here, so the book list (up to 300 documents) is read only by people who open Ask
+                                            val books by contentVm.books.collectAsStateWithLifecycle()
                                             AskTab(
                                                 profile = profile,
                                                 entitlements = entitlements,

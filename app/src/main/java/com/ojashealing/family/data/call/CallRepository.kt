@@ -193,7 +193,11 @@ class CallRepository(private val db: FirebaseFirestore, private val functions: c
 
     suspend fun addCandidate(callId: String, c: IceCandidateData): Result<Unit> = runCatching {
         db.collection("calls/$callId/candidates")
-            .add(mapOf("from" to c.from, "sdpMid" to c.sdpMid, "sdpMLineIndex" to c.sdpMLineIndex, "candidate" to c.candidate)).await()
+            .add(mapOf(
+                "from" to c.from, "sdpMid" to c.sdpMid, "sdpMLineIndex" to c.sdpMLineIndex, "candidate" to c.candidate,
+                // Only needed while the call connects; Firestore's TTL policy deletes it a day later
+                "expireAt" to com.google.firebase.Timestamp(java.util.Date(System.currentTimeMillis() + 24 * 3600 * 1000L)),
+            )).await()
         Unit
     }
 

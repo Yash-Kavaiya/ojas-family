@@ -49,20 +49,6 @@ import com.ojashealing.family.R
 import com.ojashealing.family.ui.theme.OjasGradients
 import kotlinx.coroutines.delay
 
-/** One ExoPlayer for a composable's lifetime, prepared for [url] and released when it leaves. */
-@Composable
-private fun rememberPlayer(url: String): ExoPlayer {
-    val context = LocalContext.current
-    val player = remember(url) {
-        com.ojashealing.family.data.MediaCache.player(context).apply {
-            setMediaItem(MediaItem.fromUri(url))
-            prepare()
-        }
-    }
-    DisposableEffect(player) { onDispose { player.release() } }
-    return player
-}
-
 /**
  * A player that is only built when the member first presses play. A chat or feed can show many
  * voice notes and audio clips at once; opening a player for each one (and starting to download it)
@@ -174,11 +160,29 @@ fun AudioPlayer(url: String, modifier: Modifier = Modifier) {
     }
 }
 
-/** An inline 16:9 video with the standard Media3 controls; it does not start on its own. */
+/**
+ * An inline 16:9 video with the standard Media3 controls. Like [AudioPlayer] the player is only built,
+ * and the file only starts downloading, when the member presses play: a feed can show several videos.
+ */
 @OptIn(UnstableApi::class)
 @Composable
 fun InlineVideoPlayer(url: String, modifier: Modifier = Modifier) {
-    val player = rememberPlayer(url)
+    val holder = rememberLazyPlayer(url)
+    val player = holder.player
+    val shape = modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(16.dp))
+    if (player == null) {
+        Box(shape.background(Color.Black), contentAlignment = Alignment.Center) {
+            Box(
+                Modifier.size(56.dp).clip(CircleShape).background(Brush.linearGradient(OjasGradients.saffron)),
+                contentAlignment = Alignment.Center
+            ) {
+                IconButton(onClick = { holder.start().play() }) {
+                    Icon(Icons.Filled.PlayArrow, contentDescription = stringResource(R.string.media_play), tint = Color.White)
+                }
+            }
+        }
+        return
+    }
     AndroidView(
         factory = { ctx ->
             PlayerView(ctx).apply {
@@ -190,6 +194,6 @@ fun InlineVideoPlayer(url: String, modifier: Modifier = Modifier) {
         },
         update = { it.player = player },
         onRelease = { it.player = null },
-        modifier = modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(16.dp))
+        modifier = shape
     )
 }

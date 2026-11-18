@@ -643,22 +643,25 @@ async function books() {
 }
 
 // ---------- moderation ----------
+// At most this many of each kind per load; approving some brings in the rest next time
+const MOD_LIMIT = 200;
 async function moderation() {
   const pend = (q) => getDocs(q).then((s) => s.docs);
   const [c, a, r, q, d, goals, reports, goalDefs, faces] = await Promise.all([
-    pend(query(collectionGroup(db, "comments"), where("status", "==", "pending"))),
-    pend(query(collectionGroup(db, "answers"), where("status", "==", "pending"))),
-    pend(query(collectionGroup(db, "replies"), where("status", "==", "pending"))),
-    pend(query(collection(db, "questions"), where("status", "==", "pending"))),
-    pend(query(collection(db, "dailyPosts"), where("status", "==", "pending"))),
-    pend(query(collectionGroup(db, "goalProgress"), where("status", "==", "submitted"))),
-    pend(query(collection(db, "reports"), orderBy("createdAt", "desc"))),
+    pend(query(collectionGroup(db, "comments"), where("status", "==", "pending"), limit(MOD_LIMIT))),
+    pend(query(collectionGroup(db, "answers"), where("status", "==", "pending"), limit(MOD_LIMIT))),
+    pend(query(collectionGroup(db, "replies"), where("status", "==", "pending"), limit(MOD_LIMIT))),
+    pend(query(collection(db, "questions"), where("status", "==", "pending"), limit(MOD_LIMIT))),
+    pend(query(collection(db, "dailyPosts"), where("status", "==", "pending"), limit(MOD_LIMIT))),
+    pend(query(collectionGroup(db, "goalProgress"), where("status", "==", "submitted"), limit(MOD_LIMIT))),
+    pend(query(collection(db, "reports"), orderBy("createdAt", "desc"), limit(MOD_LIMIT))),
     getDocs(collection(db, "goals")).then((s) => Object.fromEntries(s.docs.map((x) => [x.id, x.data()]))),
-    pend(query(collection(db, "facePhotos"), where("status", "==", "submitted"))),
+    pend(query(collection(db, "facePhotos"), where("status", "==", "submitted"), limit(MOD_LIMIT))),
   ]);
   const posts = [...c, ...a, ...r, ...q, ...d];
   const names = {};
-  await Promise.all([...goals.map((g) => g.ref.parent.parent.id), ...faces.map((f) => f.id)].map(async (uid) => {
+  // One read per person, however many of their items are waiting
+  await Promise.all([...new Set([...goals.map((g) => g.ref.parent.parent.id), ...faces.map((f) => f.id)])].map(async (uid) => {
     names[uid] = (await getDoc(doc(db, "users", uid))).data()?.displayName || uid;
   }));
   view().innerHTML = `

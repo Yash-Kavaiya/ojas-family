@@ -1,4 +1,5 @@
 import type { Firestore } from "firebase-admin/firestore";
+import { cached } from "./configCache";
 
 /**
  * How many Moksha Points each activity earns, and the rules for sending points to another member.
@@ -60,5 +61,5 @@ export function cleanPointsConfig(raw: Record<string, unknown> | undefined): Poi
 }
 
 export async function loadPointsConfig(db: Firestore): Promise<PointsConfig> {
-  return cleanPointsConfig((await db.doc("config/points").get()).data());
+  return cleanPointsConfig((await cached("config/points", () => db.doc("config/points").get())).data());
 }

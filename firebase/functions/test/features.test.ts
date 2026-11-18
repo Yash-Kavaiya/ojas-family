@@ -162,6 +162,18 @@ describe("public profiles", () => {
     await syncPublicProfile(db, "m1", undefined);
     expect((await db.doc("publicProfiles/m1").get()).exists).toBe(false);
   });
+
+  test("a write that changes nothing public leaves the mirror alone; a public change updates it", async () => {
+    const before = { displayName: "A", fcmTokens: ["t1"] };
+    await syncPublicProfile(db, "m2", before);
+    await db.doc("publicProfiles/m2").set({ marker: true }, { merge: true });
+    await syncPublicProfile(db, "m2", { ...before, fcmTokens: ["t2"] }, before);
+    expect((await db.doc("publicProfiles/m2").get()).get("marker")).toBe(true);
+    await syncPublicProfile(db, "m2", { ...before, displayName: "B" }, before);
+    const snap = await db.doc("publicProfiles/m2").get();
+    expect(snap.get("displayName")).toBe("B");
+    expect(snap.get("marker")).toBeUndefined();
+  });
 });
 
 describe("author snapshots", () => {

@@ -1,5 +1,6 @@
 import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
+import { cached } from "./configCache";
 import { notifyUser, type Messenger } from "./notify";
 import { awardPoints } from "./points";
 import { dayBefore } from "./practice";
@@ -102,7 +103,7 @@ export async function tickGoalFor(
   db: Firestore, uid: string, goalId: string, now: Date,
 ): Promise<{ streak: number; days: number; completed: boolean }> {
   if (!/^[A-Za-z0-9_-]{1,80}$/.test(goalId)) throw new HttpsError("invalid-argument", "goalId is not valid");
-  const all = (await db.collection("goals").get()).docs;
+  const all = (await cached("goals", () => db.collection("goals").get())).docs;
   const goal = all.find((g) => g.id === goalId);
   if (!goal || goal.get("active") === false || goal.get("kind") !== "check") throw new HttpsError("not-found", "No such daily goal");
   const days = Math.min(400, Math.max(1, Math.floor(Number(goal.get("days")) || 21)));

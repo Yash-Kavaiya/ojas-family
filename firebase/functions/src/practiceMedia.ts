@@ -1,5 +1,6 @@
 import { FieldValue, Timestamp, type Firestore } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
+import { cached } from "./configCache";
 import { awardPoints } from "./points";
 import { canPractise, dayBefore, logPracticeFor, streak, type DayLog } from "./practice";
 import { loadPointsConfig } from "./pointsConfig";
@@ -27,7 +28,7 @@ function sectionOf(raw: unknown): PracticeSection {
 }
 
 async function mediaSeconds(db: Firestore, section: PracticeSection): Promise<number> {
-  const media = (await db.doc("config/practiceMedia").get()).get(section) as Record<string, unknown> | undefined;
+  const media = (await cached("config/practiceMedia", () => db.doc("config/practiceMedia").get())).get(section) as Record<string, unknown> | undefined;
   const secs = Number(media?.durationSec ?? 0);
   const source = media?.kind === "youtube" ? media?.videoId : media?.url;
   if (!source || !(secs > 0)) throw new HttpsError("failed-precondition", "This practice has no media yet");
@@ -100,7 +101,7 @@ export async function completePracticeFor(
   const anyStreak = await currentStreak(db, uid, day);
 
   if (cfg.allPracticesBonus > 0) {
-    const done = await Promise.all(PRACTICE_SECTIONS.map((s) => userRef.collection("pointEvents").doc(`practice:${s}:${day}`).get()));
+    const done = await db.getAll(...PRACTICE_SECTIONS.map((s) => userRef.collection("pointEvents").doc(`practice:${s}:${day}`)));
     if (done.every((d) => d.exists) && await awardPoints(db, uid, {
       eventKey: `practice_all:${day}`, amount: cfg.allPracticesBonus, reason: "practice_bonus", milestone: true, note: "all",
     })) points += cfg.allPracticesBonus;
@@ -118,11 +119,25 @@ export async function completePracticeFor(
   return { awarded, points, streak: anyStreak, completedGoals };
 }
 
-/** Days in a row, ending today, with any finished practice (or a morning/night check-in). */
+/**
+ * Days in a row, ending today, with any finished practice (or a morning/night check-in).
+ * Reads a month at a time, going further back only while the streak is unbroken, so a member
+ * pays about 31 reads instead of a whole year's logs. Same result as reading all 400 days.
+ */
 export async function currentStreak(db: Firestore, uid: string, today: string): Promise<number> {
   const col = db.collection(`users/${uid}/practiceLog`);
-  const snap = await col.where("__name__", ">=", col.doc(dayBefore(today, 400))).get();
-  const logs: Record<string, DayLog & { any?: boolean }> = {};
-  snap.forEach((d) => { logs[d.id] = d.data() as DayLog; });
-  return streak(logs, today, (l) => (l as { any?: boolean }).any === true || l.morning === true || l.night === true);
+  const done = (l: DayLog) => (l as { any?: boolean }).any === true || l.morning === true || l.night === true;
+  const WINDOW = 31;
+  let n = 0;
+  while (n < 400) {
+    const span = Math.min(WINDOW, 400 - n);
+    const newest = dayBefore(today, n), oldest = dayBefore(today, n + span - 1);
+    const snap = await col.where("__name__", ">=", col.doc(oldest)).where("__name__", "<=", col.doc(newest)).get();
+    const logs: Record<string, DayLog> = {};
+    snap.forEach((d) => { logs[d.id] = d.data() as DayLog; });
+    const run = Math.min(span, streak(logs, newest, done));
+    n += run;
+    if (run < span) break;
+  }
+  return n;
 }

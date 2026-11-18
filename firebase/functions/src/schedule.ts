@@ -55,7 +55,16 @@ export function reminderDue(atMs: number, nowMs: number, reminded15: boolean, re
 /** Runs every 5 minutes: reminds both sides 15 minutes before a confirmed call and again when it starts. */
 export async function sendCallReminders(db: Firestore, m: Messenger, now: Date): Promise<number> {
   const horizon = new Date(now.getTime() + REMIND_BEFORE_MS + 60 * 1000);
-  const snap = await db.collection("callRequests").where("status", "==", "confirmed").where("at", "<=", horizon).get();
+  // Only calls whose reminders can still be due: past calls (never marked done) are not re-read every run
+  const oldest = new Date(now.getTime() - 6 * 60 * 1000);
+  const snap = await db.collection("callRequests").where("status", "==", "confirmed")
+    .where("at", ">=", oldest).where("at", "<=", horizon).get();
+  const staffFor = new Map<string, Promise<string[]>>();
+  const staffOnce = (r: Record<string, unknown>) => {
+    const key = `${str(r.staffUid)}|${str(r.channel)}|${str(r.memberUid)}`;
+    if (!staffFor.has(key)) staffFor.set(key, staffSide(db, r));
+    return staffFor.get(key)!;
+  };
   let sent = 0;
   for (const d of snap.docs) {
     const r = d.data();
@@ -64,7 +73,7 @@ export async function sendCallReminders(db: Firestore, m: Messenger, now: Date):
     const when = istLabel(millis(r.at));
     const base = { type: due === "now" ? "callReminder_now" : "callReminder_soon", body: when, target: `callRequests/${d.id}`, video: r.video === true ? "1" : "0" };
     await notifyUser(db, m, str(r.memberUid), { group: "critical" }, { ...base, title: str(r.staffName) });
-    for (const uid of await staffSide(db, r)) await notifyUser(db, m, uid, { group: "critical" }, { ...base, title: str(r.memberName) });
+    for (const uid of await staffOnce(r)) await notifyUser(db, m, uid, { group: "critical" }, { ...base, title: str(r.memberName) });
     await d.ref.set(due === "now" ? { remindedStart: true, reminded15: true } : { reminded15: true }, { merge: true });
     sent++;
   }
