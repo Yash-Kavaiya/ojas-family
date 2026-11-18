@@ -591,7 +591,7 @@
     <string name="streak_today_done">આજનો અભ્યાસ થઈ ગયો. કાલે ફરી મળીએ.</string>
     <string name="streak_keep_going">સિલસિલો ચાલુ રાખવા આજે અભ્યાસ કરો.</string>
     <string name="streak_start_title">આજથી તમારો સિલસિલો શરૂ કરો</string>
-    <string name="streak_start_body">ઉપર કોઈ પણ એક અભ્યાસ પૂરો કરો. દરરોજનો અભ્યાસ જ્યોત વધારે છે.</string>
+    <string name="streak_start_body">નીચે કોઈ પણ એક અભ્યાસ પૂરો કરો. દરરોજનો અભ્યાસ જ્યોત વધારે છે.</string>
     <string name="streak_best">શ્રેષ્ઠ</string>
     <string name="streak_next_goal">આગળનું લક્ષ્ય: %1$d દિવસ</string>
     <string name="action_next">આગળ</string>

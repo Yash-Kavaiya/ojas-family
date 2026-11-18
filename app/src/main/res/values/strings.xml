@@ -592,7 +592,7 @@
     <string name="streak_today_done">Today\'s practice is done. See you tomorrow.</string>
     <string name="streak_keep_going">Practise today to keep your streak going.</string>
     <string name="streak_start_title">Start your streak today</string>
-    <string name="streak_start_body">Finish any one practice above. Each day you practise adds to the flame.</string>
+    <string name="streak_start_body">Finish any one practice below. Each day you practise adds to the flame.</string>
     <string name="streak_best">Best</string>
     <string name="streak_next_goal">Next goal: %1$d days</string>
     <string name="action_next">Next</string>

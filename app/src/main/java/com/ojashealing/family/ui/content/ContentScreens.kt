@@ -234,10 +234,21 @@ private fun DailyPractice(
         }
         else -> LazyColumn(contentPadding = PaddingValues(top = Spacing.s, bottom = Spacing.xl), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
             item(key = "title", contentType = "title") { SectionHeader(stringResource(R.string.tab_spiritual)) }
-            // Order: Morning Protection, Night, Blue Healing Light, Quick Protection; then today's box, then the streak.
+            // Order: today's box and the streak; then Morning Protection, Night, Blue Healing Light, Quick Protection.
             // A practice without its own media yet shows as its box of videos in the same place.
             val practiceBoxes: List<Any> = (guidedCards + rows.orEmpty().filter { it.section in PracticeTabOrder })
                 .sortedBy { PracticeTabOrder.indexOf(if (it is GuidedCard) it.section else (it as SectionUi).section) }
+            // First today's progress and the streak, then the four practices
+            if (guidedCards.isNotEmpty()) {
+                item(key = "guidedHeader", contentType = "guidedHeader") {
+                    GuidedHeader(guidedCards, Modifier.padding(horizontal = Spacing.l).staggeredEntrance(0, key = "guidedHeader"))
+                }
+            }
+            streak?.let { s ->
+                item(key = "streak", contentType = "streak") {
+                    StreakCard(s, Modifier.padding(horizontal = Spacing.l).staggeredEntrance(1, key = "streak"))
+                }
+            }
             itemsIndexed(
                 practiceBoxes,
                 key = { _, b -> if (b is GuidedCard) "guided_" + b.section.id else (b as SectionUi).section.id },
@@ -250,20 +261,10 @@ private fun DailyPractice(
                             if (box.locked) locked = Access.Locked(needsUserLevel = com.ojashealing.family.domain.UserLevel.L4.rank, needsMemberLevel = 1)
                             else onOpenGuided(box.section)
                         },
-                        modifier = Modifier.padding(horizontal = Spacing.l).staggeredEntrance(index, key = "guided_" + box.section.id).animateItem()
+                        modifier = Modifier.padding(horizontal = Spacing.l).staggeredEntrance(index + 2, key = "guided_" + box.section.id).animateItem()
                     )
                 } else {
                     PracticeRow(box as SectionUi, onPlay, practice, practiceBusy, onMarkPractice) { locked = it }
-                }
-            }
-            if (guidedCards.isNotEmpty()) {
-                item(key = "guidedHeader", contentType = "guidedHeader") {
-                    GuidedHeader(guidedCards, Modifier.padding(horizontal = Spacing.l).staggeredEntrance(practiceBoxes.size, key = "guidedHeader"))
-                }
-            }
-            streak?.let { s ->
-                item(key = "streak", contentType = "streak") {
-                    StreakCard(s, Modifier.padding(horizontal = Spacing.l).staggeredEntrance(practiceBoxes.size + 1, key = "streak"))
                 }
             }
             items(rows.orEmpty().filter { it.section !in PracticeTabOrder }, key = { it.section.id }, contentType = { "section" }) { section ->
