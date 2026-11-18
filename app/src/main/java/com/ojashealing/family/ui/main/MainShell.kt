@@ -246,9 +246,15 @@ fun MainShell(container: AppContainer) {
     val practiceMessage by practiceVm.message.collectAsStateWithLifecycle()
     val progressStore = remember { com.ojashealing.family.ui.content.PracticeProgressStore(context.applicationContext) }
     val guidedVm: com.ojashealing.family.ui.content.GuidedPracticeViewModel = viewModel(factory = viewModelFactory {
-        initializer { com.ojashealing.family.ui.content.GuidedPracticeViewModel(container.practiceMedia, vm.profile, progressStore) }
+        initializer { com.ojashealing.family.ui.content.GuidedPracticeViewModel(container.practiceMedia, container.practiceDownloads, vm.profile, progressStore) }
     })
     val guided by guidedVm.cards.collectAsStateWithLifecycle()
+    // Keeps the downloaded guided practice files in step with the admin's choice (Wi-Fi downloads)
+    LaunchedEffect(Unit) {
+        container.auth.currentUid
+            .flatMapLatest { uid -> if (uid == null) flowOf(emptyMap()) else container.practiceMedia.observeMedia() }
+            .collect { media -> kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { container.practiceDownloads.sync(media) } }
+    }
     val thoughtVm: ThoughtViewModel = viewModel(factory = viewModelFactory {
         initializer {
             ThoughtViewModel(
@@ -856,7 +862,7 @@ fun MainShell(container: AppContainer) {
                     factory = viewModelFactory {
                         initializer {
                             com.ojashealing.family.ui.content.PracticeSessionViewModel(
-                                context.applicationContext, section, container.practiceMedia, progressStore, vm.profile.map { it?.uid }
+                                context.applicationContext, section, container.practiceMedia, container.practiceDownloads, progressStore, vm.profile.map { it?.uid }
                             )
                         }
                     }

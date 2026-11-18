@@ -534,6 +534,10 @@
     <string name="session_retry">Try again</string>
     <string name="session_back">Back to practice</string>
     <string name="session_loading">Getting the practice ready…</string>
+    <string name="session_downloading_wifi">Downloading on Wi-Fi. After that it plays from your phone, without internet.</string>
+    <string name="session_downloading">Downloading… %1$d%%</string>
+    <string name="session_download_mobile">Download now with mobile data</string>
+    <string name="guided_downloading">Downloading…</string>
     <string name="points_src_practice">Guided practice</string>
     <string name="voice_hold">Hold to record a voice message</string>
     <string name="voice_slide_cancel">Slide to cancel</string>

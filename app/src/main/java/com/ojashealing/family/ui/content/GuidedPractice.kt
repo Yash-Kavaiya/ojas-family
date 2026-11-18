@@ -60,6 +60,7 @@ import com.ojashealing.family.R
 import com.ojashealing.family.data.practice.GuidedSections
 import com.ojashealing.family.data.practice.MediaType
 import com.ojashealing.family.data.practice.PRACTICE_POINTS
+import com.ojashealing.family.data.practice.PracticeDownloads
 import com.ojashealing.family.data.practice.PracticeMedia
 import com.ojashealing.family.data.practice.PracticeMediaRepository
 import com.ojashealing.family.data.practice.PracticeStatus
@@ -82,7 +83,11 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 
 /** One guided practice card: its media, whether today's point is earned, how far they got, and access. */
-data class GuidedCard(val media: PracticeMedia, val doneToday: Boolean, val share: Float, val resumeMs: Long, val locked: Boolean) {
+data class GuidedCard(
+    val media: PracticeMedia, val doneToday: Boolean, val share: Float, val resumeMs: Long, val locked: Boolean,
+    /** The practice's file is not on the phone yet (never for YouTube). */
+    val downloading: Boolean = false,
+) {
     val section: ContentSection get() = media.section
 }
 
@@ -91,16 +96,21 @@ fun buildGuided(
     media: Map<ContentSection, PracticeMedia>,
     done: Set<ContentSection>,
     canDaily: Boolean,
+    ready: (PracticeMedia) -> Boolean = { true },
     progress: (ContentSection, Int) -> Pair<Float, Long>
 ): List<GuidedCard> = GuidedSections.mapNotNull { s ->
     val m = media[s] ?: return@mapNotNull null
     val (share, resume) = if (s in done) 0f to 0L else progress(s, m.durationSec)
-    GuidedCard(m, s in done, share, resume, locked = (s == ContentSection.Morning || s == ContentSection.Night) && !canDaily)
+    GuidedCard(
+        m, s in done, share, resume, locked = (s == ContentSection.Morning || s == ContentSection.Night) && !canDaily,
+        downloading = m.type != MediaType.YouTube && !ready(m),
+    )
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class GuidedPracticeViewModel(
     repo: PracticeMediaRepository,
+    downloads: PracticeDownloads,
     profile: Flow<UserProfile?>,
     private val progress: PracticeProgressStore
 ) : ViewModel() {
@@ -108,8 +118,8 @@ class GuidedPracticeViewModel(
 
     /** Null until loaded; empty when no guided media is set yet. */
     val cards: StateFlow<List<GuidedCard>?> = profile.filterNotNull().flatMapLatest { p ->
-        combine(repo.observeMedia(), repo.observeDoneToday(p.uid), refreshTick) { media, done, _ ->
-            buildGuided(media, done, Permissions.canDoDailyPractices(p.viewer)) { s, secs ->
+        combine(repo.observeMedia(), repo.observeDoneToday(p.uid), refreshTick, downloads.changes()) { media, done, _, _ ->
+            buildGuided(media, done, Permissions.canDoDailyPractices(p.viewer), ready = { downloads.localFile(it) != null }) { s, secs ->
                 progress.share(s, secs) to progress.load(s).first
             }
         }
@@ -239,6 +249,7 @@ private fun StatusTag(card: GuidedCard, accent: Color) {
         card.locked -> Text(stringResource(R.string.guided_locked), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2,
             modifier = Modifier.padding(start = Spacing.xs).fillMaxWidth(0.3f))
         card.doneToday -> Text(stringResource(R.string.guided_done), style = MaterialTheme.typography.labelMedium, color = accent)
+        card.downloading -> Text(stringResource(R.string.guided_downloading), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         else -> Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Box(Modifier.size(40.dp).clip(CircleShape).background(Brush.linearGradient(OjasGradients.saffron)), contentAlignment = Alignment.Center) {
                 Icon(Icons.Filled.PlayArrow, contentDescription = stringResource(R.string.media_play), tint = Color.White)

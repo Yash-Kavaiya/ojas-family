@@ -47,6 +47,19 @@ class GuidedPracticeTest {
     }
 
     @Test
+    fun cardIsDownloadingUntilItsFileIsOnThePhone() {
+        val yt = PracticeMedia(ContentSection.QuickProtection, "KPRvRrJgmVk", MediaType.YouTube, 600, "")
+        val cards = buildGuided(
+            mapOf(ContentSection.BlueLight to media(ContentSection.BlueLight), ContentSection.QuickProtection to yt),
+            emptySet(), canDaily = true, ready = { false }
+        ) { _, _ -> 0f to 0L }
+        assertTrue(cards.first { it.section == ContentSection.BlueLight }.downloading)
+        assertFalse(cards.first { it.section == ContentSection.QuickProtection }.downloading)
+        val ready = buildGuided(mapOf(ContentSection.BlueLight to media(ContentSection.BlueLight)), emptySet(), canDaily = true, ready = { true }) { _, _ -> 0f to 0L }
+        assertFalse(ready.single().downloading)
+    }
+
+    @Test
     fun labels() {
         assertEquals("29:18", clockLabel(1_758_000))
         assertEquals("1:02:05", clockLabel(3_725_000))

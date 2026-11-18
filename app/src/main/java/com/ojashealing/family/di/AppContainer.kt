@@ -55,6 +55,7 @@ class AppContainer(context: Context) {
     val presence = com.ojashealing.family.data.presence.PresenceRepository(Firebase.firestore)
     val commentLikes = com.ojashealing.family.data.social.CommentLikeRepository(Firebase.firestore)
     val practiceMedia = com.ojashealing.family.data.practice.PracticeMediaRepository(Firebase.firestore, functions)
+    val practiceDownloads = com.ojashealing.family.data.practice.PracticeDownloads(app)
     val paid = PaidRepository(Firebase.firestore, functions)
     val billing by lazy { PlayBilling(app, paid) }
     val daily = DailyRepository(Firebase.firestore)

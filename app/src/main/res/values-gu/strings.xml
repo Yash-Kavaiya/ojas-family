@@ -533,6 +533,10 @@
     <string name="session_retry">ફરી પ્રયાસ કરો</string>
     <string name="session_back">અભ્યાસ પર પાછા</string>
     <string name="session_loading">અભ્યાસ તૈયાર થઈ રહ્યો છે…</string>
+    <string name="session_downloading_wifi">Wi-Fi પર ડાઉનલોડ થઈ રહ્યું છે. પછી તે ઇન્ટરનેટ વગર તમારા ફોનથી ચાલશે.</string>
+    <string name="session_downloading">ડાઉનલોડ થઈ રહ્યું છે… %1$d%%</string>
+    <string name="session_download_mobile">મોબાઇલ ડેટાથી હમણાં ડાઉનલોડ કરો</string>
+    <string name="guided_downloading">ડાઉનલોડ થઈ રહ્યું છે…</string>
     <string name="points_src_practice">માર્ગદર્શિત અભ્યાસ</string>
     <string name="voice_hold">વૉઇસ મેસેજ રેકોર્ડ કરવા દબાવી રાખો</string>
     <string name="voice_slide_cancel">રદ કરવા સરકાવો</string>
