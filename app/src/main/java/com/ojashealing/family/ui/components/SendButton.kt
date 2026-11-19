@@ -41,9 +41,7 @@ fun SendButton(
     enabled: Boolean,
     busy: Boolean = false,
     size: Dp = 44.dp,
-    modifier: Modifier = Modifier,
-    /** The button's colours when it can be pressed (the saffron gradient unless given). */
-    colors: List<Color> = OjasGradients.saffron,
+    modifier: Modifier = Modifier
 ) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
@@ -51,14 +49,14 @@ fun SendButton(
     // Sent many times a day: a quick 0.96 press with no bounce; a disabled button never moves
     val scale by animateFloatAsState(if (pressed && active) 0.96f else 1f, tween(150, easing = LinearOutSlowInEasing), label = "sendScale")
     val tilt by animateFloatAsState(if (pressed && active) -12f else 0f, tween(150, easing = LinearOutSlowInEasing), label = "sendTilt")
-    val background = if (active) Brush.linearGradient(colors)
+    val background = if (active) Brush.linearGradient(OjasGradients.saffron)
     else Brush.linearGradient(listOf(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.surfaceVariant))
 
     Box(
         modifier = modifier
             .size(size)
             .graphicsLayer { scaleX = scale; scaleY = scale }
-            .shadow(if (active) 6.dp else 0.dp, CircleShape, ambientColor = colors.last(), spotColor = colors.last())
+            .shadow(if (active) 6.dp else 0.dp, CircleShape, ambientColor = Color(0xFFE8590C), spotColor = Color(0xFFE8590C))
             .clip(CircleShape)
             .background(background)
             .clickable(enabled = active, interactionSource = interaction, indication = null, role = Role.Button, onClick = onClick),

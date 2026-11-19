@@ -292,7 +292,6 @@
     <string name="find_member_action">Find member</string>
     <string name="chat_title">Chat with Swamiji</string>
     <string name="chat_hint">Write a message</string>
-    <string name="chat_emoji">Emoji</string>
     <string name="views_seen_by">Seen by %1$s</string>
     <string name="chat_empty">Say Hari Om. Swamiji or a senior member will reply here.</string>
     <string name="chat_assign">Assign</string>

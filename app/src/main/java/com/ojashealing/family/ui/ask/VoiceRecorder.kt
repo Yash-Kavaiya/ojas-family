@@ -146,8 +146,7 @@ fun HoldToRecordButton(
     onStart: () -> Boolean,
     onDrag: (Float) -> Unit,
     onRelease: (cancelled: Boolean) -> Unit,
-    modifier: Modifier = Modifier,
-    color: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary,
+    modifier: Modifier = Modifier
 ) {
     val cancelPx = with(LocalDensity.current) { 120.dp.toPx() }
     val label = stringResource(R.string.voice_hold)
@@ -155,7 +154,7 @@ fun HoldToRecordButton(
         modifier
             .size(48.dp)
             .clip(CircleShape)
-            .background(color)
+            .background(MaterialTheme.colorScheme.primary)
             .semantics { contentDescription = label }
             .pointerInput(Unit) {
                 awaitEachGesture {
