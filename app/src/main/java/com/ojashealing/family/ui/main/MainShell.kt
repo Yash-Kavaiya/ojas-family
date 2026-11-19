@@ -213,6 +213,7 @@ import kotlinx.serialization.Serializable
 @Serializable data class AnnouncementRoute(val id: String)
 @Serializable data class AboutRoute(val kind: String)
 @Serializable object SwamijiAiRoute
+@Serializable data class BookRoute(val id: String, val title: String, val url: String, val author: String = "", val coverUrl: String = "")
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @Composable
@@ -763,8 +764,6 @@ fun MainShell(container: AppContainer) {
                                         jump = askJump,
                                         onJumpConsumed = { askJump = null },
                                         hub = { openChat, openInbox ->
-                                            // Read while composing (lint: no resource lookups through LocalContext)
-                                            val booksOpenFailed = androidx.compose.ui.res.stringResource(com.ojashealing.family.R.string.books_open_failed)
                                             // Collected only here, so the book list (up to 300 documents) is read only by people who open Ask
                                             val books by contentVm.books.collectAsStateWithLifecycle()
                                             AskTab(
@@ -774,13 +773,8 @@ fun MainShell(container: AppContainer) {
                                                 part = askPart,
                                                 onPart = { askPart = it },
                                                 books = books,
-                                                onOpenBook = { book ->
-                                                    runCatching {
-                                                        context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(book.url)))
-                                                    }.onFailure {
-                                                        android.widget.Toast.makeText(context, booksOpenFailed, android.widget.Toast.LENGTH_SHORT).show()
-                                                    }
-                                                },
+                                                onOpenBook = { book -> nav.navigate(BookRoute(book.id, book.title, book.url, book.author, book.coverUrl)) },
+                                                library = container.books,
                                                 onPlay = play,
                                                 onOpenChat = { openChat(it.id) },
                                                 onCall = { channel, video -> callStaff(channel, video, "") },
@@ -1119,6 +1113,14 @@ fun MainShell(container: AppContainer) {
                     )
                 }
                 if (editing) com.ojashealing.family.ui.screens.PointsAmountsSheet(pointsVm, onDismiss = { editing = false })
+            }
+            composable<BookRoute> { entry ->
+                val r = entry.toRoute<BookRoute>()
+                com.ojashealing.family.ui.books.BookReaderScreen(
+                    com.ojashealing.family.domain.Book(id = r.id, title = r.title, url = r.url, author = r.author, coverUrl = r.coverUrl),
+                    container.books,
+                    onBack = { nav.popBackStack() },
+                )
             }
             composable<SwamijiAiRoute> {
                 val aiVm: com.ojashealing.family.ui.ask.SwamijiAiViewModel = viewModel(factory = viewModelFactory {

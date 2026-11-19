@@ -42,6 +42,15 @@ service firebase.storage {
           || (request.resource.size < 5 * 1024 * 1024 && request.resource.contentType.matches('image/.*')));
     }
 
+    // Book PDFs (Ask tab, Books): admins upload, every signed-in member downloads to read in the
+    // app; like the videos, a book's unlock level is applied by the app
+    match /books/pdfs/{file} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.token.get('role', 'member') == 'admin'
+        && (request.resource == null
+          || (request.resource.size < 200 * 1024 * 1024 && request.resource.contentType == 'application/pdf'));
+    }
+
     // Guided practice video or audio (Practice tab): admins upload, every signed-in member streams
     match /practice/{file} {
       allow read: if request.auth != null;

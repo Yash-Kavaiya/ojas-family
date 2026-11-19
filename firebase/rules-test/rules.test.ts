@@ -196,6 +196,14 @@ describe("storage", () => {
     await assertFails(uploadBytes(ref(bob, `users/${ALICE}/media/a.mpeg`), image(1024), { contentType: "audio/mpeg" }));
   });
 
+  test("only admins upload book PDFs, and only PDFs under 200 MB", async () => {
+    const admin = env.authenticatedContext("admin1", { role: "admin" }).storage();
+    const member = env.authenticatedContext(ALICE).storage();
+    await assertSucceeds(uploadBytes(ref(admin, "books/pdfs/b1-1.pdf"), image(2 * 1024 * 1024), { contentType: "application/pdf" }));
+    await assertFails(uploadBytes(ref(admin, "books/pdfs/b1-2.pdf"), image(1024), { contentType: "image/png" }));
+    await assertFails(uploadBytes(ref(member, "books/pdfs/b1-3.pdf"), image(1024), { contentType: "application/pdf" }));
+  });
+
   test("only admins upload announcement picture, audio or video, within each size limit", async () => {
     const admin = env.authenticatedContext("admin1", { role: "admin" }).storage();
     const member = env.authenticatedContext(ALICE).storage();
