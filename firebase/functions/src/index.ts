@@ -32,7 +32,7 @@ import { applyAdminList, applyAdminListNow, givePointsFor, statsFor } from "./ad
 import { backfillStatsFor, todayStatsFor, userCountsFor, writeDailyStats } from "./stats";
 import { onThoughtPushTick } from "./thoughtTime";
 import { fetchPublicPage, linkPreviewFor } from "./linkPreview";
-import { findGiftRecipientsFor, reverseTransferFor, setTransfersFrozenFor, staffAdjustPointsFor, transferPointsFor, updatePointsConfigFor } from "./transfer";
+import { reverseTransferFor, setTransfersFrozenFor, staffAdjustPointsFor, updatePointsConfigFor } from "./transfer";
 import { onProfileWritten } from "./profilePoints";
 import { askSwamijiFor, rateAiAnswerFor, remainingToday } from "./ai";
 import { nvidiaDeps } from "./aiNvidia";
@@ -251,16 +251,18 @@ export const userWritten = onDocumentWritten("users/{uid}", async (e) => {
   await onProfileWritten(db, e.params.uid, e.data?.before.data(), e.data?.after.data());
 });
 
-// ---- Moksha Points: member-to-member gifts and Swamiji/admin control ----
+// ---- Moksha Points: Swamiji/admin control ----
 
+// Members can no longer send points to each other (owner decision 2026-11-20). These two stay so
+// older apps get a clear answer instead of a missing function; past gifts can still be undone below.
 export const transferPoints = onCall({ enforceAppCheck: enforceAppCheck }, async (req) => {
-  const uid = requireUid(req);
-  return transferPointsFor(db, uid, (req.data ?? {}) as Record<string, unknown>, new Date());
+  requireUid(req);
+  throw new HttpsError("failed-precondition", "Sending points is no longer available");
 });
 
 export const findGiftRecipients = onCall({ enforceAppCheck: enforceAppCheck }, async (req) => {
-  const uid = requireUid(req);
-  return findGiftRecipientsFor(db, uid, (req.data ?? {}) as Record<string, unknown>);
+  requireUid(req);
+  return { members: [] };
 });
 
 export const staffAdjustPoints = onCall(async (req) => {

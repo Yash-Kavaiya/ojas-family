@@ -1104,7 +1104,6 @@ fun MainShell(container: AppContainer) {
                 val explained by container.settings.pointsExplained.collectAsStateWithLifecycle(initialValue = true)
                 var explain by rememberSaveable { mutableStateOf(false) }
                 LaunchedEffect(explained) { if (!explained) explain = true }
-                var sending by rememberSaveable { mutableStateOf(false) }
                 var editing by rememberSaveable { mutableStateOf(false) }
                 val role = profile?.viewer?.role
                 val canEditAmounts = role == com.ojashealing.family.domain.Role.Admin || role == com.ojashealing.family.domain.Role.Swamiji
@@ -1114,19 +1113,12 @@ fun MainShell(container: AppContainer) {
                     hasMore = historyMore,
                     onLoadOlder = { uid?.let { id -> scope.launch { container.points.loadOlderHistory(id) } } },
                     onHowItWorks = { explain = true },
-                    onSend = { sending = true },
                 )
                 if (explain) com.ojashealing.family.ui.screens.PointsExplainerSheet(
                     pointsConfig, targets,
                     onDismiss = { explain = false; scope.launch { container.settings.markPointsExplained() } },
                     onEditAmounts = if (canEditAmounts) ({ explain = false; editing = true }) else null,
                 )
-                if (sending) profile?.let { p ->
-                    com.ojashealing.family.ui.screens.SendPointsSheet(
-                        pointsVm, balance = p.mokshaPoints, myLevel = p.viewer.userLevel.rank, frozen = p.transfersFrozen,
-                        onDismiss = { sending = false },
-                    )
-                }
                 if (editing) com.ojashealing.family.ui.screens.PointsAmountsSheet(pointsVm, onDismiss = { editing = false })
             }
             composable<BookRoute> { entry ->

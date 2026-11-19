@@ -1,4 +1,4 @@
-import { isPrivateAddress, linkPreviewFor, parsePreview, previewTarget, youtubeOembedUrl, type PageFetcher } from "../src/linkPreview";
+import { isPrivateAddress, linkPreviewFor, parsePreview, previewTarget, youtubeOembedUrl, youtubeVideoId, type PageFetcher } from "../src/linkPreview";
 import { clearDb, testDb } from "./emulator";
 
 const db = testDb();
@@ -113,5 +113,29 @@ describe("linkPreviewFor", () => {
     expect(await linkPreviewFor(db, "https://youtu.be/abc", { fetchPage, now: NOW })).toEqual({
       title: "Morning meditation", description: "Ojas", image: "https://i.ytimg.com/vi/abc/hqdefault.jpg", site: "YouTube",
     });
+  });
+
+  it("reads the video's page when YouTube won't describe a video that can't be embedded", async () => {
+    const fetchPage: PageFetcher = jest.fn(async (url: string, maxBytes?: number) => {
+      if (url.includes("/oembed")) throw new Error("HTTP 401");
+      expect(url).toBe("https://www.youtube.com/watch?v=KPRvRrJgmVk");
+      expect(maxBytes).toBeGreaterThan(1_000_000);
+      return { body: `<title>Protection Vidhi - YouTube</title><meta property="og:description" content="Shield">`, finalUrl: url };
+    });
+    expect(await linkPreviewFor(db, "https://youtu.be/KPRvRrJgmVk?si=x", { fetchPage, now: NOW })).toEqual({
+      title: "Protection Vidhi", description: "Shield", image: "https://i.ytimg.com/vi/KPRvRrJgmVk/hqdefault.jpg", site: "YouTube",
+    });
+  });
+});
+
+describe("youtubeVideoId", () => {
+  it("finds the video in every kind of YouTube link", () => {
+    const id = "KPRvRrJgmVk";
+    for (const u of [`https://youtu.be/${id}?si=a`, `https://www.youtube.com/watch?v=${id}&t=3`, `https://m.youtube.com/shorts/${id}`,
+      `https://youtube.com/live/${id}`, `https://www.youtube.com/embed/${id}`]) {
+      expect(youtubeVideoId(u)).toBe(id);
+    }
+    expect(youtubeVideoId("https://www.youtube.com/@channel")).toBeNull();
+    expect(youtubeVideoId(`https://e.com/watch?v=${id}`)).toBeNull();
   });
 });

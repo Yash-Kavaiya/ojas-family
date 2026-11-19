@@ -55,6 +55,9 @@ data class PointsConfig(
     }
 
     /** The editable numbers, for Swamiji's and admins' editor, in the order shown. */
+    /** The amounts each activity earns, without the old gifting limits. */
+    fun earningNumbers(): List<Pair<String, Int>> = numbers().filter { it.first !in setOf("maxTransfer", "dailySendCap", "minLevelToSend") }
+
     fun numbers(): List<Pair<String, Int>> = listOf(
         "dailyOpen" to dailyOpen, "practice" to practice, "allPracticesBonus" to allPracticesBonus,
         "streakBonus" to streakBonus, "streakBonusEvery" to streakBonusEvery, "like" to like, "comment" to comment,

@@ -6,12 +6,14 @@ import { Timestamp, type Firestore } from "firebase-admin/firestore";
 /** What a link card shows: the page's title, a line about it, its picture and the site's name. */
 export interface LinkPreview { title: string; description: string; image: string; site: string }
 
-/** Downloads a page (or YouTube's answer) and says where it ended up after redirects. */
-export type PageFetcher = (url: string) => Promise<{ body: string; finalUrl: string }>;
+/** Downloads a page (or YouTube's answer), at most [maxBytes] of it, and says where it ended up after redirects. */
+export type PageFetcher = (url: string, maxBytes?: number) => Promise<{ body: string; finalUrl: string }>;
 
 const WEEK_MS = 7 * 86400_000;
 const DAY_MS = 86400_000;
 const MAX_BYTES = 400_000;
+// A YouTube video page carries its preview tags about 800 KB in, after its scripts
+const YOUTUBE_PAGE_BYTES = 2_000_000;
 
 /** The address to look up, without the part after "#", or null if it is not a public web page address. */
 export function previewTarget(raw: unknown): string | null {
@@ -47,6 +49,21 @@ export function youtubeOembedUrl(url: string): string | null {
   try { host = new URL(url).hostname.toLowerCase(); } catch { return null; }
   const yt = host === "youtu.be" || host === "youtube.com" || host.endsWith(".youtube.com");
   return yt ? `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(url)}` : null;
+}
+
+/** The video's id in a YouTube link (watch, youtu.be, shorts, live, embed), or null. */
+export function youtubeVideoId(url: string): string | null {
+  let u: URL;
+  try { u = new URL(url); } catch { return null; }
+  const host = u.hostname.toLowerCase();
+  const path = u.pathname.replace(/^\/+|\/+$/g, "");
+  let id: string | null = null;
+  if (host === "youtu.be") id = path.split("/")[0];
+  else if (host === "youtube.com" || host.endsWith(".youtube.com")) {
+    if (path === "watch") id = u.searchParams.get("v");
+    else if (/^(shorts|live|embed|v)\//.test(path)) id = path.split("/")[1];
+  }
+  return id && /^[A-Za-z0-9_-]{11}$/.test(id) ? id : null;
 }
 
 function decodeEntities(s: string): string {
@@ -139,6 +156,21 @@ export async function linkPreviewFor(
   } catch {
     preview = null;
   }
+  // YouTube refuses oEmbed for videos that can't be embedded (Swamiji's channel); read the video's page instead
+  const videoId = preview ? null : youtubeVideoId(url);
+  if (videoId) {
+    try {
+      const page = await deps.fetchPage(`https://www.youtube.com/watch?v=${videoId}`, YOUTUBE_PAGE_BYTES);
+      const p = parsePreview(page.body, page.finalUrl);
+      const title = p.title.replace(/\s*-\s*YouTube$/, "");
+      if (title) {
+        preview = {
+          title, description: p.description, site: "YouTube",
+          image: p.image.startsWith("https://") ? p.image : `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+        };
+      }
+    } catch { /* nothing to show */ }
+  }
   // Unused previews are removed by the TTL policy on expireAt 30 days after the last look-up
   const expireAt = Timestamp.fromMillis(now + 30 * DAY_MS);
   await ref.set(preview ? { url, ok: true, fetchedAt: now, expireAt, ...preview } : { url, ok: false, fetchedAt: now, expireAt });
@@ -147,9 +179,9 @@ export async function linkPreviewFor(
 
 /**
  * Fetches a public page: only http(s) on the usual ports, never an address inside a network
- * (checked again on every redirect), at most 5 seconds and the first 400 KB.
+ * (checked again on every redirect), at most 5 seconds and the first 400 KB (2 MB when asked).
  */
-export const fetchPublicPage: PageFetcher = async (start) => {
+export const fetchPublicPage: PageFetcher = async (start, maxBytes = MAX_BYTES) => {
   let url = start;
   for (let hop = 0; hop < 5; hop++) {
     const target = previewTarget(url);
@@ -179,7 +211,7 @@ export const fetchPublicPage: PageFetcher = async (start) => {
     const reader = res.body.getReader();
     const chunks: Uint8Array[] = [];
     let size = 0;
-    while (size < MAX_BYTES) {
+    while (size < Math.min(maxBytes, YOUTUBE_PAGE_BYTES)) {
       const { done, value } = await reader.read();
       if (done) break;
       chunks.push(value);

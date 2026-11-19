@@ -133,7 +133,6 @@ fun PointsHistoryScreen(
     hasMore: Boolean = false,
     onLoadOlder: () -> Unit = {},
     onHowItWorks: () -> Unit = {},
-    onSend: (() -> Unit)? = null,
 ) {
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
@@ -155,15 +154,10 @@ fun PointsHistoryScreen(
                 item(key = "hero", contentType = "hero") { PointsHero(profile, targets, Modifier.staggeredEntrance(0, key = "hero")) }
                 item(key = "actions", contentType = "actions") {
                     Row(Modifier.fillMaxWidth().staggeredEntrance(1, key = "actions"), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-                        OutlinedButton(onClick = onHowItWorks, modifier = Modifier.weight(1f)) {
+                        OutlinedButton(onClick = onHowItWorks, modifier = Modifier.fillMaxWidth()) {
                             Icon(Icons.AutoMirrored.Filled.HelpOutline, null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(6.dp))
                             Text(stringResource(R.string.points_how_it_works), maxLines = 1)
-                        }
-                        if (onSend != null) Button(onClick = onSend, modifier = Modifier.weight(1f)) {
-                            Icon(Icons.Filled.CardGiftcard, null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text(stringResource(R.string.points_send), maxLines = 1)
                         }
                     }
                 }

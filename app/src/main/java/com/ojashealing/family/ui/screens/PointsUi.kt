@@ -118,34 +118,17 @@ sealed interface PointsAction {
     data class Failed(val message: String?) : PointsAction
 }
 
-/** Sending points, Swamiji's and admins' controls, and the activity amounts, for the points screens. */
+/** Swamiji's and admins' controls and the activity amounts, for the points screens. */
 class PointsActionsViewModel(private val repo: PointsRepository) : ViewModel() {
     val config: StateFlow<PointsConfig> = repo.observePointsConfig().catch { emit(PointsConfig()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PointsConfig())
 
-    private val _results = MutableStateFlow<List<GiftRecipient>?>(emptyList())
-    val results: StateFlow<List<GiftRecipient>?> = _results
     private val _action = MutableStateFlow<PointsAction>(PointsAction.Idle)
     val action: StateFlow<PointsAction> = _action
     private val _transfers = MutableStateFlow<List<TransferRow>?>(null)
     val transfers: StateFlow<List<TransferRow>?> = _transfers
     private val _frozen = MutableStateFlow(false)
     val frozen: StateFlow<Boolean> = _frozen
-    private var searchJob: Job? = null
-
-    fun search(text: String) {
-        searchJob?.cancel()
-        if (text.trim().length < 2) {
-            _results.value = emptyList()
-            return
-        }
-        searchJob = viewModelScope.launch {
-            delay(300)
-            _results.value = null
-            _results.value = repo.findGiftRecipients(text.trim()).getOrElse { emptyList() }
-        }
-    }
-
     private fun run(block: suspend () -> Result<Int>) {
         if (_action.value == PointsAction.Working) return
         _action.value = PointsAction.Working
@@ -154,7 +137,6 @@ class PointsActionsViewModel(private val repo: PointsRepository) : ViewModel() {
         }
     }
 
-    fun send(to: GiftRecipient, amount: Int, note: String) = run { repo.sendPoints(to.uid, amount, note.trim()).onSuccess { com.ojashealing.family.data.analytics.Analytics.pointsGift() } }
     fun adjust(uid: String, mode: String, amount: Int, countForLevel: Boolean, note: String) =
         run { repo.staffAdjust(uid, mode, amount, countForLevel, note.trim()) }
     fun freeze(uid: String, frozen: Boolean) = run { repo.setTransfersFrozen(uid, frozen).map { if (frozen) 1 else 0 } }
@@ -250,7 +232,6 @@ private fun ExplainHeader(icon: ImageVector, title: String, body: String) {
 private fun ExplainWhat() {
     ExplainHeader(Icons.Filled.Stars, stringResource(R.string.points_explain_what_title), stringResource(R.string.points_explain_what_body))
     BulletRow(Icons.Filled.TrendingUp, stringResource(R.string.points_explain_what_1))
-    BulletRow(Icons.Filled.CardGiftcard, stringResource(R.string.points_explain_what_2))
     BulletRow(Icons.Filled.CheckCircle, stringResource(R.string.points_explain_what_3))
 }
 
@@ -284,12 +265,6 @@ private fun ExplainLevels(config: PointsConfig, targets: LevelTargets) {
     listOf(2 to targets.l2, 3 to targets.l3, 4 to targets.l4).forEach { (lvl, t) ->
         BulletRow(Icons.Filled.Stars, stringResource(R.string.points_explain_level_row, lvl, t.days, t.points))
     }
-    HorizontalDivider()
-    Text(stringResource(R.string.points_explain_gift_title), style = MaterialTheme.typography.titleMedium)
-    BulletRow(Icons.Filled.CardGiftcard, stringResource(R.string.points_explain_gift_1, config.minLevelToSend))
-    BulletRow(Icons.Filled.TrendingUp, stringResource(R.string.points_explain_gift_2))
-    BulletRow(Icons.Filled.CheckCircle, stringResource(R.string.points_explain_gift_3, config.maxTransfer, config.dailySendCap))
-    BulletRow(Icons.Filled.Person, stringResource(R.string.points_explain_gift_4))
 }
 
 @Composable
@@ -297,144 +272,6 @@ private fun BulletRow(icon: ImageVector, text: String) {
     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.m), verticalAlignment = Alignment.Top) {
         Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp).padding(top = 2.dp))
         Text(text, style = MaterialTheme.typography.bodyMedium)
-    }
-}
-
-// ---------------------------------------------------------------------------------------------
-// Sending points to another member
-// ---------------------------------------------------------------------------------------------
-
-/**
- * Find a member by name, choose how many points to give and add a short note. The confirm step
- * says plainly what will happen to both balances before anything moves.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun SendPointsSheet(vm: PointsActionsViewModel, balance: Int, myLevel: Int, frozen: Boolean, onDismiss: () -> Unit) {
-    val config by vm.config.collectAsStateWithLifecycle()
-    val results by vm.results.collectAsStateWithLifecycle()
-    val action by vm.action.collectAsStateWithLifecycle()
-    var query by rememberSaveable { mutableStateOf("") }
-    var to by remember { mutableStateOf<GiftRecipient?>(null) }
-    var amount by rememberSaveable { mutableIntStateOf(5) }
-    var note by rememberSaveable { mutableStateOf("") }
-    LaunchedEffect(Unit) { vm.reset() }
-    val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    ModalBottomSheet(onDismissRequest = { vm.reset(); onDismiss() }, sheetState = sheet) {
-        Column(
-            Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = Spacing.xl).padding(bottom = Spacing.l),
-            verticalArrangement = Arrangement.spacedBy(Spacing.m),
-        ) {
-            Text(stringResource(R.string.points_send_title), style = MaterialTheme.typography.headlineSmall)
-            val blocked = when {
-                !config.transfersEnabled -> stringResource(R.string.points_send_off)
-                frozen -> stringResource(R.string.points_send_frozen)
-                myLevel < config.minLevelToSend -> stringResource(R.string.points_send_level, config.minLevelToSend)
-                balance <= 0 -> stringResource(R.string.points_send_empty)
-                else -> null
-            }
-            if (blocked != null) {
-                Text(blocked, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                OutlinedButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.action_close)) }
-                return@Column
-            }
-            AnimatedContent(
-                targetState = when {
-                    action is PointsAction.Done -> 2
-                    to != null -> 1
-                    else -> 0
-                },
-                transitionSpec = { fadeIn(tween(Durations.Base, easing = OjasEasing.Emphasized)) togetherWith fadeOut(tween(Durations.Quick)) },
-                label = "sendStep",
-            ) { step ->
-                when (step) {
-                    0 -> Column(verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
-                        OutlinedTextField(
-                            value = query,
-                            onValueChange = { query = it; vm.search(it) },
-                            leadingIcon = { Icon(Icons.Outlined.Search, null) },
-                            placeholder = { Text(stringResource(R.string.points_send_search)) },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        val list = results
-                        when {
-                            list == null -> Box(Modifier.fillMaxWidth().padding(Spacing.l), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-                            query.trim().length < 2 -> Text(stringResource(R.string.points_send_search_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            list.isEmpty() -> Text(stringResource(R.string.points_send_none), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            else -> LazyColumn(Modifier.heightIn(max = 320.dp)) {
-                                items(list, key = { it.uid }) { m -> RecipientRow(m) { to = m; amount = amount.coerceIn(1, minOf(config.maxTransfer, balance)) } }
-                            }
-                        }
-                    }
-                    1 -> to?.let { who ->
-                        val max = minOf(config.maxTransfer, balance).coerceAtLeast(1)
-                        Column(verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
-                            RecipientRow(who, onClick = { to = null })
-                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                                FilledTonalIconButton(onClick = { amount = (amount - 1).coerceAtLeast(1) }, enabled = amount > 1) { Icon(Icons.Filled.Remove, stringResource(R.string.points_less)) }
-                                Text("$amount", style = com.ojashealing.family.ui.theme.BrandNumberLargeStyle, modifier = Modifier.width(110.dp), textAlign = TextAlign.Center)
-                                FilledTonalIconButton(onClick = { amount = (amount + 1).coerceAtMost(max) }, enabled = amount < max) { Icon(Icons.Filled.Add, stringResource(R.string.points_more)) }
-                            }
-                            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s), modifier = Modifier.fillMaxWidth()) {
-                                listOf(5, 11, 21, 51).filter { it <= max }.forEach { v ->
-                                    FilterChip(selected = amount == v, onClick = { amount = v }, label = { Text("$v") })
-                                }
-                            }
-                            OutlinedTextField(
-                                value = note, onValueChange = { note = it.take(200) },
-                                placeholder = { Text(stringResource(R.string.points_send_note)) },
-                                modifier = Modifier.fillMaxWidth(), maxLines = 3,
-                            )
-                            Text(
-                                stringResource(R.string.points_send_confirm, amount, who.name, balance - amount),
-                                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            (action as? PointsAction.Failed)?.let {
-                                Text(it.message ?: stringResource(R.string.error_generic), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
-                            }
-                            Button(
-                                onClick = { vm.send(who, amount, note) },
-                                enabled = action != PointsAction.Working,
-                                modifier = Modifier.fillMaxWidth().height(52.dp),
-                            ) {
-                                if (action == PointsAction.Working) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
-                                else Text(pluralStringResource(R.plurals.points_send_button, amount, amount, who.name))
-                            }
-                        }
-                    }
-                    else -> Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.m), modifier = Modifier.fillMaxWidth()) {
-                        Box(Modifier.size(72.dp).clip(CircleShape).background(Brush.linearGradient(OjasGradients.gold)), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Filled.CardGiftcard, null, tint = Color(0xFF6B3A00), modifier = Modifier.size(36.dp))
-                        }
-                        Text(stringResource(R.string.points_sent_title, amount, to?.name.orEmpty()), style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
-                        Text(stringResource(R.string.points_sent_balance, (action as? PointsAction.Done)?.value ?: 0), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Button(onClick = { vm.reset(); onDismiss() }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.points_explain_done)) }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun RecipientRow(m: GiftRecipient, onClick: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable(onClick = onClick).padding(vertical = Spacing.s, horizontal = Spacing.xs),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.m),
-    ) {
-        if (m.photoUrl.isNotEmpty()) {
-            com.ojashealing.family.ui.components.ShimmerImage(m.photoUrl, Modifier.size(40.dp), shape = CircleShape)
-        } else {
-            Box(Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
-                Text(m.name.take(1).uppercase(), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
-            }
-        }
-        Column(Modifier.weight(1f)) {
-            Text(m.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(stringResource(R.string.profile_level, m.userLevel), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
     }
 }
 
@@ -532,8 +369,7 @@ fun ManagePointsSheet(vm: PointsActionsViewModel, uid: String, name: String, onD
 fun PointsAmountsSheet(vm: PointsActionsViewModel, onDismiss: () -> Unit) {
     val config by vm.config.collectAsStateWithLifecycle()
     val action by vm.action.collectAsStateWithLifecycle()
-    val values = remember(config) { mutableStateMapOf<String, String>().apply { config.numbers().forEach { (k, v) -> put(k, "$v") } } }
-    var enabled by remember(config) { mutableStateOf(config.transfersEnabled) }
+    val values = remember(config) { mutableStateMapOf<String, String>().apply { config.earningNumbers().forEach { (k, v) -> put(k, "$v") } } }
     LaunchedEffect(Unit) { vm.reset() }
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(onDismissRequest = { vm.reset(); onDismiss() }, sheetState = sheet) {
@@ -542,7 +378,7 @@ fun PointsAmountsSheet(vm: PointsActionsViewModel, onDismiss: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(Spacing.s),
         ) {
             Text(stringResource(R.string.points_edit_amounts), style = MaterialTheme.typography.headlineSmall)
-            config.numbers().forEach { (key, _) ->
+            config.earningNumbers().forEach { (key, _) ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(amountLabel(key), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                     OutlinedTextField(
@@ -550,10 +386,6 @@ fun PointsAmountsSheet(vm: PointsActionsViewModel, onDismiss: () -> Unit) {
                         singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.width(96.dp),
                     )
                 }
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.points_cfg_transfers), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                Switch(checked = enabled, onCheckedChange = { enabled = it })
             }
             when (val a = action) {
                 is PointsAction.Failed -> Text(a.message ?: stringResource(R.string.error_generic), color = MaterialTheme.colorScheme.error)
@@ -565,7 +397,8 @@ fun PointsAmountsSheet(vm: PointsActionsViewModel, onDismiss: () -> Unit) {
                 onClick = {
                     val out = HashMap<String, Any>()
                     values.forEach { (k, v) -> v.toIntOrNull()?.let { out[k] = it } }
-                    out["transfersEnabled"] = enabled
+                    // Members can no longer send points to each other
+                    out["transfersEnabled"] = false
                     vm.saveConfig(out)
                 },
                 enabled = action != PointsAction.Working,
@@ -589,9 +422,6 @@ private fun amountLabel(key: String): String = stringResource(
         "answer" -> R.string.points_src_answer
         "profileField" -> R.string.earn_profile_item
         "profileComplete" -> R.string.earn_profile_complete
-        "aiDaily" -> R.string.earn_ai
-        "maxTransfer" -> R.string.points_cfg_max_gift
-        "dailySendCap" -> R.string.points_cfg_daily_cap
-        else -> R.string.points_cfg_min_level
+        else -> R.string.earn_ai
     }
 )
