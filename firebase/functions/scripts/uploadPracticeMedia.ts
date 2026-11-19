@@ -8,6 +8,10 @@
 // Quick Protection is Protection Vidhi 1 from YouTube (owner decision 2026-11-12):
 //   npx ts-node scripts/uploadPracticeMedia.ts ../../videos/streaming --youtube quick_protection=KPRvRrJgmVk:<seconds>
 // Running it again replaces a practice's media; members' points for today are not affected.
+// Since 2026-11-19 all four practices are sound only (owner decision): the .m4a files are the
+// videos' own AAC sound copied out without re-encoding, e.g. for each practice
+//   ffmpeg -i <video> -vn -map 0:a:0 -c:a copy -movflags +faststart <section>.m4a
+// and uploaded with: npx ts-node scripts/uploadPracticeMedia.ts ../../videos/audio
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";

@@ -250,6 +250,9 @@ fun MainShell(container: AppContainer) {
         initializer { com.ojashealing.family.ui.content.GuidedPracticeViewModel(container.practiceMedia, container.practiceDownloads, vm.profile, progressStore) }
     })
     val guided by guidedVm.cards.collectAsStateWithLifecycle()
+    val readVm: com.ojashealing.family.ui.content.ReadQaViewModel = viewModel(factory = viewModelFactory {
+        initializer { com.ojashealing.family.ui.content.ReadQaViewModel(container.readQa, container.readTicks) { container.auth.currentUid.value } }
+    })
     // Keeps the downloaded guided practice files in step with the admin's choice (Wi-Fi downloads)
     LaunchedEffect(Unit) {
         container.auth.currentUid
@@ -729,6 +732,18 @@ fun MainShell(container: AppContainer) {
                                         onOpenGuided = { nav.navigate(PracticeSessionRoute(it.id)) },
                                         part = practicePart,
                                         onPart = { practicePart = it },
+                                        read = run {
+                                            // Collected only here, so the list is read only by people who open Practice
+                                            val readItems by readVm.items.collectAsStateWithLifecycle()
+                                            val readDone by readVm.read.collectAsStateWithLifecycle()
+                                            val readSaving by readVm.saving.collectAsStateWithLifecycle()
+                                            com.ojashealing.family.ui.content.ReadUi(
+                                                items = readItems, read = readDone,
+                                                canEdit = com.ojashealing.family.ui.content.canEditRead(p?.viewer),
+                                                saving = readSaving,
+                                                onMarkRead = readVm::markRead, onSave = readVm::save, onDelete = readVm::delete,
+                                            )
+                                        },
                                         freedom = {
                                             com.ojashealing.family.ui.goals.FreedomPractice(
                                                 state = goals,

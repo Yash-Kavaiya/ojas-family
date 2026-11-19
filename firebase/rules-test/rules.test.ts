@@ -6,7 +6,7 @@ import {
   initializeTestEnvironment,
   RulesTestEnvironment,
 } from "@firebase/rules-unit-testing";
-import { deleteDoc, doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDoc, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { ref, uploadBytes } from "firebase/storage";
 
 let env: RulesTestEnvironment;
@@ -280,6 +280,47 @@ describe("books", () => {
     await assertFails(setDoc(doc(admin(), "books", "b3"), { ...book, url: "http://example.com/a.pdf" }));
     await assertFails(setDoc(doc(admin(), "books", "b3"), { ...book, url: "javascript:alert(1)" }));
     await assertFails(setDoc(doc(admin(), "books", "b3"), { ...book, title: "" }));
+  });
+});
+
+describe("readQa", () => {
+  const qa = () => ({ question: "What is protection?", answer: "A shield of light.", authorUid: "root", createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+  const as = (role: string) => asUser("staff_" + role, { role });
+
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "readQa", "q1"), { question: "Q", answer: "A", authorUid: "root", createdAt: new Date(0), updatedAt: new Date(0) });
+    });
+  });
+
+  test("signed-in members read; signed-out cannot", async () => {
+    await assertSucceeds(getDoc(doc(asUser(ALICE), "readQa", "q1")));
+    await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), "readQa", "q1")));
+  });
+
+  test("admin and Swamiji add, change and delete", async () => {
+    for (const role of ["admin", "swamiji"]) {
+      const db = as(role);
+      const added = await assertSucceeds(addDoc(collection(db, "readQa"), qa()));
+      await assertSucceeds(updateDoc(added, { answer: "Changed", updatedAt: serverTimestamp() }));
+      await assertSucceeds(deleteDoc(added));
+    }
+  });
+
+  test("members and senior members cannot write", async () => {
+    for (const db of [asUser(ALICE), as("senior_member")]) {
+      await assertFails(addDoc(collection(db, "readQa"), qa()));
+      await assertFails(updateDoc(doc(db, "readQa", "q1"), { answer: "Hacked", updatedAt: serverTimestamp() }));
+      await assertFails(deleteDoc(doc(db, "readQa", "q1")));
+    }
+  });
+
+  test("empty, too long or extra fields are refused; createdAt cannot change", async () => {
+    const db = as("swamiji");
+    await assertFails(addDoc(collection(db, "readQa"), { ...qa(), question: "" }));
+    await assertFails(addDoc(collection(db, "readQa"), { ...qa(), answer: "x".repeat(10001) }));
+    await assertFails(addDoc(collection(db, "readQa"), { ...qa(), extra: true }));
+    await assertFails(updateDoc(doc(db, "readQa", "q1"), { createdAt: serverTimestamp(), updatedAt: serverTimestamp() }));
   });
 });
 

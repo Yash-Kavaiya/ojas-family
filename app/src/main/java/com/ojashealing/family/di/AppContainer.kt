@@ -69,6 +69,9 @@ class AppContainer(context: Context) {
     val commentLikes = com.ojashealing.family.data.social.CommentLikeRepository(Firebase.firestore)
     val practiceMedia = com.ojashealing.family.data.practice.PracticeMediaRepository(Firebase.firestore, functions)
     val practiceDownloads = com.ojashealing.family.data.practice.PracticeDownloads(app)
+    /** Practice > Read: Swamiji's questions and answers, and which ones this member has read. */
+    val readQa = com.ojashealing.family.data.read.ReadQaRepository(Firebase.firestore)
+    val readTicks by lazy { com.ojashealing.family.data.read.ReadTicks(app) }
     /** Books kept on the phone to read offline, and where each reader stopped. */
     val books by lazy { com.ojashealing.family.data.books.BookLibrary(app) }
     val paid = PaidRepository(Firebase.firestore, functions)

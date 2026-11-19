@@ -275,7 +275,7 @@ private fun BooksPart(
 ) {
     val markViewed = com.ojashealing.family.ui.components.rememberMarkViewed()
     val states = library?.states?.collectAsState()?.value.orEmpty()
-    var asList by remember { mutableStateOf(library?.shelfAsList ?: false) }
+    var asList by remember { mutableStateOf(library?.shelfAsList ?: true) }
     var removing by remember { mutableStateOf<Book?>(null) }
     // Copies of books the admin removed or replaced are deleted
     androidx.compose.runtime.LaunchedEffect(books) { books?.let { b -> library?.keepOnly(b.map { it.first.url }) } }

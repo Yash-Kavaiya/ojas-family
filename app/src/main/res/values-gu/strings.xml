@@ -795,6 +795,19 @@
     </plurals>
     <string name="ai_paused">આસ્ક સ્વામીજી AI હમણાં વિરામમાં છે. કૃપા કરીને પછી પ્રયાસ કરો.</string>
     <string name="practice_tab_daily">દૈનિક સાધના</string>
+    <string name="read_title">વાંચો</string>
+    <string name="read_add">ઉમેરો</string>
+    <string name="read_progress">%2$d માંથી %1$d વાંચ્યા</string>
+    <string name="read_empty_staff">હજુ કોઈ પ્રશ્ન નથી. પહેલો પ્રશ્ન અને તેનો જવાબ લખવા ઉમેરો દબાવો.</string>
+    <string name="read_done">વાંચી લીધું</string>
+    <string name="read_not_done">હજુ વાંચ્યું નથી</string>
+    <string name="read_add_title">નવો પ્રશ્ન</string>
+    <string name="read_edit_title">પ્રશ્ન બદલો</string>
+    <string name="read_question">પ્રશ્ન</string>
+    <string name="read_answer">જવાબ</string>
+    <string name="read_save_failed">સાચવી શક્યા નહીં. ફરી પ્રયાસ કરો.</string>
+    <string name="read_delete_failed">કાઢી શક્યા નહીં. ફરી પ્રયાસ કરો.</string>
+    <string name="read_delete_title">આ પ્રશ્ન કાઢી નાખીએ?</string>
     <string name="practice_tab_freedom">મુક્તિ સાધના</string>
     <string name="freedom_sadhana_title">સાધના લક્ષ્ય</string>
     <string name="freedom_sadhana_body">એક લક્ષ્ય પસંદ કરો અને તેને રોજ ટિક કરો. એક દિવસ ચૂકી જાઓ તો ગણતરી ફરીથી 1 થી શરૂ થાય છે.</string>

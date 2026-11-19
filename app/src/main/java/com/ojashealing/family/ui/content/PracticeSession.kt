@@ -754,53 +754,143 @@ private fun TimerRing(progress: Float, ui: SessionUi, colors: SessionColors, mod
 }
 
 /**
- * Eyes closed: a lotus in soft blue light that grows on the in-breath and settles on the
- * out-breath. Its glow also swells with the sound, so the voice seems to come from the light.
+ * Eyes closed: a lotus at the heart of a slowly turning mandala of blue light. A clear ring guides
+ * the breath (four seconds in, four out), petals of light open and close with it, rings of light
+ * flow outward like sound, and the whole glow swells with the voice and music. Everything runs on
+ * one clock that stops while paused, so the light rests where it was; with reduced motion it stays still.
  */
 @Composable
 private fun BreathingOrb(playing: Boolean, colors: SessionColors, modifier: Modifier, level: () -> Float = { 0f }) {
     val reduced = LocalReducedMotion.current
-    val t = rememberInfiniteTransition(label = "breath")
-    val breath = t.animateFloat(0f, 1f, infiniteRepeatable(tween(BREATH_MS, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "b")
-    // Read while drawing only; the words flip between in and out twice per breath, not every frame
-    val b: () -> Float = { if (playing && !reduced) breath.value else 0.4f }
-    val breathingIn by remember { androidx.compose.runtime.derivedStateOf { breath.value < 0.5f } }
+    val clock = remember { androidx.compose.runtime.mutableFloatStateOf(BREATH_MS / 1000f * 0.4f) }
+    // The voice, smoothed so the light swells with it instead of flickering
+    val voice = remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    LaunchedEffect(playing, reduced) {
+        if (!playing || reduced) { voice.floatValue = 0f; return@LaunchedEffect }
+        var last = 0L
+        while (true) {
+            androidx.compose.runtime.withFrameNanos { now ->
+                if (last != 0L) {
+                    val dt = ((now - last) / 1_000_000_000f).coerceAtMost(0.1f)
+                    clock.floatValue += dt
+                    voice.floatValue += (level().coerceIn(0f, 1f) - voice.floatValue) * (dt * 6f).coerceAtMost(1f)
+                }
+                last = now
+            }
+        }
+    }
+    val cycle = BREATH_MS * 2 / 1000f
+    // 0 fully out, 1 fully in; eased like a real breath
+    val breath: () -> Float = { (1f - cos(2f * PI.toFloat() * clock.floatValue / cycle)) / 2f }
+    // Only flips twice per breath, so the words recompose rarely
+    val breathingIn by remember { androidx.compose.runtime.derivedStateOf { (clock.floatValue % cycle) < cycle / 2f } }
     Box(modifier, contentAlignment = Alignment.Center) {
-        Canvas(Modifier.fillMaxSize().padding(18.dp)) {
+        Canvas(Modifier.fillMaxSize().padding(14.dp)) {
             val r = size.minDimension / 2
-            val voice = level().coerceIn(0f, 1f)
-            val b = b()
+            val t = clock.floatValue
+            val v = voice.floatValue
+            val b = breath()
+
             // Outer halo that follows the sound
             drawCircle(
                 Brush.radialGradient(
-                    listOf(HealingLight.Sky.copy(alpha = 0.10f + 0.30f * voice), Color.Transparent),
-                    center = center, radius = r * (0.95f + 0.12f * voice),
+                    listOf(HealingLight.Sky.copy(alpha = 0.12f + 0.30f * v), Color.Transparent),
+                    center = center, radius = r * (0.98f + 0.10f * v),
                 ),
-                radius = r * (0.95f + 0.12f * voice),
+                radius = r * (0.98f + 0.10f * v),
             )
-            for (i in 3 downTo 1) {
-                drawCircle(colors.accent.copy(alpha = 0.06f * i + 0.1f * b), r * (0.52f + 0.14f * i * (0.7f + 0.3f * b)))
+
+            // Rings of light flowing outward, brighter when the voice is strong
+            for (i in 0 until 3) {
+                val p = ((t / RIPPLE_S) + i / 3f) % 1f
+                val fade = (1f - p) * (1f - p)
+                drawCircle(
+                    HealingLight.Glow.copy(alpha = fade * (0.18f + 0.32f * v)),
+                    radius = r * (0.40f + 0.60f * p),
+                    style = Stroke(width = (1.5f + 3f * (1f - p)).dp.toPx()),
+                )
             }
+
+            // Eight petals of light, opening on the in-breath, turning one way
+            rotate(t * 4f) {
+                val len = r * (0.50f + 0.24f * b + 0.06f * v)
+                val w = r * (0.20f + 0.06f * b)
+                for (k in 0 until 8) {
+                    rotate(k * 45f) {
+                        drawOval(
+                            Brush.verticalGradient(
+                                listOf(Color.Transparent, colors.accent.copy(alpha = 0.10f + 0.12f * b), HealingLight.Sky.copy(alpha = 0.22f + 0.10f * v)),
+                                startY = center.y - len, endY = center.y,
+                            ),
+                            topLeft = Offset(center.x - w / 2, center.y - len),
+                            size = androidx.compose.ui.geometry.Size(w, len),
+                        )
+                    }
+                }
+            }
+
+            // Twelve fine rays turning the other way, long and short in turn
+            rotate(-t * 6f) {
+                for (k in 0 until 12) {
+                    rotate(k * 30f) {
+                        val outer = r * ((if (k % 2 == 0) 0.86f else 0.74f) + 0.08f * b + 0.06f * v)
+                        drawLine(
+                            Brush.verticalGradient(
+                                listOf(Color.Transparent, Color.White.copy(alpha = 0.30f + 0.25f * v)),
+                                startY = center.y - outer, endY = center.y - r * 0.40f,
+                            ),
+                            start = Offset(center.x, center.y - r * 0.40f), end = Offset(center.x, center.y - outer),
+                            strokeWidth = 1.6.dp.toPx(), cap = StrokeCap.Round,
+                        )
+                    }
+                }
+            }
+
+            // The breath guide: a clear ring that widens on the in-breath and narrows on the out-breath
+            val guide = r * (0.46f + 0.20f * b)
+            drawCircle(
+                Brush.radialGradient(
+                    listOf(colors.accent.copy(alpha = 0.22f + 0.14f * b), HealingLight.Blue.copy(alpha = 0.10f), Color.Transparent),
+                    center = center, radius = guide,
+                ),
+                radius = guide,
+            )
+            drawCircle(Color.White.copy(alpha = 0.45f + 0.30f * b), radius = guide, style = Stroke(width = 2.dp.toPx()))
+            // A bead of light travelling round the guide once per breath
+            val a = 2f * PI.toFloat() * (t / cycle) - PI.toFloat() / 2f
+            val bead = Offset(center.x + guide * cos(a), center.y + guide * sin(a))
+            drawCircle(HealingLight.Glow.copy(alpha = 0.35f), 7.dp.toPx(), bead)
+            drawCircle(Color.White, 3.dp.toPx(), bead)
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Image(
                 painterResource(R.drawable.ojas_lotus), contentDescription = null, contentScale = ContentScale.Crop,
-                modifier = Modifier.size(104.dp).graphicsLayer { val s = 0.9f + 0.15f * b(); scaleX = s; scaleY = s }.clip(CircleShape)
+                modifier = Modifier.size(96.dp).graphicsLayer { val sc = 0.9f + 0.14f * breath(); scaleX = sc; scaleY = sc }.clip(CircleShape)
             )
             if (playing) {
                 Spacer(Modifier.height(Spacing.s))
-                Text(
-                    stringResource(if (breathingIn) R.string.session_breathe_in else R.string.session_breathe_out),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = Color.White,
-                    modifier = Modifier.graphicsLayer { alpha = 0.6f + 0.4f * b() }
-                )
+                AnimatedContent(
+                    targetState = breathingIn,
+                    transitionSpec = {
+                        (fadeIn(tween(700)) + androidx.compose.animation.slideInVertically(tween(700)) { it / 2 }) togetherWith
+                            (fadeOut(tween(500)) + androidx.compose.animation.slideOutVertically(tween(500)) { -it / 2 })
+                    },
+                    label = "breathWord",
+                ) { inBreath ->
+                    Text(
+                        stringResource(if (inBreath) R.string.session_breathe_in else R.string.session_breathe_out),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Color.White,
+                    )
+                }
             }
         }
     }
 }
 
 private const val BREATH_MS = 4000
+// Seconds for a ring of light to flow from the lotus to the edge
+private const val RIPPLE_S = 6f
 
 @Composable
 private fun Controls(ui: SessionUi, colors: SessionColors, onToggle: () -> Unit, onSeek: (Long) -> Unit) {

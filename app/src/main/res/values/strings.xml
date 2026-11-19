@@ -796,6 +796,19 @@
     </plurals>
     <string name="ai_paused">Ask Swamiji AI is resting for now. Please try later.</string>
     <string name="practice_tab_daily">Daily Practice</string>
+    <string name="read_title">Read</string>
+    <string name="read_add">Add</string>
+    <string name="read_progress">%1$d of %2$d read</string>
+    <string name="read_empty_staff">No questions yet. Tap Add to write the first question and its answer.</string>
+    <string name="read_done">Read</string>
+    <string name="read_not_done">Not read yet</string>
+    <string name="read_add_title">New question</string>
+    <string name="read_edit_title">Change question</string>
+    <string name="read_question">Question</string>
+    <string name="read_answer">Answer</string>
+    <string name="read_save_failed">Could not save. Please try again.</string>
+    <string name="read_delete_failed">Could not delete. Please try again.</string>
+    <string name="read_delete_title">Delete this question?</string>
     <string name="practice_tab_freedom">Freedom Practice</string>
     <string name="freedom_sadhana_title">Sadhana goals</string>
     <string name="freedom_sadhana_body">Choose a goal and tick it every day. If you miss a day, the count starts again from 1.</string>

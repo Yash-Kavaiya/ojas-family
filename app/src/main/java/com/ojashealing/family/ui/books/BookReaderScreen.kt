@@ -31,6 +31,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -84,6 +85,10 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -327,8 +332,11 @@ private fun Reader(book: Book, pages: BookPages, library: BookLibrary, onBack: (
                         LaunchedEffect(jump) { jump?.let { pager.animateScrollToPage(it); page = it; jump = null } }
                         var pageZoom by remember { mutableFloatStateOf(1f) }
                         HorizontalPager(pager, Modifier.fillMaxSize(), userScrollEnabled = pageZoom <= 1.01f, key = { it }) { i ->
-                            ZoomablePage(onTap = { chrome = !chrome }, onZoom = { pageZoom = it }) {
-                                PageImage(pages, i, widthPx, filter, Modifier.fillMaxWidth().padding(horizontal = 6.dp))
+                            // Each page is a whole sheet of paper that lifts at the spine and turns over the next
+                            Box(Modifier.fillMaxSize().pageTurn(pager, i, bg)) {
+                                ZoomablePage(onTap = { chrome = !chrome }, onZoom = { pageZoom = it }) {
+                                    PageImage(pages, i, widthPx, filter, Modifier.fillMaxWidth().padding(horizontal = 6.dp))
+                                }
                             }
                         }
                     }
@@ -339,14 +347,20 @@ private fun Reader(book: Book, pages: BookPages, library: BookLibrary, onBack: (
                         LaunchedEffect(jump) { jump?.let { pager.animateScrollToPage(spreadOf(it)); page = it; jump = null } }
                         var pageZoom by remember { mutableFloatStateOf(1f) }
                         HorizontalPager(pager, Modifier.fillMaxSize(), userScrollEnabled = pageZoom <= 1.01f) { g ->
-                            ZoomablePage(onTap = { chrome = !chrome }, onZoom = { pageZoom = it }) {
-                                Row(
-                                    Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    groups[g].forEach { i ->
-                                        PageImage(pages, i, widthPx / 2, filter, Modifier.weight(1f, fill = groups[g].size == 2))
+                            // An open book: the right page turns over the spine and its back lands as the next left page.
+                            // The cover lies on the right, a last odd page on the left, as in a real book.
+                            val group = groups[g]
+                            val left = if (group.size == 2) group[0] else group.single().takeIf { g > 0 }
+                            val right = if (group.size == 2) group[1] else group.single().takeIf { g == 0 }
+                            Box(Modifier.fillMaxSize().spreadStack(pager, g)) {
+                                ZoomablePage(onTap = { chrome = !chrome }, onZoom = { pageZoom = it }) {
+                                    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Box(Modifier.weight(1f).leafTurn(pager, g, leftPage = true), contentAlignment = Alignment.CenterEnd) {
+                                            if (left != null) PageImage(pages, left, widthPx / 2, filter, Modifier.fillMaxWidth().spineShade(leftPage = true))
+                                        }
+                                        Box(Modifier.weight(1f).leafTurn(pager, g, leftPage = false), contentAlignment = Alignment.CenterStart) {
+                                            if (right != null) PageImage(pages, right, widthPx / 2, filter, Modifier.fillMaxWidth().spineShade(leftPage = false))
+                                        }
                                     }
                                 }
                             }
@@ -544,6 +558,124 @@ private fun Modifier.pinchZoom(onZoom: (Float) -> Unit) = pointerInput(Unit) {
             }
         } while (event.changes.any { it.pressed })
     }
+}
+
+// ---- turning pages like paper ----
+
+/** How far [page] is from resting in view: 0 at rest, below 0 while it is turned away, above 0 while it waits to be uncovered. */
+private fun PagerState.turn(page: Int): Float = ((page - currentPage) - currentPageOffsetFraction).coerceIn(-1f, 1f)
+
+// Seen from a little way off, so the lifted edge grows toward the reader without bending too far
+private const val PageCamera = 14f
+
+/**
+ * One page as a sheet in a pile: the page being turned lifts at the spine (its left edge), swings
+ * toward the reader and darkens as it leaves the light; the next page lies still beneath it, in its
+ * shadow, until it is uncovered. Works the same for swipes, buttons and read aloud.
+ */
+@Composable
+private fun Modifier.pageTurn(pager: PagerState, page: Int, paper: Color): Modifier {
+    // The page being turned (forward or back) is drawn over the one beneath; read only when that changes
+    val onTop by remember(pager, page) { derivedStateOf { pager.turn(page) < 0f } }
+    return this
+        .zIndex(if (onTop) 1f else 0f)
+        .graphicsLayer {
+            val t = pager.turn(page)
+            // The pager slides pages sideways; hold every page in place so they stack like paper
+            translationX = -t * size.width
+            cameraDistance = PageCamera * density
+            if (t < 0f) {
+                transformOrigin = TransformOrigin(0f, 0.5f)
+                rotationY = PageTurnSign * 90f * t
+                alpha = if (t <= -0.999f) 0f else 1f
+            } else {
+                rotationY = 0f
+                alpha = 1f
+            }
+        }
+        .background(paper)
+        .drawWithContent {
+            drawContent()
+            val t = pager.turn(page)
+            if (t < 0f) {
+                val k = -t
+                // A fold of shadow at the spine, and the free edge turning away from the light
+                drawRect(
+                    Brush.horizontalGradient(
+                        0f to Color.Black.copy(alpha = 0.30f * k), 0.12f to Color.Transparent,
+                        0.6f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.55f * k),
+                    )
+                )
+            } else if (t > 0f) {
+                // Beneath the lifted sheet: in its shadow, deepest on the side it still covers
+                drawRect(Color.Black.copy(alpha = 0.22f * t))
+                drawRect(Brush.horizontalGradient(0.3f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.30f * t)))
+            }
+        }
+}
+
+// Which way rotationY lifts a page toward the reader rather than into the screen
+private const val PageTurnSign = 1f
+
+/** Two pages side by side: hold each spread in place and draw the one whose sheet is in the air on top. */
+@Composable
+private fun Modifier.spreadStack(pager: PagerState, spread: Int): Modifier {
+    // Until the sheet passes upright it belongs to the spread being left; after, to the one arriving
+    val onTop by remember(pager, spread) { derivedStateOf { kotlin.math.abs(pager.turn(spread)) < 0.5f } }
+    return this
+        .zIndex(if (onTop) 1f else 0f)
+        .graphicsLayer { translationX = -pager.turn(spread) * size.width }
+}
+
+/**
+ * One half of a spread. Turning forward, the right page rises from the spine to upright; past that
+ * the back of the same sheet (the next left page) comes down onto the left. Turning back is the same
+ * in reverse. The halves lying still are shaded while the sheet hangs over them.
+ */
+private fun Modifier.leafTurn(pager: PagerState, spread: Int, leftPage: Boolean): Modifier = this
+    .graphicsLayer {
+        val t = pager.turn(spread)
+        cameraDistance = PageCamera * density
+        if (if (leftPage) t > 0f else t < 0f) {
+            transformOrigin = TransformOrigin(if (leftPage) 1f else 0f, 0.5f)
+            rotationY = PageTurnSign * 180f * t
+            alpha = if (kotlin.math.abs(t) >= 0.5f) 0f else 1f
+        } else {
+            rotationY = 0f
+            alpha = 1f
+        }
+    }
+    .drawWithContent {
+        drawContent()
+        val t = pager.turn(spread)
+        if (t == 0f) return@drawWithContent
+        val k = kotlin.math.abs(t)
+        if (if (leftPage) t > 0f else t < 0f) {
+            // Darker the more the sheet stands up off the book (upright at k = 0.5), most at the binding
+            val a = 0.32f * (k * 2f).coerceAtMost(1f)
+            drawRect(
+                if (leftPage) Brush.horizontalGradient(0f to Color.Black.copy(alpha = a * 0.6f), 1f to Color.Black.copy(alpha = a))
+                else Brush.horizontalGradient(0f to Color.Black.copy(alpha = a), 1f to Color.Black.copy(alpha = a * 0.6f))
+            )
+        } else {
+            // A lying page in the shadow the standing sheet casts, deepest at the binding
+            val over = if (k < 0.5f) k * 2f else (1f - k) * 2f
+            val shade = Color.Black.copy(alpha = 0.28f * over)
+            drawRect(
+                if (leftPage) Brush.horizontalGradient(0.45f to Color.Transparent, 1f to shade)
+                else Brush.horizontalGradient(0f to shade, 0.55f to Color.Transparent)
+            )
+        }
+    }
+
+/** The soft dip of shadow where a page curves into the binding. */
+private fun Modifier.spineShade(leftPage: Boolean): Modifier = drawWithContent {
+    drawContent()
+    val shade = Color.Black.copy(alpha = 0.18f)
+    drawRect(
+        if (leftPage) Brush.horizontalGradient(0.88f to Color.Transparent, 1f to shade)
+        else Brush.horizontalGradient(0f to shade, 0.12f to Color.Transparent)
+    )
 }
 
 /** One page (or spread) that zooms with two fingers or a double tap, and pans while zoomed. */

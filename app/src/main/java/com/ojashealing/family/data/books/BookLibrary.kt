@@ -188,7 +188,7 @@ class BookLibrary(context: Context, private val dir: File = File(context.applica
         set(v) = prefs.edit().putFloat("rate", v).apply()
 
     var shelfAsList: Boolean
-        get() = prefs.getBoolean("shelf_list", false)
+        get() = prefs.getBoolean("shelf_list", true)
         set(v) = prefs.edit().putBoolean("shelf_list", v).apply()
 
     private companion object {

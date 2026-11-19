@@ -154,6 +154,8 @@ fun PracticeTab(
     /** 0 = Daily Practice (morning, night, meditation), 1 = Freedom Practice (the goals). */
     part: Int = 0,
     onPart: (Int) -> Unit = {},
+    /** Practice > Read: questions and answers from Swamiji, below the practices. */
+    read: ReadUi? = null,
     freedom: @Composable () -> Unit = {}
 ) {
     Column(Modifier.fillMaxSize()) {
@@ -181,7 +183,7 @@ fun PracticeTab(
         ) { shown ->
             Box(Modifier.fillMaxSize()) {
                 if (shown == 1) freedom()
-                else DailyPractice(sections, onPlay, practice, practiceBusy, onMarkPractice, guided, streak, onOpenGuided)
+                else DailyPractice(sections, onPlay, practice, practiceBusy, onMarkPractice, guided, streak, onOpenGuided, read)
             }
         }
     }
@@ -216,14 +218,17 @@ private fun DailyPractice(
     onMarkPractice: (com.ojashealing.family.data.practice.PracticeKind) -> Unit,
     guided: List<GuidedCard>?,
     streak: com.ojashealing.family.data.practice.StreakSummary?,
-    onOpenGuided: (ContentSection) -> Unit
+    onOpenGuided: (ContentSection) -> Unit,
+    read: ReadUi?,
 ) {
     var locked by remember { mutableStateOf<Access.Locked?>(null) }
+    val readState = remember { ReadState() }
+    val hasRead = read != null && (!read.items.isNullOrEmpty() || read.canEdit)
     val guidedCards = guided.orEmpty()
     val rows = practiceRows(sections, guidedCards.map { it.section }.toSet())
     when {
         sections == null && guided == null -> LoadingState()
-        rows.isNullOrEmpty() && guidedCards.isEmpty() -> Column(Modifier.fillMaxSize()) {
+        rows.isNullOrEmpty() && guidedCards.isEmpty() && !hasRead -> Column(Modifier.fillMaxSize()) {
             SectionHeader(stringResource(R.string.tab_spiritual))
             EmptyState(
                 icon = Icons.Outlined.SelfImprovement,
@@ -270,8 +275,11 @@ private fun DailyPractice(
             items(rows.orEmpty().filter { it.section !in PracticeTabOrder }, key = { it.section.id }, contentType = { "section" }) { section ->
                 PracticeRow(section, onPlay, practice, practiceBusy, onMarkPractice) { locked = it }
             }
+            // Below the practices: Read, Swamiji's questions and answers
+            if (read != null) readSection(read, readState)
         }
     }
+    read?.let { ReadOverlays(it, readState) }
     locked?.let { LockedDialog(it) { locked = null } }
 }
 

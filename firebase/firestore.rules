@@ -170,6 +170,29 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Practice > Read: questions with their answers. Admins and Swamiji write them in the app;
+    // every signed-in member reads. Which ones a member has read stays on their phone.
+    function canWriteRead() {
+      return role() in ['admin', 'swamiji'];
+    }
+
+    function validReadQa(data) {
+      return data.keys().hasOnly(['question', 'answer', 'authorUid', 'createdAt', 'updatedAt'])
+        && data.question is string && data.question.size() > 0 && data.question.size() <= 500
+        && data.answer is string && data.answer.size() > 0 && data.answer.size() <= 10000
+        && data.get('authorUid', '') is string && data.get('authorUid', '').size() <= 128
+        && data.createdAt is timestamp && data.updatedAt is timestamp;
+    }
+
+    match /readQa/{id} {
+      allow read: if signedIn();
+      allow create: if canWriteRead() && validReadQa(request.resource.data)
+        && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time;
+      allow update: if canWriteRead() && validReadQa(request.resource.data)
+        && request.resource.data.createdAt == resource.data.createdAt && request.resource.data.updatedAt == request.time;
+      allow delete: if canWriteRead();
+    }
+
     // ---- Social (design §7.5, §7.6, §9) ----
 
     function viewer() {
