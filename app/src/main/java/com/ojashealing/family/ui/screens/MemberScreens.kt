@@ -132,6 +132,7 @@ fun PublicProfileScreen(
                             style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         com.ojashealing.family.ui.components.ProfileBadges(u.role, u.userLevel, u.memberLevel)
                         if (u.about.isNotBlank()) Text(com.ojashealing.family.ui.components.linkified(u.about), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                        if (u.about.isNotBlank()) com.ojashealing.family.ui.components.LinkPreviewFor(u.about)
                         Text(stringResource(R.string.profile_points) + ": " + u.mokshaPoints, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                     }
                 }

@@ -184,6 +184,7 @@ fun ModerationScreen(vm: ModerationViewModel, onBack: () -> Unit) {
                 OjasCard(tintKey = item.path) {
                     Text(item.author, style = MaterialTheme.typography.labelLarge)
                     Text(com.ojashealing.family.ui.components.linkified(item.text), style = MaterialTheme.typography.bodyLarge)
+                    if (item.imageUrl.isEmpty() && item.mediaUrl.isEmpty()) com.ojashealing.family.ui.components.LinkPreviewFor(item.text)
                     if (item.imageUrl.isNotEmpty()) {
                         com.ojashealing.family.ui.components.PostImage(item.imageUrl)
                     }

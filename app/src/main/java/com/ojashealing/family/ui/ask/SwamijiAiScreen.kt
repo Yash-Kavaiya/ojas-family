@@ -683,6 +683,7 @@ private fun UserBubble(text: String, photoPath: String?, modifier: Modifier = Mo
                 .background(Brush.linearGradient(OjasGradients.saffron))
                 .padding(horizontal = 14.dp, vertical = 10.dp)
         )
+        com.ojashealing.family.ui.components.LinkPreviewFor(text, Modifier.widthIn(max = 300.dp))
     }
 }
 
@@ -736,7 +737,11 @@ private fun AiBubble(
                         }
                     }
                     m.text.isEmpty() && m.streaming -> ThinkingDots()
-                    else -> Text(com.ojashealing.family.ui.components.linkified(answerText(m.text, m.streaming)), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+                    else -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(com.ojashealing.family.ui.components.linkified(answerText(m.text, m.streaming)), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+                        // Only once the answer is whole, so a half-typed address is never looked up
+                        if (!m.streaming) com.ojashealing.family.ui.components.LinkPreviewFor(m.text)
+                    }
                 }
             }
             // The videos this answer drew on: tap to watch from that moment
