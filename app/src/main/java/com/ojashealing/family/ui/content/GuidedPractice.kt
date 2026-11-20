@@ -50,6 +50,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.foundation.border
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -144,33 +145,37 @@ fun ContentSection.guidedIcon(): ImageVector = when (this) {
 @Composable
 fun GuidedHeader(cards: List<GuidedCard>, modifier: Modifier = Modifier) {
     val done = cards.count { it.doneToday }
+    // The Quick Protection box colours, light or dark with the theme
+    val box = com.ojashealing.family.ui.theme.featureBoxColors()
+    val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     Surface(
         shape = RoundedCornerShape(20.dp),
-        color = Color.Transparent,
+        color = box.container,
         modifier = modifier.fillMaxWidth()
     ) {
         Column(
-            Modifier.background(Brush.linearGradient(OjasGradients.twilight)).padding(Spacing.l),
+            Modifier.padding(Spacing.l),
             verticalArrangement = Arrangement.spacedBy(Spacing.s)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.guided_title), style = MaterialTheme.typography.titleMedium, color = Color.White)
-                    Text(stringResource(R.string.guided_progress, done, cards.size), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.8f))
+                    Text(stringResource(R.string.guided_title), style = MaterialTheme.typography.titleMedium, color = box.title)
+                    Text(stringResource(R.string.guided_progress, done, cards.size), style = MaterialTheme.typography.bodySmall, color = box.muted)
                 }
                 Row(
-                    Modifier.clip(RoundedCornerShape(50)).background(Brush.linearGradient(OjasGradients.gold)).padding(horizontal = Spacing.m, vertical = 6.dp),
+                    Modifier.clip(RoundedCornerShape(50)).border(1.dp, box.track, RoundedCornerShape(50)).padding(horizontal = Spacing.m, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Icon(Icons.Outlined.Stars, null, tint = Color(0xFF7A4500), modifier = Modifier.size(16.dp))
-                    Text("${done * PRACTICE_POINTS}/${cards.size * PRACTICE_POINTS}", style = MaterialTheme.typography.labelMedium, color = Color(0xFF3B2300))
+                    Icon(Icons.Outlined.Stars, null, tint = box.title, modifier = Modifier.size(16.dp))
+                    Text("${done * PRACTICE_POINTS}/${cards.size * PRACTICE_POINTS}", style = MaterialTheme.typography.labelMedium, color = box.text)
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 cards.forEach { c ->
                     val fill by animateFloatAsState(if (c.doneToday) 1f else c.share, tween(700), label = "seg")
-                    Box(Modifier.weight(1f).height(6.dp).clip(RoundedCornerShape(3.dp)).background(Color.White.copy(alpha = 0.18f))) {
-                        Box(Modifier.fillMaxWidth(fill).height(6.dp).background(c.section.tint().titleDark))
+                    val tint = c.section.tint()
+                    Box(Modifier.weight(1f).height(6.dp).clip(RoundedCornerShape(3.dp)).background(box.track)) {
+                        Box(Modifier.fillMaxWidth(fill).height(6.dp).background(if (dark) tint.titleDark else tint.titleLight))
                     }
                 }
             }

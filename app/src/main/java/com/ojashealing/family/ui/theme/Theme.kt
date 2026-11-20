@@ -13,63 +13,9 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-private val DarkColorScheme = darkColorScheme(
-    primary = SaffronLight,
-    onPrimary = Color(0xFF4A1800),
-    primaryContainer = SaffronDark,
-    onPrimaryContainer = Color(0xFFFFDBCF),
-    secondary = SacredGold,
-    onSecondary = Color(0xFF3F2E00),
-    secondaryContainer = Color(0xFF5A4300),
-    onSecondaryContainer = Color(0xFFFFE8A8),
-    tertiary = HealingCyan,
-    onTertiary = Color(0xFF00363D),
-    background = BackgroundDark,
-    onBackground = TextPrimaryDark,
-    surface = SurfaceDarkBg,
-    onSurface = TextPrimaryDark,
-    surfaceVariant = CardDark,
-    onSurfaceVariant = TextSecondaryDark,
-    surfaceContainerLowest = Color(0xFF180F2C),
-    surfaceContainerLow = Color(0xFF241840),
-    surfaceContainer = Color(0xFF2A1B47),
-    surfaceContainerHigh = Color(0xFF332352),
-    surfaceContainerHighest = Color(0xFF3C2B5E),
-    outline = CardBorderDark,
-    outlineVariant = Color(0xFF3B2A5E)
-)
-
+// The two themes (owner, 2026-11-20). Light is Healing Blue: sky-blue pages, deep healing blue for
+// buttons and links, a warm saffron accent.
 private val LightColorScheme = lightColorScheme(
-    primary = SaffronDeep,
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFFFE2CC),
-    onPrimaryContainer = Color(0xFF3A1200),
-    secondary = Color(0xFF9A5B00),
-    onSecondary = Color.White,
-    secondaryContainer = Color(0xFFFFE8B0),
-    onSecondaryContainer = Color(0xFF2E1C00),
-    tertiary = Color(0xFF0369A1),
-    onTertiary = Color.White,
-    tertiaryContainer = Color(0xFFDDF0FF),
-    onTertiaryContainer = Color(0xFF00304D),
-    background = BackgroundLight,
-    onBackground = TextPrimaryLight,
-    // The top bar, the tab strips and the bottom bar sit on "surface": the same light purple as the page
-    surface = BackgroundLight,
-    onSurface = TextPrimaryLight,
-    surfaceVariant = Color(0xFFE6DAF6),
-    onSurfaceVariant = TextSecondaryLight,
-    surfaceContainerLowest = Color(0xFFFDFBFF),
-    surfaceContainerLow = Color(0xFFF8F3FF),
-    surfaceContainer = BackgroundLight,
-    surfaceContainerHigh = Color(0xFFEDE4F9),
-    surfaceContainerHighest = Color(0xFFE6DBF5),
-    outline = CardBorderLight,
-    outlineVariant = CardBorderSoftLight
-)
-
-// Healing Blue Light: sky-blue pages, deep healing blue for buttons and links, a warm saffron accent
-private val HealingBlueColorScheme = lightColorScheme(
     primary = Color(0xFF0B5CAD), // 6.4:1 on white
     onPrimary = Color.White,
     primaryContainer = Color(0xFFD3E6FF),
@@ -97,8 +43,8 @@ private val HealingBlueColorScheme = lightColorScheme(
     outlineVariant = Color(0xFFCCDCF0)
 )
 
-// Forest Sage Dark: deep forest-green pages, soft sage for buttons and links, a gentle gold accent
-private val ForestSageColorScheme = darkColorScheme(
+// Dark is Forest Sage: deep forest-green pages, soft sage for buttons and links, a gentle gold accent
+private val DarkColorScheme = darkColorScheme(
     primary = Color(0xFFA9CFA0), // 9:1 on the page
     onPrimary = Color(0xFF14331A),
     primaryContainer = Color(0xFF2E4A33),
@@ -124,15 +70,21 @@ private val ForestSageColorScheme = darkColorScheme(
     outlineVariant = Color(0xFF33463A)
 )
 
-/** The colours a theme choice uses, and whether they are dark. */
-fun colorsFor(mode: com.ojashealing.family.data.settings.ThemeMode, systemDark: Boolean): Pair<androidx.compose.material3.ColorScheme, Boolean> =
-    when (mode) {
-        com.ojashealing.family.data.settings.ThemeMode.System -> (if (systemDark) DarkColorScheme else LightColorScheme) to systemDark
-        com.ojashealing.family.data.settings.ThemeMode.Light -> LightColorScheme to false
-        com.ojashealing.family.data.settings.ThemeMode.Dark -> DarkColorScheme to true
-        com.ojashealing.family.data.settings.ThemeMode.HealingBlue -> HealingBlueColorScheme to false
-        com.ojashealing.family.data.settings.ThemeMode.ForestSage -> ForestSageColorScheme to true
-    }
+/**
+ * The colours a theme choice uses, and whether they are dark. There are two themes: Light (Healing Blue)
+ * and Dark (Forest Sage). Older saved choices map onto them; System, kept for people who never chose,
+ * follows the phone.
+ */
+fun colorsFor(mode: com.ojashealing.family.data.settings.ThemeMode, systemDark: Boolean): Pair<androidx.compose.material3.ColorScheme, Boolean> {
+    val dark = mode.isDark(systemDark)
+    return (if (dark) DarkColorScheme else LightColorScheme) to dark
+}
+
+fun com.ojashealing.family.data.settings.ThemeMode.isDark(systemDark: Boolean): Boolean = when (this) {
+    com.ojashealing.family.data.settings.ThemeMode.System -> systemDark
+    com.ojashealing.family.data.settings.ThemeMode.Light, com.ojashealing.family.data.settings.ThemeMode.HealingBlue -> false
+    com.ojashealing.family.data.settings.ThemeMode.Dark, com.ojashealing.family.data.settings.ThemeMode.ForestSage -> true
+}
 
 private val OjasShapes = Shapes(
     extraSmall = RoundedCornerShape(8.dp),
@@ -145,7 +97,7 @@ private val OjasShapes = Shapes(
 @Composable
 fun OjasFamilyTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    /** A named theme's colours; null uses the Ojas light or dark colours. */
+    /** The theme's colours; null uses the light or dark theme by [darkTheme]. */
     colors: androidx.compose.material3.ColorScheme? = null,
     content: @Composable () -> Unit
 ) {

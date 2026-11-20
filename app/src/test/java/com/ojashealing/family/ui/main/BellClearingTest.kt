@@ -5,6 +5,7 @@ import com.ojashealing.family.data.notify.NotifAction
 import com.ojashealing.family.data.notify.NotifGroup
 import com.ojashealing.family.data.notify.linesAbout
 import com.ojashealing.family.ui.community.CommunityTab
+import com.ojashealing.family.ui.content.PracticePart
 import com.ojashealing.family.ui.navigation.MainTab
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -32,8 +33,8 @@ class BellClearingTest {
 
     @Test fun theTabOnScreenReadsTheLinesThatOpenIt() {
         // Goal results open Practice > Freedom Practice; the face photo decision opens Profile
-        assertEquals("goals", targetOnScreen(MainTab.Spiritual, practicePart = 1))
-        assertNull(targetOnScreen(MainTab.Spiritual, practicePart = 0))
+        assertEquals("goals", targetOnScreen(MainTab.Spiritual, practicePart = PracticePart.FREEDOM))
+        assertNull(targetOnScreen(MainTab.Spiritual, practicePart = PracticePart.READ))
         assertEquals("profile", targetOnScreen(MainTab.Profile, practicePart = 0))
         assertNull(targetOnScreen(MainTab.Home, practicePart = 1))
     }

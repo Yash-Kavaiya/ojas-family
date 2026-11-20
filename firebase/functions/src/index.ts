@@ -109,7 +109,7 @@ export const adminDayStats = onCall({ timeoutSeconds: 120 }, async (req) => {
   return todayStatsFor(db, req.auth?.token, new Date());
 });
 
-/** How many users and members the app has, shown on Home to Swamiji and admins. */
+/** How many users and members the app has, shown on Home to everyone. */
 export const userCounts = onCall(async (req) => {
   requireUid(req);
   return userCountsFor(db, req.auth?.token);

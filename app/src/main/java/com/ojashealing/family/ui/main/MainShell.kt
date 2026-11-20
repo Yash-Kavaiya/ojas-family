@@ -294,7 +294,7 @@ fun MainShell(container: AppContainer) {
     val goalTicking by goalsVm.ticking.collectAsStateWithLifecycle()
     val goalTickFailed by goalsVm.tickFailed.collectAsStateWithLifecycle()
     // Daily Practice or Freedom Practice inside the Practice tab; held here so the profile can open the goals
-    var practicePart by rememberSaveable { androidx.compose.runtime.mutableIntStateOf(0) }
+    var practicePart by rememberSaveable { androidx.compose.runtime.mutableIntStateOf(com.ojashealing.family.ui.content.PracticePart.READ) }
     val staffContact by remember { container.chat.observeStaffContact().catch { emit(null) } }.collectAsStateWithLifecycle(null)
     val myThread by remember {
         container.auth.currentUid.flatMapLatest { uid -> uid?.let { container.chat.observeThread(it).catch { emit(null) } } ?: flowOf(null) }
@@ -354,7 +354,7 @@ fun MainShell(container: AppContainer) {
     val anchors = remember { RewardAnchors() }
     // Held above the NavHost so sub-screens keep the tab, but not saved: every fresh open starts on Home
     var tab by rememberSaveable { mutableStateOf(MainTab.Home) }
-    // Swamiji and admins: counted again when Home is opened, at most every 5 minutes (each count is a server call)
+    // Everyone: counted again when Home is opened, at most every 5 minutes (each count is a server call)
     val userCountsCache = remember { arrayOfNulls<Pair<Long, com.ojashealing.family.data.social.UserCounts>>(1) }
     val userCounts by androidx.compose.runtime.produceState(userCountsCache[0]?.second, profile?.viewer?.role, tab == MainTab.Home) {
         if (profile?.viewer?.let { Permissions.canSeeUserCounts(it) } != true || tab != MainTab.Home) return@produceState
@@ -366,7 +366,7 @@ fun MainShell(container: AppContainer) {
     val screenRoute = nav.currentBackStackEntryAsState().value?.destination?.route
     LaunchedEffect(screenRoute, tab) { com.ojashealing.family.data.analytics.Analytics.screen(com.ojashealing.family.data.analytics.Events.screenName(screenRoute, if (tab == MainTab.Spiritual) "Practice" else tab.name)) }
     // Q&A, Daily or Announcements inside Community; held here so notifications can pick it
-    var communityTab by rememberSaveable { androidx.compose.runtime.mutableIntStateOf(com.ojashealing.family.ui.community.CommunityTab.DAILY) }
+    var communityTab by rememberSaveable { androidx.compose.runtime.mutableIntStateOf(com.ojashealing.family.ui.community.CommunityTab.QA) }
     var communityJump by rememberSaveable { mutableStateOf<String?>(null) }
     // The bell clears by itself: a tab on screen sees its new posts, an opened post reads its lines.
     // Only while the app is in front, so nothing is cleared that the member did not see.
@@ -741,7 +741,7 @@ fun MainShell(container: AppContainer) {
                                                 items = readItems, read = readDone,
                                                 canEdit = com.ojashealing.family.ui.content.canEditRead(p?.viewer),
                                                 saving = readSaving,
-                                                onMarkRead = readVm::markRead, onSave = readVm::save, onDelete = readVm::delete,
+                                                onSetDone = readVm::setDone, onSave = readVm::save, onDelete = readVm::delete,
                                             )
                                         },
                                         freedom = {
@@ -760,7 +760,7 @@ fun MainShell(container: AppContainer) {
                                         thoughtVm,
                                         firstName = profile?.displayName.orEmpty().trim().substringBefore(' '),
                                         streak = practiceStreak,
-                                        onOpenPractice = { practicePart = 0; tab = MainTab.Spiritual },
+                                        onOpenPractice = { practicePart = com.ojashealing.family.ui.content.PracticePart.DAILY; tab = MainTab.Spiritual },
                                         quickPractices = guided.orEmpty().filter { it.section in com.ojashealing.family.ui.content.HomePracticeSections },
                                         practiceStatus = practiceStatus,
                                         onOpenGuided = { nav.navigate(PracticeSessionRoute(it.section.id)) },
@@ -837,7 +837,7 @@ fun MainShell(container: AppContainer) {
                                         onOpenAdmin = { nav.navigate(AdminContentRoute) },
                                         onOpenModeration = { nav.navigate(ModerationRoute) },
                                         goals = goals,
-                                        onOpenGoals = { practicePart = 1; tab = MainTab.Spiritual },
+                                        onOpenGoals = { practicePart = com.ojashealing.family.ui.content.PracticePart.FREEDOM; tab = MainTab.Spiritual },
                                         showFacePhoto = canFacePhoto,
                                         facePhoto = facePhoto,
                                         onUploadFacePhoto = { uri -> p?.uid?.let { container.facePhotos.submit(it, uri) } ?: Result.failure(IllegalStateException("signed out")) },
@@ -1267,7 +1267,7 @@ private fun openTarget(
         }
         "practice" -> selectTab(MainTab.Spiritual)
         // A goal decision: Practice > Freedom Practice
-        "goals" -> { selectPracticePart(1); selectTab(MainTab.Spiritual); revealTabs(nav) }
+        "goals" -> { selectPracticePart(com.ojashealing.family.ui.content.PracticePart.FREEDOM); selectTab(MainTab.Spiritual); revealTabs(nav) }
         // The face photo decision: Profile
         "profile" -> { selectTab(MainTab.Profile); revealTabs(nav) }
     }

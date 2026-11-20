@@ -30,7 +30,7 @@ import com.ojashealing.family.ui.adaptive.ownedInsets
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.outlined.AddAPhoto
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.WorkspacePremium
 import androidx.compose.material3.Button
@@ -215,7 +215,7 @@ fun DailyFeed(vm: DailyViewModel, canPost: Boolean, onOpen: (String) -> Unit, on
             }
             if (canPost) {
                 FloatingActionButton(onClick = onCompose, modifier = Modifier.align(Alignment.BottomEnd).padding(Spacing.l)) {
-                    Icon(Icons.Outlined.AddAPhoto, contentDescription = stringResource(R.string.daily_new))
+                    Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.daily_new))
                 }
             }
         }

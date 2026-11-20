@@ -48,7 +48,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.ojashealing.family.R
-import com.ojashealing.family.ui.theme.BackgroundDark
 import kotlin.math.sin
 import com.ojashealing.family.ui.theme.BrandTitleStyle
 import com.ojashealing.family.ui.theme.HealingBlue
@@ -70,7 +69,7 @@ private val DownwardLight = CubicBezierEasing(0.42f, 0.0f, 0.2f, 1f)
 /** The intro's plain background, shown for the moment it takes to read whether the intro has played. */
 @Composable
 fun IntroBackdrop() {
-    Box(Modifier.fillMaxSize().background(BackgroundDark))
+    Box(Modifier.fillMaxSize().background(androidx.compose.material3.MaterialTheme.colorScheme.background))
 }
 
 /**
@@ -129,11 +128,13 @@ fun IntroScreen(firstLaunch: Boolean, onFinished: () -> Unit, faceUrl: String = 
     // The lotus sits mid-screen, so it shows as the light's centre reaches the middle
     val logo = ((sweep.value - 0.3f) / 0.3f).coerceIn(0f, 1f)
     val pulse = sin(after.value * Math.PI * 3).toFloat()
+    // The page colour of the chosen theme, light or dark
+    val page = androidx.compose.material3.MaterialTheme.colorScheme.background
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(BackgroundDark)
+            .background(page)
             .alpha(fade.value)
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { finish() },
         contentAlignment = Alignment.Center
@@ -185,7 +186,7 @@ fun IntroScreen(firstLaunch: Boolean, onFinished: () -> Unit, faceUrl: String = 
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.size(112.dp).alpha(logo).scale((0.9f + 0.1f * logo) * (1f + 0.05f * pulse * logo)).clip(CircleShape)
             )
-            Text(stringResource(R.string.app_name), style = BrandTitleStyle, color = Color.White, modifier = Modifier.alpha(logo))
+            Text(stringResource(R.string.app_name), style = BrandTitleStyle, color = androidx.compose.material3.MaterialTheme.colorScheme.onBackground, modifier = Modifier.alpha(logo))
         }
     }
 }
@@ -193,17 +194,19 @@ fun IntroScreen(firstLaunch: Boolean, onFinished: () -> Unit, faceUrl: String = 
 /**
  * The opening with the member's own photo: no logo, the whole photo as large as the screen allows.
  * A band of blue healing light pours from the top to the bottom and uncovers the photo as it passes
- * (a dark curtain is drawn below the light), leaving a faint blue wash behind it; the photo settles
+ * (a curtain in the theme's page colour is drawn below the light), leaving a faint blue wash behind it; the photo settles
  * from a slight zoom, then a soft glow breathes from above until it fades. Animated values are read
  * only while drawing and there is no blur or offscreen layer, so each frame is cheap.
  */
 @Composable
 private fun FaceIntro(url: String, sweep: () -> Float, rest: () -> Float, fade: () -> Float, onTap: () -> Unit, onLoaded: (Boolean) -> Unit) {
+    // The curtain below the light is the chosen theme's page colour, light or dark
+    val page = androidx.compose.material3.MaterialTheme.colorScheme.background
     Box(
         Modifier
             .fillMaxSize()
             .graphicsLayer { alpha = fade() }
-            .background(BackgroundDark)
+            .background(page)
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onTap)
     ) {
         Box(
@@ -215,7 +218,7 @@ private fun FaceIntro(url: String, sweep: () -> Float, rest: () -> Float, fade: 
                     scaleX = s; scaleY = s
                 }
                 // A soft blue glow fills the space around the photo
-                .background(Brush.radialGradient(listOf(HealingBlue.copy(alpha = 0.45f), BackgroundDark)))
+                .background(Brush.radialGradient(listOf(HealingBlue.copy(alpha = 0.45f), page)))
         ) {
             // Only from the phone's cache (Home keeps it there): asking the server first would hold the opening up
             val context = LocalContext.current
@@ -242,7 +245,7 @@ private fun FaceIntro(url: String, sweep: () -> Float, rest: () -> Float, fade: 
             if (front - edge < h) {
                 val top = (front - edge).coerceAtLeast(0f)
                 drawRect(
-                    Brush.verticalGradient(0f to Color.Transparent, 1f to BackgroundDark, startY = front - edge, endY = front + edge),
+                    Brush.verticalGradient(0f to Color.Transparent, 1f to page, startY = front - edge, endY = front + edge),
                     topLeft = Offset(0f, top),
                     size = Size(size.width, h - top),
                 )

@@ -8,8 +8,9 @@ object Permissions {
 
     fun isStaff(v: Viewer): Boolean = v.role != Role.Member
 
-    /** The total users and members on Home. */
-    fun canSeeUserCounts(v: Viewer): Boolean = v.hasFullAccess()
+    /** The total users and members on Home: everyone sees them (owner, 2026-11-20), so all know how big the family is. */
+    @Suppress("UNUSED_PARAMETER")
+    fun canSeeUserCounts(v: Viewer): Boolean = true
 
     // ---- What each plan opens, and when: the table in PlanAccess.kt (owner, 2026-11-20) ----
 

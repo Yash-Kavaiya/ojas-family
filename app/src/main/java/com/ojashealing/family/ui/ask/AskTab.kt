@@ -525,18 +525,20 @@ private fun SwamijiAiCard(onOpen: () -> Unit, modifier: Modifier = Modifier) {
         ),
         label = "x",
     )
+    // The Quick Protection box colours, light or dark with the theme
+    val box = com.ojashealing.family.ui.theme.featureBoxColors()
     Row(
         modifier = modifier
             .staggeredEntrance(0, key = "aiCard")
             .fillMaxWidth()
             .pressScale(press, pressed = 0.98f)
             .clip(androidx.compose.foundation.shape.RoundedCornerShape(24.dp))
-            .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(androidx.compose.ui.graphics.Color(0xFF0B3D91), androidx.compose.ui.graphics.Color(0xFF2F2A8C), androidx.compose.ui.graphics.Color(0xFF4A1E6B))))
+            .background(box.container)
             .drawWithContent {
                 drawContent()
                 if (!reduced) drawRect(
                     androidx.compose.ui.graphics.Brush.linearGradient(
-                        listOf(androidx.compose.ui.graphics.Color.Transparent, androidx.compose.ui.graphics.Color.White.copy(alpha = 0.10f), androidx.compose.ui.graphics.Color.Transparent),
+                        listOf(androidx.compose.ui.graphics.Color.Transparent, androidx.compose.ui.graphics.Color.White.copy(alpha = 0.18f), androidx.compose.ui.graphics.Color.Transparent),
                         start = androidx.compose.ui.geometry.Offset(size.width * x, 0f),
                         end = androidx.compose.ui.geometry.Offset(size.width * x + size.width * 0.35f, size.height),
                     )
@@ -548,14 +550,14 @@ private fun SwamijiAiCard(onOpen: () -> Unit, modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.spacedBy(Spacing.m)
     ) {
         androidx.compose.foundation.layout.Box(
-            Modifier.size(52.dp).clip(androidx.compose.foundation.shape.CircleShape).background(androidx.compose.ui.graphics.Color.White.copy(alpha = 0.22f)),
+            Modifier.size(52.dp).clip(androidx.compose.foundation.shape.CircleShape).background(box.track),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Filled.AutoAwesome, contentDescription = null, tint = androidx.compose.ui.graphics.Color.White, modifier = Modifier.size(30.dp))
+            Icon(Icons.Filled.AutoAwesome, contentDescription = null, tint = box.title, modifier = Modifier.size(30.dp))
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-                Text(stringResource(R.string.ai_title), style = MaterialTheme.typography.titleMedium, color = androidx.compose.ui.graphics.Color.White)
+                Text(stringResource(R.string.ai_title), style = MaterialTheme.typography.titleMedium, color = box.title)
                 Text(
                     stringResource(R.string.ai_beta_tag),
                     style = MaterialTheme.typography.labelSmall,
@@ -564,9 +566,9 @@ private fun SwamijiAiCard(onOpen: () -> Unit, modifier: Modifier = Modifier) {
                         .background(androidx.compose.ui.graphics.Color(0xFFFFE08A)).padding(horizontal = 8.dp, vertical = 2.dp)
                 )
             }
-            Text(stringResource(R.string.ai_card_desc), style = MaterialTheme.typography.bodyMedium, color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.95f))
+            Text(stringResource(R.string.ai_card_desc), style = MaterialTheme.typography.bodyMedium, color = box.text)
         }
-        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = androidx.compose.ui.graphics.Color.White)
+        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = box.title)
     }
 }
 

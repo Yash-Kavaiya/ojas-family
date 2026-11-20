@@ -11,8 +11,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 /**
- * System / Light / Dark use the Ojas saffron-and-purple colours. [HealingBlue] is a soft blue light
- * theme and [ForestSage] a deep green dark theme. Stored by name, so older choices still read.
+ * Two themes (owner, 2026-11-20): [Light] is Healing Blue and [Dark] is Forest Sage. [System], for
+ * people who never chose, follows the phone. [HealingBlue] and [ForestSage] are older saved choices
+ * and read as Light and Dark. Stored by name, so older choices still read.
  */
 enum class ThemeMode { System, Light, Dark, HealingBlue, ForestSage }
 

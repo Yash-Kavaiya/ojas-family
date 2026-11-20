@@ -175,9 +175,9 @@ export async function backfillStatsFor(db: Firestore, token: Claims, input: { da
   return { filled };
 }
 
-/** How many people use the app and how many are members (a membership level), for Swamiji and admins on Home. */
+/** How many people use the app and how many are members (a membership level), shown on Home to everyone signed in. */
 export async function userCountsFor(db: Firestore, token: Claims): Promise<{ users: number; members: number }> {
-  if (token?.role !== "admin" && token?.role !== "swamiji") throw new HttpsError("permission-denied", "Swamiji and admins only");
+  if (!token) throw new HttpsError("unauthenticated", "Sign in first");
   const users = db.collection("users");
   const [all, members] = await Promise.all([count(users), count(users.where("memberLevel", ">=", 1))]);
   return { users: all, members };

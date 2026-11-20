@@ -130,7 +130,7 @@ fun HomeScreen(
     /** The same two practices as coloured boxes of videos, for the ones that have no guided practice yet. */
     quickSections: List<com.ojashealing.family.ui.content.SectionUi> = emptyList(),
     onPlay: (com.ojashealing.family.domain.ContentItem) -> Unit = {},
-    /** Swamiji and admins only: how many users and members the app has; null hides it. */
+    /** How many users and members the app has, for everyone; null until it arrives. */
     userCounts: com.ojashealing.family.data.social.UserCounts? = null,
 ) {
     var locked by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<com.ojashealing.family.domain.Access.Locked?>(null) }
@@ -223,8 +223,9 @@ fun HomeScreen(
                 }
             }
             item(key = "about", contentType = "about") { AboutBox(about, onOpenAbout, Modifier.padding(horizontal = Spacing.l)) }
-            item(key = "social", contentType = "social") { SocialRow(about.links, Modifier.padding(horizontal = Spacing.l, vertical = Spacing.s)) }
             userCounts?.let { c -> item(key = "userCounts", contentType = "userCounts") { UserCountsBox(c, Modifier.padding(horizontal = Spacing.l)) } }
+            // The social pages are the very last thing on Home
+            item(key = "social", contentType = "social") { SocialRow(about.links, Modifier.padding(horizontal = Spacing.l, vertical = Spacing.s)) }
         }
         if (state.canSchedule) {
             FloatingActionButton(
@@ -290,7 +291,7 @@ private fun PracticeNudge(streak: com.ojashealing.family.data.practice.StreakSum
     }
 }
 
-/** Swamiji and admins only: the total users and members, side by side. */
+/** The total users and members, side by side. */
 @Composable
 private fun UserCountsBox(c: com.ojashealing.family.data.social.UserCounts, modifier: Modifier = Modifier) {
     val fmt = androidx.compose.runtime.remember { java.text.NumberFormat.getIntegerInstance() }

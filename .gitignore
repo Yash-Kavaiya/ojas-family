@@ -24,3 +24,8 @@ debug.keystore
 
 # Local-only secrets for the Functions emulator
 firebase/functions/.secret.local
+
+# Signing keys: never commit (public repo)
+*.jks
+*.keystore
+keystore.properties

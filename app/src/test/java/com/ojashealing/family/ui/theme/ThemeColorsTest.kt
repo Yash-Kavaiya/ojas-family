@@ -15,24 +15,36 @@ class ThemeColorsTest {
     }
 
     @Test
-    fun `System, Light and Dark keep the Ojas colours`() {
+    fun `there are two themes, Light is Healing Blue and Dark is Forest Sage`() {
+        // Older saved choices read as the two themes
+        assertEquals(colorsFor(ThemeMode.Light, systemDark = true), colorsFor(ThemeMode.HealingBlue, systemDark = true))
+        assertEquals(colorsFor(ThemeMode.Dark, systemDark = false), colorsFor(ThemeMode.ForestSage, systemDark = false))
+        // Someone who never chose follows the phone
         assertEquals(colorsFor(ThemeMode.Light, systemDark = true), colorsFor(ThemeMode.System, systemDark = false))
         assertEquals(colorsFor(ThemeMode.Dark, systemDark = false), colorsFor(ThemeMode.System, systemDark = true))
-        assertFalse(colorsFor(ThemeMode.Light, systemDark = true).second)
-        assertTrue(colorsFor(ThemeMode.Dark, systemDark = false).second)
+        val (light, lightIsDark) = colorsFor(ThemeMode.Light, systemDark = true)
+        val (dark, darkIsDark) = colorsFor(ThemeMode.Dark, systemDark = false)
+        assertFalse(lightIsDark)
+        assertTrue(darkIsDark)
+        // Cards pick their light or dark colours from the page's brightness
+        assertTrue(light.background.luminance() > 0.5f)
+        assertTrue(dark.background.luminance() < 0.5f)
+        assertEquals(androidx.compose.ui.graphics.Color(0xFFEAF3FF), light.background)
+        assertEquals(androidx.compose.ui.graphics.Color(0xFF111A15), dark.background)
+        assertNotEquals(light.primary, dark.primary)
     }
 
     @Test
-    fun `Healing Blue is a light theme and Forest Sage a dark one, whatever the phone says`() {
-        val (blue, blueDark) = colorsFor(ThemeMode.HealingBlue, systemDark = true)
-        val (sage, sageDark) = colorsFor(ThemeMode.ForestSage, systemDark = false)
-        assertFalse(blueDark)
-        assertTrue(sageDark)
-        // Cards pick their light or dark colours from the page's brightness
-        assertTrue(blue.background.luminance() > 0.5f)
-        assertTrue(sage.background.luminance() < 0.5f)
-        assertNotEquals(colorsFor(ThemeMode.Light, false).first.primary, blue.primary)
-        assertNotEquals(colorsFor(ThemeMode.Dark, false).first.primary, sage.primary)
+    fun `the big boxes read well in both themes`() {
+        val t = QuickProtectionTint
+        val light = colorsFor(ThemeMode.Light, false).first
+        val dark = colorsFor(ThemeMode.Dark, false).first
+        assertTrue("light heading", contrast(t.titleLight, t.boxLight) >= 4.5)
+        assertTrue("dark heading", contrast(t.titleDark, t.boxDark) >= 4.5)
+        assertTrue("light text", contrast(light.onSurface, t.boxLight) >= 7.0)
+        assertTrue("dark text", contrast(dark.onSurface, t.boxDark) >= 7.0)
+        assertTrue("light quiet text", contrast(light.onSurfaceVariant, t.boxLight) >= 4.5)
+        assertTrue("dark quiet text", contrast(dark.onSurfaceVariant, t.boxDark) >= 4.5)
     }
 
     @Test

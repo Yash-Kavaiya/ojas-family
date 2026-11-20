@@ -79,18 +79,25 @@ class ReadQaRepository(private val db: FirebaseFirestore) {
     suspend fun delete(id: String): Result<Unit> = runCatching { col.document(id).delete().await() }
 }
 
-/** Which questions this member has opened, kept on the phone. */
+/** Which questions this member has marked Done, kept on the phone. */
 class ReadTicks(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("read_qa_ticks", Context.MODE_PRIVATE)
     private val _read = MutableStateFlow(prefs.getStringSet(KEY, emptySet()).orEmpty().toSet())
     val read: StateFlow<Set<String>> = _read.asStateFlow()
 
-    fun mark(id: String) {
-        if (id in _read.value) return
-        val next = _read.value + id
+    /** Marks [id] Done, or takes the mark off when [done] is false. */
+    fun set(id: String, done: Boolean) {
+        if ((id in _read.value) == done) return
+        val next = if (done) _read.value + id else _read.value - id
         _read.value = next
         prefs.edit().putStringSet(KEY, next).apply()
     }
 
-    private companion object { const val KEY = "read" }
+    companion object {
+        private const val KEY = "read"
+
+        /** The question shown first when Read opens: a random one not yet Done, or any one when all are Done. */
+        fun pickFirst(ids: List<String>, done: Set<String>, random: kotlin.random.Random = kotlin.random.Random): String? =
+            ids.filter { it !in done }.ifEmpty { ids }.randomOrNull(random)
+    }
 }

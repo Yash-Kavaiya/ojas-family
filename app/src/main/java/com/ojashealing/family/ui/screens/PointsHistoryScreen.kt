@@ -62,7 +62,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -83,7 +82,6 @@ import com.ojashealing.family.data.user.UserProfile
 import com.ojashealing.family.ui.components.EmptyState
 import com.ojashealing.family.ui.components.LoadingState
 import com.ojashealing.family.ui.components.NameBadges
-import com.ojashealing.family.ui.theme.OjasGradients
 import com.ojashealing.family.ui.theme.Spacing
 import java.util.Date
 
@@ -209,39 +207,41 @@ private fun PointsHero(profile: UserProfile, targets: LevelTargets, modifier: Mo
     val progress by animateFloatAsState(
         levelProgress(profile.activeDays, profile.earnedPoints, next), tween(Durations.Slow, easing = OjasEasing.Emphasized), label = "levelProgress",
     )
+    // The Quick Protection box colours, light or dark with the theme
+    val box = com.ojashealing.family.ui.theme.featureBoxColors()
     Column(
         modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(24.dp))
-            .background(Brush.linearGradient(OjasGradients.sunrise))
+            .background(box.container)
             .padding(Spacing.xl),
         verticalArrangement = Arrangement.spacedBy(Spacing.s)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-            Box(Modifier.size(44.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.25f)), contentAlignment = Alignment.Center) {
-                Icon(Icons.Filled.Stars, contentDescription = null, tint = Color(0xFFFFF3C4), modifier = Modifier.size(30.dp))
+            Box(Modifier.size(44.dp).clip(CircleShape).background(box.track), contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.Stars, contentDescription = null, tint = box.title, modifier = Modifier.size(30.dp))
             }
             Column {
-                Text(stringResource(R.string.profile_points), style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = 0.9f))
-                Text("${shown.value.toInt()}", style = MaterialTheme.typography.displaySmall, color = Color.White)
+                Text(stringResource(R.string.profile_points), style = MaterialTheme.typography.labelLarge, color = box.muted)
+                Text("${shown.value.toInt()}", style = MaterialTheme.typography.displaySmall, color = box.title)
             }
         }
         if (profile.earnedPoints != profile.mokshaPoints) {
             Text(
                 stringResource(R.string.points_earned) + ": ${profile.earnedPoints}",
-                style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.9f),
+                style = MaterialTheme.typography.bodySmall, color = box.muted,
             )
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-            Text(stringResource(R.string.profile_level, level), style = MaterialTheme.typography.titleMedium, color = Color.White)
+            Text(stringResource(R.string.profile_level, level), style = MaterialTheme.typography.titleMedium, color = box.text)
             NameBadges(profile.viewer.role, level, profile.viewer.memberLevel.rank, 18.dp)
         }
         if (next != null) {
             LinearProgressIndicator(
                 progress = { progress },
                 modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
-                color = Color.White,
-                trackColor = Color.White.copy(alpha = 0.3f),
+                color = box.title,
+                trackColor = box.track,
                 strokeCap = StrokeCap.Round,
                 drawStopIndicator = {}
             )
@@ -253,10 +253,10 @@ private fun PointsHero(profile: UserProfile, targets: LevelTargets, modifier: Mo
                     (next.days - profile.activeDays).coerceAtLeast(0)
                 ),
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color.White
+                color = box.text
             )
         } else {
-            Text(stringResource(R.string.points_top_level), style = MaterialTheme.typography.bodyMedium, color = Color.White)
+            Text(stringResource(R.string.points_top_level), style = MaterialTheme.typography.bodyMedium, color = box.text)
         }
     }
 }

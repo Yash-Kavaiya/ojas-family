@@ -81,14 +81,14 @@ import com.ojashealing.family.ui.components.PostComposer
 import com.ojashealing.family.ui.components.PostImage
 
 
-/** Community tab order: Activity (Daily) first and shown on open, then Announcements, then Q&A. */
+/** Community tab order: Q&A first and shown on open, then Activity (Daily), then Announcements. Each value is its position in the tab row. */
 object CommunityTab {
-    const val DAILY = 0
-    const val NOTICES = 1
-    const val QA = 2
+    const val QA = 0
+    const val DAILY = 1
+    const val NOTICES = 2
 }
 
-private fun sectionOrder(tab: Int) = when (tab) { CommunityTab.DAILY -> 0; CommunityTab.NOTICES -> 1; else -> 2 }
+private fun sectionOrder(tab: Int) = when (tab) { CommunityTab.QA -> 0; CommunityTab.DAILY -> 1; else -> 2 }
 
 @Composable
 fun CommunityScreen(
@@ -98,7 +98,7 @@ fun CommunityScreen(
     onAnnounce: () -> Unit,
     daily: @Composable (canPost: Boolean) -> Unit = {},
     onOpenAnnouncement: (String) -> Unit = {},
-    tab: Int = CommunityTab.DAILY,
+    tab: Int = CommunityTab.QA,
     onTab: (Int) -> Unit = {},
     /** New lines per section, for the red counts on the section tabs. */
     badges: Map<Int, Int> = emptyMap(),
@@ -120,11 +120,11 @@ fun CommunityScreen(
                 containerColor = MaterialTheme.colorScheme.surface,
                 contentColor = MaterialTheme.colorScheme.primary
             ) {
+                Tab(selected = tab == CommunityTab.QA, onClick = { onTab(CommunityTab.QA) }, text = { com.ojashealing.family.ui.components.TabLabel(androidx.compose.material.icons.Icons.Outlined.QuestionAnswer, stringResource(R.string.community_qa), badges[CommunityTab.QA] ?: 0) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
                 Tab(selected = tab == CommunityTab.DAILY, onClick = { onTab(CommunityTab.DAILY) }, text = { com.ojashealing.family.ui.components.TabLabel(androidx.compose.material.icons.Icons.Outlined.DynamicFeed, stringResource(R.string.community_daily), badges[CommunityTab.DAILY] ?: 0) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
                 Tab(selected = tab == CommunityTab.NOTICES, onClick = { onTab(CommunityTab.NOTICES) }, text = { com.ojashealing.family.ui.components.TabLabel(androidx.compose.material.icons.Icons.Outlined.Campaign, stringResource(R.string.community_notices), badges[CommunityTab.NOTICES] ?: 0) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
-                Tab(selected = tab == CommunityTab.QA, onClick = { onTab(CommunityTab.QA) }, text = { com.ojashealing.family.ui.components.TabLabel(androidx.compose.material.icons.Icons.Outlined.QuestionAnswer, stringResource(R.string.community_qa), badges[CommunityTab.QA] ?: 0) }, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            // The order on screen is Activity, Notices, Q&A; the slide follows that order
+            // The order on screen is Q&A, Activity, Notices; the slide follows that order
             androidx.compose.animation.AnimatedContent(
                 targetState = tab,
                 modifier = Modifier.weight(1f),

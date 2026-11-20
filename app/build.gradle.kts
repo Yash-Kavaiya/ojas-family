@@ -44,7 +44,8 @@ android {
   // split by CPU type on their own, so this setting doesn't touch them.
   splits {
     abi {
-      isEnable = true
+      // Per-ABI APKs for side-loading; an app bundle (Play) splits by ABI itself and can't be built with this on
+      isEnable = gradle.startParameter.taskNames.none { it.contains("bundle", ignoreCase = true) }
       reset()
       include("arm64-v8a", "armeabi-v7a", "x86_64")
       isUniversalApk = false

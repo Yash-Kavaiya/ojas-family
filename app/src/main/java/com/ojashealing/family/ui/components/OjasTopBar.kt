@@ -53,13 +53,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ojashealing.family.R
 import com.ojashealing.family.data.user.UserProfile
-import com.ojashealing.family.ui.theme.OjasGradients
 import com.ojashealing.family.ui.theme.BrandNumberStyle
 import com.ojashealing.family.ui.theme.BrandTitleStyle
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.border
 import androidx.compose.ui.semantics.Role
 import com.ojashealing.family.ui.theme.Spacing
 import kotlinx.coroutines.delay
@@ -102,8 +102,10 @@ fun OjasTopBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.m)
         ) {
+            // The ring around the logo and the name take the theme's own colours, light or dark
+            val brand = Brush.linearGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.secondary))
             Box(
-                Modifier.size(36.dp).clip(CircleShape).background(Brush.linearGradient(OjasGradients.gold)).padding(2.dp),
+                Modifier.size(36.dp).clip(CircleShape).background(brand).padding(2.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Image(
@@ -117,7 +119,7 @@ fun OjasTopBar(
                 // The brand name always in Poppins, whatever the app language
                 Text(
                     stringResource(R.string.app_name),
-                    style = BrandTitleStyle.copy(brush = Brush.horizontalGradient(OjasGradients.saffron)),
+                    style = BrandTitleStyle.copy(brush = Brush.horizontalGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.secondary))),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -152,6 +154,8 @@ fun OjasTopBar(
             }
 
             val pointsLabel = stringResource(R.string.profile_points)
+            // The Quick Protection colours, like the Freedom Points box it opens
+            val pill = com.ojashealing.family.ui.theme.featureBoxColors()
             val historyLabel = stringResource(R.string.points_history_title)
             Row(
                 modifier = Modifier
@@ -162,16 +166,17 @@ fun OjasTopBar(
                     }
                     .onPlaced { onCounterPositioned(it.boundsInRoot().center) }
                     .clip(RoundedCornerShape(50))
-                    .background(Brush.linearGradient(OjasGradients.gold))
+                    .background(pill.container)
+                    .border(1.dp, pill.track, RoundedCornerShape(50))
                     .clickable(onClickLabel = historyLabel, role = Role.Button, onClick = onOpenPoints)
                     .padding(horizontal = Spacing.m, vertical = 6.dp)
                     .semantics { contentDescription = "$points $pointsLabel" },
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
             ) {
-                Icon(Icons.Filled.Stars, contentDescription = null, tint = Color(0xFFB45309), modifier = Modifier.size(16.dp))
-                Text("$shownPoints", style = BrandNumberStyle, color = Color(0xFF3B2300))
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = Color(0xFF3B2300), modifier = Modifier.size(16.dp))
+                Icon(Icons.Filled.Stars, contentDescription = null, tint = pill.title, modifier = Modifier.size(16.dp))
+                Text("$shownPoints", style = BrandNumberStyle, color = pill.text)
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = pill.text, modifier = Modifier.size(16.dp))
             }
         }
     }

@@ -1,6 +1,7 @@
 package com.ojashealing.family.ui.theme
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 
 // Spiritual Sattvic Palette
 val SaffronPrimary = Color(0xFFE65100)
@@ -81,3 +82,27 @@ val NoticeTints = listOf(
 
 /** The same announcement always gets the same colour. */
 fun noticeTintFor(id: String): NoticeTint = NoticeTints[Math.floorMod(id.hashCode(), NoticeTints.size)]
+
+/** The colours of a large feature box: its fill, its heading, its body text, its quieter text and its faint lines. */
+@androidx.compose.runtime.Immutable
+data class FeatureBoxColors(val container: Color, val title: Color, val text: Color, val muted: Color, val track: Color)
+
+/**
+ * The big boxes (Today's Guided Practice, the streak, Ask Swami Ji AI, the Profile header, Freedom Points)
+ * and the points pill in the top bar wear the Quick Protection box's colours, light or dark with the theme
+ * (owner, 2026-11-20), so none of them looks too dark on the light theme.
+ */
+@androidx.compose.runtime.Composable
+fun featureBoxColors(): FeatureBoxColors {
+    val scheme = androidx.compose.material3.MaterialTheme.colorScheme
+    val dark = scheme.background.luminance() < 0.5f
+    val tint = QuickProtectionTint
+    val title = if (dark) tint.titleDark else tint.titleLight
+    return FeatureBoxColors(
+        container = if (dark) tint.boxDark else tint.boxLight,
+        title = title,
+        text = scheme.onSurface,
+        muted = scheme.onSurfaceVariant,
+        track = title.copy(alpha = 0.2f),
+    )
+}

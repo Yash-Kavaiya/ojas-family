@@ -149,7 +149,9 @@ private fun IdentityCard(
         com.ojashealing.family.ui.components.PhotoCropDialog(src, onDismiss = { cropping = null }, onCropped = { cropping = null; onPickPhoto(it) })
     }
     val changePhoto = stringResource(R.string.profile_change_photo)
-    OjasCard(tintKey = 3) {
+    // The Quick Protection box colours, light or dark with the theme
+    val box = com.ojashealing.family.ui.theme.featureBoxColors()
+    OjasCard(containerColor = box.container, borderColor = box.track) {
         Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
             // Tapping the picture changes it; the camera badge says so
             Box(
@@ -190,7 +192,7 @@ private fun IdentityCard(
             }
             photoError?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                Text(profile.displayName, style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
+                Text(profile.displayName, style = MaterialTheme.typography.headlineSmall, color = box.title, textAlign = TextAlign.Center)
                 com.ojashealing.family.ui.components.RoleTick(profile.viewer.role, 22.dp)
             }
 

@@ -106,11 +106,12 @@ class PermissionsTest {
         assertEquals(Role.Moderator, Role.fromId("moderator"))
     }
 
-    @Test fun onlySwamijiAndAdminsSeeHowManyUsersAndMembers() {
+    @Test fun everyoneSeesHowManyUsersAndMembers() {
         assertTrue(Permissions.canSeeUserCounts(freeFor(0, Role.Swamiji)))
         assertTrue(Permissions.canSeeUserCounts(freeFor(0, Role.Admin)))
-        assertFalse(Permissions.canSeeUserCounts(freeFor(0, Role.Moderator)))
-        assertFalse(Permissions.canSeeUserCounts(onPlanFor(Plan.Gold, 400)))
+        assertTrue(Permissions.canSeeUserCounts(freeFor(0, Role.Moderator)))
+        assertTrue(Permissions.canSeeUserCounts(freeFor(0)))
+        assertTrue(Permissions.canSeeUserCounts(onPlanFor(Plan.Gold, 400)))
     }
 
     @Test fun swamijiOpensAfterSixMonthsOnEveryPlan() {

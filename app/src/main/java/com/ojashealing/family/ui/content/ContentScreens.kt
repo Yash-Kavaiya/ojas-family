@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PlayArrow
@@ -142,6 +143,13 @@ fun practiceRows(sections: List<SectionUi>?, withMedia: Set<ContentSection>): Li
         }
     }
 
+/** Practice tab sections in their order on screen: Read first and shown on open, then Daily, then Freedom. */
+object PracticePart {
+    const val READ = 0
+    const val DAILY = 1
+    const val FREEDOM = 2
+}
+
 @Composable
 fun PracticeTab(
     sections: List<SectionUi>?,
@@ -152,10 +160,10 @@ fun PracticeTab(
     guided: List<GuidedCard>? = null,
     streak: com.ojashealing.family.data.practice.StreakSummary? = null,
     onOpenGuided: (ContentSection) -> Unit = {},
-    /** 0 = Daily Practice (morning, night, meditation), 1 = Freedom Practice (the goals). */
-    part: Int = 0,
+    /** A [PracticePart]: Read (Swamiji's questions), Daily Practice (morning, night, meditation) or Freedom Practice (the goals). */
+    part: Int = PracticePart.READ,
     onPart: (Int) -> Unit = {},
-    /** Practice > Read: questions and answers from Swamiji, below the practices. */
+    /** Practice > Read: questions and answers from Swamiji. */
     read: ReadUi? = null,
     freedom: @Composable () -> Unit = {}
 ) {
@@ -166,6 +174,7 @@ fun PracticeTab(
             contentColor = MaterialTheme.colorScheme.primary
         ) {
             listOf(
+                R.string.read_title to androidx.compose.material.icons.Icons.AutoMirrored.Outlined.MenuBook,
                 R.string.practice_tab_daily to androidx.compose.material.icons.Icons.Outlined.WbSunny,
                 R.string.practice_tab_freedom to androidx.compose.material.icons.Icons.Outlined.SelfImprovement,
             ).forEachIndexed { i, (label, icon) ->
@@ -183,8 +192,11 @@ fun PracticeTab(
             label = "practicePart",
         ) { shown ->
             Box(Modifier.fillMaxSize()) {
-                if (shown == 1) freedom()
-                else DailyPractice(sections, onPlay, practice, practiceBusy, onMarkPractice, guided, streak, onOpenGuided, read)
+                when (shown) {
+                    PracticePart.FREEDOM -> freedom()
+                    PracticePart.READ -> if (read != null) ReadPractice(read) else LoadingState()
+                    else -> DailyPractice(sections, onPlay, practice, practiceBusy, onMarkPractice, guided, streak, onOpenGuided)
+                }
             }
         }
     }
@@ -220,16 +232,13 @@ private fun DailyPractice(
     guided: List<GuidedCard>?,
     streak: com.ojashealing.family.data.practice.StreakSummary?,
     onOpenGuided: (ContentSection) -> Unit,
-    read: ReadUi?,
 ) {
     var locked by remember { mutableStateOf<Access.Locked?>(null) }
-    val readState = remember { ReadState() }
-    val hasRead = read != null && (!read.items.isNullOrEmpty() || read.canEdit)
     val guidedCards = guided.orEmpty()
     val rows = practiceRows(sections, guidedCards.map { it.section }.toSet())
     when {
         sections == null && guided == null -> LoadingState()
-        rows.isNullOrEmpty() && guidedCards.isEmpty() && !hasRead -> Column(Modifier.fillMaxSize()) {
+        rows.isNullOrEmpty() && guidedCards.isEmpty() ->Column(Modifier.fillMaxSize()) {
             SectionHeader(stringResource(R.string.tab_spiritual))
             EmptyState(
                 icon = Icons.Outlined.SelfImprovement,
@@ -276,11 +285,8 @@ private fun DailyPractice(
             items(rows.orEmpty().filter { it.section !in PracticeTabOrder }, key = { it.section.id }, contentType = { "section" }) { section ->
                 PracticeRow(section, onPlay, practice, practiceBusy, onMarkPractice) { locked = it }
             }
-            // Below the practices: Read, Swamiji's questions and answers
-            if (read != null) readSection(read, readState)
         }
     }
-    read?.let { ReadOverlays(it, readState) }
     locked?.let { LockedDialog(it) { locked = null } }
 }
 

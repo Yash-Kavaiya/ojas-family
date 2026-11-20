@@ -94,7 +94,7 @@ describe("usage dashboard numbers", () => {
   });
 });
 
-describe("people count on Home for Swamiji and admins", () => {
+describe("people count on Home for everyone", () => {
   test("counts everyone who signed up, and the members with a membership level", async () => {
     await db.doc("users/a").set({ userLevel: 1 });
     await db.doc("users/b").set({ userLevel: 2, memberLevel: 1 });
@@ -102,11 +102,12 @@ describe("people count on Home for Swamiji and admins", () => {
     await db.doc("users/d").set({ userLevel: 1, memberLevel: 0 });
     expect(await userCountsFor(db, { role: "swamiji" })).toEqual({ users: 4, members: 2 });
     expect(await userCountsFor(db, ADMIN)).toEqual({ users: 4, members: 2 });
+    // Any signed-in person sees the same numbers
+    expect(await userCountsFor(db, { role: "member" })).toEqual({ users: 4, members: 2 });
+    expect(await userCountsFor(db, {})).toEqual({ users: 4, members: 2 });
   });
 
-  test("other people may not see it", async () => {
-    for (const role of [undefined, "member", "senior_member"]) {
-      await expect(userCountsFor(db, role ? { role } : undefined)).rejects.toThrow(/Swamiji and admins/);
-    }
+  test("someone not signed in may not see it", async () => {
+    await expect(userCountsFor(db, undefined)).rejects.toThrow(/Sign in/);
   });
 });

@@ -5,12 +5,15 @@ import android.speech.tts.UtteranceProgressListener
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -18,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.Add
@@ -68,6 +72,8 @@ import com.ojashealing.family.data.read.ttsLanguageFor
 import com.ojashealing.family.data.read.validReadQa
 import com.ojashealing.family.domain.Role as UserRole
 import com.ojashealing.family.domain.Viewer
+import com.ojashealing.family.ui.components.EmptyState
+import com.ojashealing.family.ui.components.LoadingState
 import com.ojashealing.family.ui.components.SectionHeader
 import com.ojashealing.family.ui.theme.Spacing
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -92,7 +98,7 @@ class ReadQaViewModel(private val repo: ReadQaRepository, private val ticks: Rea
     private val _saving = MutableStateFlow(false)
     val saving = _saving.asStateFlow()
 
-    fun markRead(id: String) = ticks.mark(id)
+    fun setDone(id: String, done: Boolean) = ticks.set(id, done)
 
     /** Adds a new one when [id] is null. [done] gets null on success, else a message to show. */
     fun save(id: String?, question: String, answer: String, done: (Int?) -> Unit) {
@@ -120,7 +126,7 @@ class ReadUi(
     val read: Set<String>,
     val canEdit: Boolean,
     val saving: Boolean,
-    val onMarkRead: (String) -> Unit,
+    val onSetDone: (id: String, done: Boolean) -> Unit,
     val onSave: (id: String?, question: String, answer: String, done: (Int?) -> Unit) -> Unit,
     val onDelete: (id: String, done: (Int?) -> Unit) -> Unit,
 )
@@ -133,10 +139,41 @@ class ReadState {
     var editingId by mutableStateOf<String?>(null)
 }
 
-/** The Read heading and the list of questions, added at the bottom of Daily Practice. */
-fun LazyListScope.readSection(ui: ReadUi, state: ReadState) {
-    val items = ui.items ?: return
-    if (items.isEmpty() && !ui.canEdit) return
+/**
+ * Practice > Read: only the questions in their boxes, no likes or replies. Each time it comes on
+ * screen a random question not yet Done is put first; Done ones stay in the list with a tick.
+ */
+@Composable
+fun ReadPractice(ui: ReadUi) {
+    val state = remember { ReadState() }
+    val items = ui.items
+    // Picked once per visit, so the list doesn't jump while the member reads or marks Done
+    var firstId by remember { mutableStateOf<String?>(null) }
+    if (items != null && (firstId == null || items.none { it.id == firstId })) {
+        firstId = ReadTicks.pickFirst(items.map { it.id }, ui.read)
+    }
+    when {
+        items == null -> LoadingState()
+        items.isEmpty() && !ui.canEdit -> Column(Modifier.fillMaxSize()) {
+            SectionHeader(stringResource(R.string.read_title))
+            EmptyState(
+                icon = Icons.AutoMirrored.Outlined.MenuBook,
+                title = stringResource(R.string.read_empty_title),
+                body = stringResource(R.string.read_empty_body),
+                modifier = Modifier.weight(1f)
+            )
+        }
+        else -> {
+            val ordered = items.firstOrNull { it.id == firstId }?.let { listOf(it) + (items - it) } ?: items
+            LazyColumn(contentPadding = PaddingValues(top = Spacing.s, bottom = Spacing.xl), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
+                readSection(ui, state, ordered, firstId)
+            }
+        }
+    }
+    ReadOverlays(ui, state)
+}
+
+private fun LazyListScope.readSection(ui: ReadUi, state: ReadState, items: List<ReadQa>, firstId: String?) {
     item(key = "readHeader", contentType = "readHeader") {
         Column {
             SectionHeader(
@@ -162,36 +199,46 @@ fun LazyListScope.readSection(ui: ReadUi, state: ReadState) {
         }
     }
     items(items, key = { "read_" + it.id }, contentType = { "readQa" }) { qa ->
-        ReadRow(qa, read = qa.id in ui.read, onOpen = { state.openId = qa.id }, modifier = Modifier.padding(horizontal = Spacing.l).animateItem())
+        ReadRow(
+            qa, read = qa.id in ui.read, first = qa.id == firstId,
+            onOpen = { state.openId = qa.id },
+            modifier = Modifier.padding(horizontal = Spacing.l).animateItem()
+        )
     }
 }
 
 @Composable
-private fun ReadRow(qa: ReadQa, read: Boolean, onOpen: () -> Unit, modifier: Modifier = Modifier) {
+private fun ReadRow(qa: ReadQa, read: Boolean, first: Boolean, onOpen: () -> Unit, modifier: Modifier = Modifier) {
     val readLabel = stringResource(if (read) R.string.read_done else R.string.read_not_done)
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        color = if (first) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
         modifier = modifier
             .fillMaxWidth()
             .clickable(role = Role.Button, onClick = onOpen)
             .semantics { stateDescription = readLabel }
     ) {
-        Row(Modifier.padding(Spacing.l), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.m)) {
-            Icon(
-                if (read) Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
-                contentDescription = null,
-                tint = if (read) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(24.dp)
-            )
-            Text(
-                qa.question,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
+        val textColor = if (first) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+        Column(Modifier.padding(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
+            if (first) {
+                Text(stringResource(R.string.read_start_here), style = MaterialTheme.typography.labelLarge, color = textColor)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.m)) {
+                Icon(
+                    if (read) Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
+                    contentDescription = null,
+                    tint = if (read) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(24.dp)
+                )
+                Text(
+                    qa.question,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = textColor,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
     }
 }
@@ -223,8 +270,7 @@ fun ReadOverlays(ui: ReadUi, state: ReadState) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ReadAnswerSheet(qa: ReadQa, ui: ReadUi, onEdit: () -> Unit, onDeleted: () -> Unit, onClose: () -> Unit) {
-    // Opening a question is reading it
-    androidx.compose.runtime.LaunchedEffect(qa.id) { ui.onMarkRead(qa.id) }
+    val done = qa.id in ui.read
     val voice = rememberReadAloud()
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var confirmDelete by remember { mutableStateOf(false) }
@@ -249,6 +295,15 @@ private fun ReadAnswerSheet(qa: ReadQa, ui: ReadUi, onEdit: () -> Unit, onDelete
                     Icon(if (speaking) Icons.Outlined.StopCircle else Icons.AutoMirrored.Outlined.VolumeUp, contentDescription = null, modifier = Modifier.size(18.dp))
                     Text(stringResource(if (speaking) R.string.ai_stop_reading else R.string.ai_read_aloud), modifier = Modifier.padding(start = Spacing.s))
                 }
+                // Done is the member's own mark; the question stays in the list with a tick
+                androidx.compose.material3.FilterChip(
+                    selected = done,
+                    onClick = { ui.onSetDone(qa.id, !done) },
+                    label = { Text(stringResource(if (done) R.string.read_done else R.string.read_mark_done)) },
+                    leadingIcon = {
+                        Icon(if (done) Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked, contentDescription = null, modifier = Modifier.size(18.dp))
+                    },
+                )
             }
             SelectionContainer {
                 Text(qa.answer, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)

@@ -47,4 +47,21 @@ class ReadQaTest {
         assertFalse(canEditRead(v(Role.Member)))
         assertFalse(canEditRead(null))
     }
+
+    @Test fun firstQuestionIsOneNotYetDone() {
+        val ids = listOf("a", "b", "c", "d")
+        repeat(50) { seed ->
+            val pick = ReadTicks.pickFirst(ids, done = setOf("a", "c"), random = kotlin.random.Random(seed))
+            assertTrue(pick == "b" || pick == "d")
+        }
+        // All Done: still one of them, never nothing
+        assertTrue(ReadTicks.pickFirst(ids, done = ids.toSet()) in ids)
+        assertEquals(null, ReadTicks.pickFirst(emptyList(), done = emptySet()))
+    }
+
+    @Test fun firstQuestionChangesBetweenVisits() {
+        val ids = (1..10).map { "q$it" }
+        val picks = (0 until 30).map { ReadTicks.pickFirst(ids, emptySet(), kotlin.random.Random(it)) }.toSet()
+        assertTrue(picks.size > 1)
+    }
 }

@@ -12,6 +12,7 @@ import com.ojashealing.family.data.settings.ThemeMode
 import android.content.Intent
 import com.ojashealing.family.push.DeepLinks
 import com.ojashealing.family.ui.navigation.OjasRoot
+import androidx.compose.ui.graphics.toArgb
 import com.ojashealing.family.ui.theme.OjasFamilyTheme
 
 class MainActivity : AppCompatActivity() {
@@ -30,6 +31,8 @@ class MainActivity : AppCompatActivity() {
             // Status and navigation bar icons follow the app's theme, not the phone's setting
             val view = androidx.compose.ui.platform.LocalView.current
             androidx.compose.runtime.SideEffect {
+                // The window behind the screens is the theme's page colour too, so nothing flashes the other theme
+                window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(colors.background.toArgb()))
                 androidx.core.view.WindowCompat.getInsetsController(window, view).apply {
                     isAppearanceLightStatusBars = !dark
                     isAppearanceLightNavigationBars = !dark

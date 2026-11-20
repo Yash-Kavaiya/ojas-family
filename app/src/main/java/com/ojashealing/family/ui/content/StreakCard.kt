@@ -81,12 +81,14 @@ fun StreakCard(streak: StreakSummary, modifier: Modifier = Modifier) {
     val target = nextMilestone(streak.current)
     val toGoal by animateFloatAsState((streak.current.toFloat() / target).coerceIn(0f, 1f), tween(Durations.Slow, easing = OjasEasing.Emphasized), label = "goal")
     val description = pluralStringResource(R.plurals.streak_days_in_row, streak.current, streak.current)
+    // The Quick Protection box colours, light or dark with the theme
+    val box = com.ojashealing.family.ui.theme.featureBoxColors()
 
     Column(
         modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(24.dp))
-            .background(Brush.linearGradient(listOf(Color(0xFF2A1450), Color(0xFF4A1E3F), Color(0xFF7A2E1C))))
+            .background(box.container)
             .padding(Spacing.l)
             .semantics(mergeDescendants = true) { contentDescription = description },
         verticalArrangement = Arrangement.spacedBy(Spacing.m),
@@ -100,7 +102,7 @@ fun StreakCard(streak: StreakSummary, modifier: Modifier = Modifier) {
                 }
                 Icon(
                     Icons.Filled.LocalFireDepartment, null,
-                    tint = if (lit) FlameOrange else Color.White.copy(alpha = 0.35f),
+                    tint = if (lit) FlameOrange else box.muted,
                     modifier = Modifier.size(44.dp).graphicsLayer { scaleX = flicker.value; scaleY = flicker.value },
                 )
             }
@@ -109,38 +111,38 @@ fun StreakCard(streak: StreakSummary, modifier: Modifier = Modifier) {
                     Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         // Changes only when the whole number does, not on every frame of the count-up
                         val shownCount by remember { androidx.compose.runtime.derivedStateOf { count.value.toInt() } }
-                        Text("$shownCount", style = com.ojashealing.family.ui.theme.BrandNumberLargeStyle, color = Color.White)
+                        Text("$shownCount", style = com.ojashealing.family.ui.theme.BrandNumberLargeStyle, color = box.title)
                         Text(
                             pluralStringResource(R.plurals.streak_days_label, streak.current),
-                            style = MaterialTheme.typography.titleSmall, color = Color.White.copy(alpha = 0.85f),
+                            style = MaterialTheme.typography.titleSmall, color = box.muted,
                             modifier = Modifier.padding(bottom = 6.dp),
                         )
                     }
                     Text(
                         if (streak.doneToday) stringResource(R.string.streak_today_done) else stringResource(R.string.streak_keep_going),
-                        style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.75f),
+                        style = MaterialTheme.typography.bodySmall, color = box.muted,
                     )
                 } else {
-                    Text(stringResource(R.string.streak_start_title), style = MaterialTheme.typography.titleMedium, color = Color.White)
-                    Text(stringResource(R.string.streak_start_body), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.75f))
+                    Text(stringResource(R.string.streak_start_title), style = MaterialTheme.typography.titleMedium, color = box.title)
+                    Text(stringResource(R.string.streak_start_body), style = MaterialTheme.typography.bodySmall, color = box.muted)
                 }
             }
             if (streak.best > 0) {
                 Column(horizontalAlignment = Alignment.End) {
-                    Text(stringResource(R.string.streak_best), style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.65f))
-                    Text("${streak.best}", style = BrandNumberStyle, color = FlameGold)
+                    Text(stringResource(R.string.streak_best), style = MaterialTheme.typography.labelSmall, color = box.muted)
+                    Text("${streak.best}", style = BrandNumberStyle, color = box.title)
                 }
             }
         }
 
-        WeekDots(streak)
+        WeekDots(streak, box)
 
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row {
-                Text(stringResource(R.string.streak_next_goal, target), style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.8f), modifier = Modifier.weight(1f))
-                Text("${streak.current}/$target", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.8f))
+                Text(stringResource(R.string.streak_next_goal, target), style = MaterialTheme.typography.labelMedium, color = box.muted, modifier = Modifier.weight(1f))
+                Text("${streak.current}/$target", style = MaterialTheme.typography.labelMedium, color = box.muted)
             }
-            Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(Color.White.copy(alpha = 0.14f))) {
+            Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(box.track)) {
                 Box(
                     Modifier.fillMaxWidth(toGoal).height(6.dp).clip(RoundedCornerShape(3.dp))
                         .background(Brush.horizontalGradient(listOf(FlameOrange, FlameGold)))
@@ -152,7 +154,7 @@ fun StreakCard(streak: StreakSummary, modifier: Modifier = Modifier) {
 
 /** Mon..Sun style row: filled when practised, a ring around today, quiet when missed. */
 @Composable
-private fun WeekDots(streak: StreakSummary) {
+private fun WeekDots(streak: StreakSummary, box: com.ojashealing.family.ui.theme.FeatureBoxColors) {
     val locale = LocalConfiguration.current.locales[0]
     val letters = remember(streak.week, locale) {
         val f = SimpleDateFormat("EEEEE", locale).apply { timeZone = TimeZone.getTimeZone("Asia/Kolkata") }
@@ -172,8 +174,8 @@ private fun WeekDots(streak: StreakSummary) {
                 Box(
                     when {
                         done -> dot.background(Brush.linearGradient(listOf(FlameOrange, FlameGold)))
-                        today -> dot.border(2.dp, FlameGold.copy(alpha = 0.8f), CircleShape)
-                        else -> dot.background(Color.White.copy(alpha = 0.08f))
+                        today -> dot.border(2.dp, box.title, CircleShape)
+                        else -> dot.background(box.track)
                     },
                     contentAlignment = Alignment.Center,
                 ) {
@@ -182,7 +184,7 @@ private fun WeekDots(streak: StreakSummary) {
                 Text(
                     letters.getOrElse(i) { "" },
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (today) FlameGold else Color.White.copy(alpha = 0.6f),
+                    color = if (today) box.title else box.muted,
                 )
             }
         }

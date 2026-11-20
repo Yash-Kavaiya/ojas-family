@@ -68,6 +68,7 @@ import com.ojashealing.family.R
 import com.ojashealing.family.data.settings.ThemeMode
 import com.ojashealing.family.ui.components.OjasCard
 import com.ojashealing.family.ui.theme.Spacing
+import com.ojashealing.family.ui.theme.isDark
 
 private val languageNames = listOf("hi" to "हिन्दी", "gu" to "ગુજરાતી", "en" to "English")
 
@@ -224,37 +225,24 @@ private fun Section(title: String, tint: Int = 0, content: @Composable () -> Uni
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * The two themes, Light (Healing Blue) and Dark (Forest Sage). Someone who never chose follows the
+ * phone, and the theme in use shows as chosen.
+ */
 @Composable
 private fun ThemeSelector(current: ThemeMode, onSelect: (ThemeMode) -> Unit) {
-    val options = listOf(
-        ThemeMode.System to R.string.settings_theme_system,
-        ThemeMode.Light to R.string.settings_theme_light,
-        ThemeMode.Dark to R.string.settings_theme_dark
-    )
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
-        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-            options.forEachIndexed { i, (mode, label) ->
-                SegmentedButton(
-                    selected = current == mode,
-                    onClick = { onSelect(mode) },
-                    shape = SegmentedButtonDefaults.itemShape(index = i, count = options.size)
-                ) { Text(stringResource(label), maxLines = 1) }
-            }
-        }
-        // Two colour themes beside the Ojas colours above
-        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-            ThemeCard(
-                stringResource(R.string.settings_theme_healing_blue), current == ThemeMode.HealingBlue,
-                swatch = listOf(Color(0xFFEAF3FF), Color(0xFF0B5CAD), Color(0xFF00708A)),
-                onClick = { onSelect(ThemeMode.HealingBlue) }, modifier = Modifier.weight(1f)
-            )
-            ThemeCard(
-                stringResource(R.string.settings_theme_forest_sage), current == ThemeMode.ForestSage,
-                swatch = listOf(Color(0xFF111A15), Color(0xFFA9CFA0), Color(0xFFE2C98A)),
-                onClick = { onSelect(ThemeMode.ForestSage) }, modifier = Modifier.weight(1f)
-            )
-        }
+    val dark = current.isDark(androidx.compose.foundation.isSystemInDarkTheme())
+    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
+        ThemeCard(
+            stringResource(R.string.settings_theme_healing_blue), !dark,
+            swatch = listOf(Color(0xFFEAF3FF), Color(0xFF0B5CAD), Color(0xFF00708A)),
+            onClick = { onSelect(ThemeMode.Light) }, modifier = Modifier.weight(1f)
+        )
+        ThemeCard(
+            stringResource(R.string.settings_theme_forest_sage), dark,
+            swatch = listOf(Color(0xFF111A15), Color(0xFFA9CFA0), Color(0xFFE2C98A)),
+            onClick = { onSelect(ThemeMode.Dark) }, modifier = Modifier.weight(1f)
+        )
     }
 }
 
