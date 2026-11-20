@@ -22,15 +22,16 @@ class CommunityViewModelTest {
     @Test fun blockedAuthorsHidden() =
         assertEquals(listOf("q1"), visibleQuestions(listOf(q("q1", "ok"), q("q2", "troll")), blocked = setOf("troll")).map { it.id })
 
-    @Test fun askHiddenBelowLevel3() {
-        assertFalse(communityPermissions(Viewer(UserLevel.L2, MemberLevel.None, Role.Member)).canAsk)
-        assertTrue(communityPermissions(Viewer(UserLevel.L3, MemberLevel.None, Role.Member)).canAsk)
+    @Test fun askHiddenUntilThePlanTableOpensIt() {
+        assertFalse(communityPermissions(com.ojashealing.family.domain.freeFor(100)).canAsk)
+        assertTrue(communityPermissions(com.ojashealing.family.domain.freeFor(182)).canAsk)
+        assertFalse(communityPermissions(com.ojashealing.family.domain.freeFor(182)).canAskWithMedia)
         assertFalse(communityPermissions(Viewer(UserLevel.L3, MemberLevel.None, Role.Member)).canAnnounce)
         assertTrue(communityPermissions(Viewer(UserLevel.L1, MemberLevel.None, Role.Admin)).canAnnounce)
     }
 
     @Test fun staffAnswersFirst() {
-        val answers = listOf(a("m1", "m", Role.Member, 1), a("s1", "sw", Role.Swamiji, 5), a("m2", "m2", Role.Member, 2), a("sm", "se", Role.SeniorMember, 9))
+        val answers = listOf(a("m1", "m", Role.Member, 1), a("s1", "sw", Role.Swamiji, 5), a("m2", "m2", Role.Member, 2), a("sm", "se", Role.Moderator, 9))
         assertEquals(listOf("s1", "sm", "m1", "m2"), orderAnswers(answers, blocked = emptySet()).map { it.id })
     }
 

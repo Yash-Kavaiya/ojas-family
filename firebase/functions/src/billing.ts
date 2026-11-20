@@ -9,9 +9,13 @@ import { istDay } from "./time";
  */
 export type Entitlement = "membership" | "chat" | "call";
 
+/** The paid plans (owner's plan table, 2026-11-20); membership_monthly has always been Silver. */
+export type Tier = "silver" | "gold";
+
 export interface Product {
   kind: "subs" | "inapp";
   entitlement: Entitlement;
+  tier?: Tier; // membership only: which plan it gives (Silver when not set)
   days?: number; // one-time packs: how long the pack lasts
   credits?: number; // one-time call pack: number of calls
 }
@@ -40,12 +44,31 @@ function isActive(data: FirebaseFirestore.DocumentData | undefined, now: Date): 
   return !!exp && exp.toMillis() > now.getTime();
 }
 
-/** Re-derives memberLevel from the membership entitlement and paidDays. */
+/**
+ * Re-derives memberLevel, and the plan the access table reads (plan, planSince, planUntil), from the
+ * membership entitlement. planSince is when continuous paid membership began: moving from Silver to
+ * Gold keeps it, a lapse starts it again. The first time it is set it counts the paid days so far.
+ */
 export async function refreshMemberLevel(db: Firestore, uid: string, now: Date): Promise<number> {
   const userRef = db.doc(`users/${uid}`);
   const [user, ent] = await Promise.all([userRef.get(), userRef.collection("entitlements").doc("membership").get()]);
-  const level = memberLevelFor(Number(user.get("paidDays") ?? 0), isActive(ent.data(), now));
-  if (user.get("memberLevel") !== level) await userRef.set({ memberLevel: level }, { merge: true });
+  const data = ent.data();
+  const active = isActive(data, now);
+  const paidDays = Number(user.get("paidDays") ?? 0);
+  const level = memberLevelFor(paidDays, active);
+  const plan = active ? (data?.tier === "gold" ? "gold" : "silver") : "user";
+  const update: Record<string, unknown> = {};
+  if (user.get("memberLevel") !== level) update.memberLevel = level;
+  if (user.get("plan") !== plan) update.plan = plan;
+  if (active) {
+    const until = data!.expiresAt as Timestamp;
+    const prevUntil = user.get("planUntil") as Timestamp | undefined;
+    if (!prevUntil || !prevUntil.isEqual(until)) update.planUntil = until;
+    const since = user.get("planSince") as Timestamp | undefined;
+    if (!since) update.planSince = Timestamp.fromMillis(now.getTime() - paidDays * DAY_MS);
+    else if (!prevUntil || prevUntil.toMillis() < now.getTime() - DAY_MS) update.planSince = Timestamp.fromDate(now);
+  }
+  if (Object.keys(update).length > 0) await userRef.set(update, { merge: true });
   return level;
 }
 
@@ -55,7 +78,7 @@ export async function refreshMemberLevel(db: Firestore, uid: string, now: Date):
  */
 export async function grantEntitlement(
   db: Firestore, uid: string, entitlement: Entitlement,
-  opts: { until?: Date; days?: number; credits?: number; source: string; productId?: string }, now: Date,
+  opts: { until?: Date; days?: number; credits?: number; source: string; productId?: string; tier?: Tier }, now: Date,
 ): Promise<Date> {
   const ref = db.doc(`users/${uid}/entitlements/${entitlement}`);
   const until = await db.runTransaction(async (tx) => {
@@ -71,6 +94,11 @@ export async function grantEntitlement(
     };
     // A subscription means unlimited calls; a pack gives a fixed number
     if (entitlement === "call") fields.credits = opts.credits ?? null;
+    // Which plan a membership is; Gold is never lowered by a Silver renewal while Gold is still running
+    if (entitlement === "membership") {
+      const keepGold = cur?.tier === "gold" && isActive(cur, now) && opts.tier !== "gold" && opts.source !== "admin";
+      fields.tier = keepGold ? "gold" : (opts.tier ?? "silver");
+    }
     tx.set(ref, fields, { merge: true });
     return expiresAt;
   });
@@ -151,7 +179,7 @@ export async function verifyPurchaseFor(
     // The token says what was bought: a cheaper subscription must not be claimed as a dearer one
     if (sub.productId !== input.productId) throw new HttpsError("invalid-argument", "This purchase is for a different product");
     if (!sub.active) throw new HttpsError("failed-precondition", "Subscription is not active");
-    until = await grantEntitlement(db, uid, product.entitlement, { until: sub.expiry, source: "play", productId: input.productId }, now);
+    until = await grantEntitlement(db, uid, product.entitlement, { until: sub.expiry, source: "play", productId: input.productId, tier: product.tier }, now);
     if (!sub.acknowledged) await api.acknowledgeSubscription(input.productId!, token);
   } else {
     const claim = await claimRef.get();
@@ -186,7 +214,7 @@ export async function onSubscriptionNotice(db: Firestore, api: PlayApi, purchase
 /** Admin grant for payments taken outside the app (cash, UPI) or for testing before Play Console exists. */
 export async function adminGrantFor(
   db: Firestore, callerToken: Record<string, unknown> | undefined,
-  input: { uid?: string; entitlement?: string; days?: number; credits?: number; revoke?: boolean }, now: Date,
+  input: { uid?: string; entitlement?: string; days?: number; credits?: number; revoke?: boolean; tier?: string }, now: Date,
 ): Promise<{ expiresAt: string }> {
   if (callerToken?.role !== "admin") throw new HttpsError("permission-denied", "Only admins can grant access");
   const ent = input.entitlement as Entitlement;
@@ -199,6 +227,8 @@ export async function adminGrantFor(
   const days = Math.floor(Number(input.days ?? 0));
   if (days < 1 || days > 366) throw new HttpsError("invalid-argument", "days must be 1 to 366");
   const credits = ent === "call" && input.credits ? Math.floor(Number(input.credits)) : undefined;
-  const until = await grantEntitlement(db, input.uid, ent, { days, credits, source: "admin" }, now);
+  if (input.tier !== undefined && input.tier !== "silver" && input.tier !== "gold") throw new HttpsError("invalid-argument", "tier must be silver or gold");
+  const tier = ent === "membership" ? ((input.tier as Tier | undefined) ?? "silver") : undefined;
+  const until = await grantEntitlement(db, input.uid, ent, { days, credits, source: "admin", tier }, now);
   return { expiresAt: until.toISOString() };
 }

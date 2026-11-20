@@ -39,7 +39,7 @@ class ContentViewModelTest {
 
     @Test fun lockedItemsCarryRequirement() {
         val morning = buildPractice(items, l1).first { it.section == ContentSection.Morning }.items.single()
-        assertEquals(Access.Locked(needsUserLevel = 4, needsMemberLevel = 1), morning.second)
+        assertEquals(Access.Locked(null, null, com.ojashealing.family.domain.AccessRules.DailyPractice), morning.second)
     }
 
     @Test fun unpublishedHiddenFromMembersButShownToAdmins() {
@@ -55,7 +55,7 @@ class ContentViewModelTest {
         )
         val forMember = buildBooks(books, l1)
         assertEquals(listOf("b1"), forMember.map { it.first.id })
-        assertTrue(forMember.single().second is Access.Locked)
+        assertTrue(forMember.single().second is Access.Open)
         assertEquals(listOf("b1", "b2"), buildBooks(books, l1.copy(role = Role.Admin)).map { it.first.id })
     }
 }

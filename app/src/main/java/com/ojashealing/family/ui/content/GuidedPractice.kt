@@ -96,13 +96,14 @@ fun buildGuided(
     media: Map<ContentSection, PracticeMedia>,
     done: Set<ContentSection>,
     canDaily: Boolean,
+    canQuick: Boolean = true,
     ready: (PracticeMedia) -> Boolean = { true },
     progress: (ContentSection, Int) -> Pair<Float, Long>
 ): List<GuidedCard> = GuidedSections.mapNotNull { s ->
     val m = media[s] ?: return@mapNotNull null
     val (share, resume) = if (s in done) 0f to 0L else progress(s, m.durationSec)
     GuidedCard(
-        m, s in done, share, resume, locked = (s == ContentSection.Morning || s == ContentSection.Night) && !canDaily,
+        m, s in done, share, resume, locked = ((s == ContentSection.Morning || s == ContentSection.Night) && !canDaily) || (s == ContentSection.QuickProtection && !canQuick),
         downloading = m.type != MediaType.YouTube && !ready(m),
     )
 }
@@ -119,7 +120,7 @@ class GuidedPracticeViewModel(
     /** Null until loaded; empty when no guided media is set yet. */
     val cards: StateFlow<List<GuidedCard>?> = profile.filterNotNull().flatMapLatest { p ->
         combine(repo.observeMedia(), repo.observeDoneToday(p.uid), refreshTick, downloads.changes()) { media, done, _, _ ->
-            buildGuided(media, done, Permissions.canDoDailyPractices(p.viewer), ready = { downloads.localFile(it) != null }) { s, secs ->
+            buildGuided(media, done, Permissions.canDoDailyPractices(p.viewer), Permissions.canDoQuickProtection(p.viewer), ready = { downloads.localFile(it) != null }) { s, secs ->
                 progress.share(s, secs) to progress.load(s).first
             }
         }
@@ -246,7 +247,7 @@ fun GuidedPracticeCard(card: GuidedCard, streak: PracticeStatus?, onOpen: () -> 
 @Composable
 private fun StatusTag(card: GuidedCard, accent: Color) {
     when {
-        card.locked -> Text(stringResource(R.string.guided_locked), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2,
+        card.locked -> Text(stringResource(R.string.guided_locked, com.ojashealing.family.ui.components.accessRuleText(if (card.section == ContentSection.QuickProtection) com.ojashealing.family.domain.AccessRules.QuickProtection else com.ojashealing.family.domain.AccessRules.DailyPractice)), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2,
             modifier = Modifier.padding(start = Spacing.xs).fillMaxWidth(0.3f))
         card.doneToday -> Text(stringResource(R.string.guided_done), style = MaterialTheme.typography.labelMedium, color = accent)
         card.downloading -> Text(stringResource(R.string.guided_downloading), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)

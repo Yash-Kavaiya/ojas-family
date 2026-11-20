@@ -1,3 +1,4 @@
+import { allows, RULES } from "./access";
 import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import { cached } from "./configCache";
@@ -22,10 +23,9 @@ export function streak(logs: Record<string, DayLog>, today: string, done: (l: Da
   return n;
 }
 
-// Same rule as the app's Permissions.canDoDailyPractices: free Level 4, any paid member, or staff
-export function canPractise(user: Record<string, unknown>, role: unknown): boolean {
-  if (role === "admin" || role === "swamiji" || role === "senior_member") return true;
-  return Number(user.userLevel ?? 1) >= 4 || Number(user.memberLevel ?? 0) >= 1;
+// Same rule as the app's Permissions.canDoDailyPractices: the plan table's Morning and Night practice
+export function canPractise(user: Record<string, unknown>, role: unknown, now: Date = new Date()): boolean {
+  return allows(user, role, RULES.dailyPractice, now);
 }
 
 /**
@@ -39,7 +39,7 @@ export async function logPracticeFor(
   if (kind !== "morning" && kind !== "night") throw new HttpsError("invalid-argument", "kind must be morning or night");
   const userRef = db.doc(`users/${uid}`);
   const user = (await userRef.get()).data() ?? {};
-  if (!canPractise(user, role)) throw new HttpsError("permission-denied", "Daily practices unlock at Level 4 or with membership");
+  if (!canPractise(user, role, now)) throw new HttpsError("permission-denied", "Morning and Night practice open with Silver (after 7 days) or Gold");
 
   const today = istDay(now);
   await userRef.collection("practiceLog").doc(today).set({ [kind]: true, updatedAt: FieldValue.serverTimestamp() }, { merge: true });

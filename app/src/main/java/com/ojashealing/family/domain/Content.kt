@@ -54,8 +54,11 @@ fun youtubeIdFrom(input: String): String? {
 sealed interface Access {
     data object Open : Access
 
-    /** What would unlock it: either free level [needsUserLevel] or member level [needsMemberLevel]; null = not a way in. */
-    data class Locked(val needsUserLevel: Int?, val needsMemberLevel: Int?) : Access
+    /**
+     * What would unlock it: the plan table's [rule], or (for an item an admin restricted) free level
+     * [needsUserLevel] or member level [needsMemberLevel]; null = not a way in.
+     */
+    data class Locked(val needsUserLevel: Int?, val needsMemberLevel: Int?, val rule: AccessRule? = null) : Access
 }
 
 /** A PDF book on the Ask tab's Books section: an admin-pasted https link; Firestore collection "books". */
@@ -75,30 +78,25 @@ data class Book(
 )
 
 fun accessFor(item: ContentItem, viewer: Viewer): Access {
-    if (Permissions.isStaff(viewer)) return Access.Open
+    if (viewer.hasFullAccess()) return Access.Open
 
-    // Section defaults from the design's §9; Permissions already knows that members get level rights
-    val (sectionOk, sectionUser) = when (item.section) {
-        ContentSection.Morning, ContentSection.Night -> Permissions.canDoDailyPractices(viewer) to UserLevel.L4.rank
-        ContentSection.Understanding -> Permissions.canReadUnderstanding(viewer) to UserLevel.L2.rank
-        else -> true to UserLevel.L1.rank
+    // Sections the plan table holds back; videos and books are open to everyone from the first day
+    val rule = when (item.section) {
+        ContentSection.Morning, ContentSection.Night -> AccessRules.DailyPractice
+        ContentSection.QuickProtection -> AccessRules.QuickProtection
+        else -> null
     }
-    return gate(viewer, sectionOk, sectionUser, item.minUserLevel, item.minMemberLevel)
+    if (rule != null && !viewer.allows(rule)) return Access.Locked(null, null, rule)
+    return gate(viewer, item.minUserLevel, item.minMemberLevel)
 }
 
-/** Books open on the same terms as the Understanding videos, and a book's own minimums can raise the bar. */
+/** Books are open to everyone; a book's own minimums (set by an admin) can raise the bar. */
 fun accessFor(book: Book, viewer: Viewer): Access {
-    if (Permissions.isStaff(viewer)) return Access.Open
-    return gate(viewer, Permissions.canReadUnderstanding(viewer), UserLevel.L2.rank, book.minUserLevel, book.minMemberLevel)
+    if (viewer.hasFullAccess()) return Access.Open
+    return gate(viewer, book.minUserLevel, book.minMemberLevel)
 }
 
-private fun gate(viewer: Viewer, sectionOk: Boolean, sectionUser: Int, minUserLevel: Int, minMemberLevel: Int): Access {
-    if (!sectionOk) {
-        return Access.Locked(
-            needsUserLevel = maxOf(sectionUser, minUserLevel),
-            needsMemberLevel = maxOf(MemberLevel.M1.rank, minMemberLevel)
-        )
-    }
+private fun gate(viewer: Viewer, minUserLevel: Int, minMemberLevel: Int): Access {
 
     // A document's own minimums can only raise the bar
     val userShort = viewer.userLevel.rank < minUserLevel

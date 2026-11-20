@@ -866,7 +866,9 @@ fun MainShell(container: AppContainer) {
                     secondLabel = stringResource(R.string.community_question_body),
                     onBack = { nav.popBackStack() },
                     onSubmit = { t, b, done -> communityVm.ask(t, b, done, com.ojashealing.family.data.social.mentionedUids("$t $b", staffMentions)) },
-                    canAttachImage = perms?.canAttachImage == true,
+                    canAttachImage = perms?.canAskWithMedia == true,
+                    note = communityVm.askLimit.collectAsStateWithLifecycle().value?.let { stringResource(R.string.qa_daily_limit_reached, it) },
+                    attachLockedNote = stringResource(R.string.qa_media_locked, com.ojashealing.family.ui.components.accessRuleText(com.ojashealing.family.domain.AccessRules.AskMedia)),
                     onSubmitWithMedia = { t, b, media, kind, done -> communityVm.ask(t, b, media, kind, done, com.ojashealing.family.data.social.mentionedUids("$t $b", staffMentions)) },
                     sending = communityVm.sending.collectAsStateWithLifecycle().value,
                     failed = communityVm.postFailed.collectAsStateWithLifecycle().value

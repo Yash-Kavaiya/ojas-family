@@ -9,28 +9,36 @@ object Permissions {
     fun isStaff(v: Viewer): Boolean = v.role != Role.Member
 
     /** The total users and members on Home. */
-    fun canSeeUserCounts(v: Viewer): Boolean = v.role == Role.Swamiji || v.role == Role.Admin
+    fun canSeeUserCounts(v: Viewer): Boolean = v.hasFullAccess()
 
-    // A paid member starts with Second User Level rights, whatever their free level
-    private fun effectiveFreeRank(v: Viewer): Int =
-        if (v.memberLevel >= MemberLevel.M1) maxOf(v.userLevel.rank, UserLevel.L2.rank) else v.userLevel.rank
+    // ---- What each plan opens, and when: the table in PlanAccess.kt (owner, 2026-11-20) ----
 
-    // Member Level 2 gets Third User Level rights
-    private fun hasLevel3Rights(v: Viewer): Boolean =
-        effectiveFreeRank(v) >= UserLevel.L3.rank || v.memberLevel >= MemberLevel.M2
+    /** Paying now (Silver or Gold, or the older membership): goal photos and pictures in comments. */
+    fun isPaidMember(v: Viewer): Boolean = isStaff(v) || v.memberLevel >= MemberLevel.M1 || v.activePlan() != Plan.User
 
-    fun canLike(v: Viewer): Boolean = isStaff(v) || effectiveFreeRank(v) >= UserLevel.L2.rank
+    fun canLike(v: Viewer): Boolean = v.allows(AccessRules.Like)
 
-    fun canComment(v: Viewer): Boolean = isStaff(v) || hasLevel3Rights(v)
+    /** Replies on the Thought of the Day. */
+    fun canComment(v: Viewer): Boolean = v.allows(AccessRules.ReplyThought)
 
-    fun canAskQuestion(v: Viewer): Boolean = isStaff(v) || hasLevel3Rights(v)
+    fun canReplyQa(v: Viewer): Boolean = v.allows(AccessRules.ReplyQa)
 
-    fun canReadUnderstanding(v: Viewer): Boolean = isStaff(v) || effectiveFreeRank(v) >= UserLevel.L2.rank
+    fun canReplyAnnouncement(v: Viewer): Boolean = v.allows(AccessRules.ReplyAnnouncement)
 
-    fun canDoDailyPractices(v: Viewer): Boolean =
-        isStaff(v) || v.userLevel >= UserLevel.L4 || v.memberLevel >= MemberLevel.M1
+    /** A question with words only (one a day); see [canAskWithMedia] and qaDailyLimit. */
+    fun canAskQuestion(v: Viewer): Boolean = v.allows(AccessRules.AskText)
 
-    fun canPostDailyActivity(v: Viewer): Boolean = isStaff(v) || v.memberLevel >= MemberLevel.M3
+    fun canAskWithMedia(v: Viewer): Boolean = v.allows(AccessRules.AskMedia)
+
+    /** Videos and books are open to everyone from the first day. */
+    fun canReadUnderstanding(v: Viewer): Boolean = true
+
+    /** Morning and Night practice. */
+    fun canDoDailyPractices(v: Viewer): Boolean = v.allows(AccessRules.DailyPractice)
+
+    fun canDoQuickProtection(v: Viewer): Boolean = v.allows(AccessRules.QuickProtection)
+
+    fun canPostDailyActivity(v: Viewer): Boolean = v.allows(AccessRules.ActivityPost)
 
     // ---- Chat and calls by member level (owner 2026-11-07); packs still work for non-members ----
 
@@ -43,15 +51,16 @@ object Permissions {
     /** Video calls: Member Level 3. */
     fun canVideoCall(v: Viewer): Boolean = isStaff(v) || v.memberLevel >= MemberLevel.M3
 
-    /** Hiding your profile opens at User Level 3; staff can always. firestore.rules checks the same. */
-    fun canHideProfile(v: Viewer): Boolean = v.role != Role.Member || v.userLevel.rank >= 3
+    /** Hiding your profile: Gold after a year. firestore.rules checks the same. */
+    fun canHideProfile(v: Viewer): Boolean = v.allows(AccessRules.HideProfile)
 
-    /** A face photo for the opening animation: Member Level 3; an admin approves it. firestore.rules checks the same. */
-    fun canUploadFacePhoto(v: Viewer): Boolean = isStaff(v) || v.memberLevel >= MemberLevel.M3
+    /** A photo for healing (the opening animation); an admin approves it. firestore.rules checks the same. */
+    fun canUploadFacePhoto(v: Viewer): Boolean = v.allows(AccessRules.HealingPhoto)
 
     fun canViewOtherProfiles(v: Viewer): Boolean = isStaff(v) || v.memberLevel >= MemberLevel.M3
 
-    fun canBuyWeeklyChat(v: Viewer): Boolean = isStaff(v) || effectiveFreeRank(v) >= UserLevel.L2.rank
+    // Booking a chat or call with the team (extra payment) is open to everyone from the first day (plan table)
+    fun canBuyWeeklyChat(v: Viewer): Boolean = true
 
     fun canBuyMonthlyChat(v: Viewer): Boolean = isStaff(v) || v.memberLevel >= MemberLevel.M2
 
@@ -60,11 +69,13 @@ object Permissions {
     // A one-week pack of 3–4 calls, open from Level 2 like the weekly chat (design §9)
     fun canBuyWeeklyCalls(v: Viewer): Boolean = canBuyWeeklyChat(v)
 
-    // Daily Activities: every paid member reads, likes and replies; Member Level 3 posts
-    fun canViewDailyActivities(v: Viewer): Boolean = isStaff(v) || v.memberLevel >= MemberLevel.M1
+    // Activity: reading and liking, then replying, then posting open by plan and time
+    fun canViewDailyActivities(v: Viewer): Boolean = v.allows(AccessRules.ActivityRead)
 
-    // Pictures in comments, answers and questions: paid members, held for admin review (spec 1.1, 3)
-    fun canAttachImage(v: Viewer): Boolean = isStaff(v) || v.memberLevel >= MemberLevel.M1
+    fun canReplyDailyActivity(v: Viewer): Boolean = v.allows(AccessRules.ActivityReply)
+
+    // Pictures in comments and answers: paying members, held for admin review (spec 1.1, 3)
+    fun canAttachImage(v: Viewer): Boolean = isPaidMember(v)
 
     // Swamiji and admins answer every chat and call; a senior member answers the ones assigned to them
     fun isChatStaff(v: Viewer): Boolean = isStaff(v)

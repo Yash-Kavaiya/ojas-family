@@ -8,6 +8,8 @@ const db = testDb();
 beforeEach(async () => {
   await clearDb(db);
   await ensureUserDoc(db, "u1");
+  // A free member since January: Blue Light and Quick Protection are open (plan table), Morning and Night are not
+  await db.doc("users/u1").set({ createdAt: new Date("2026-01-01T00:00:00Z") }, { merge: true });
   await db.doc("config/practiceMedia").set({
     blue_light: { url: "https://x/blue.mp4", kind: "video", durationSec: 600, title: "Blue" },
     night: { url: "https://x/night.mp4", kind: "video", durationSec: 300, title: "Night" },
@@ -66,7 +68,7 @@ test("the 7th day in a row gives the streak bonus once", async () => {
 });
 
 test("all four practices in a day give the bonus", async () => {
-  await db.doc("users/u1").set({ memberLevel: 1 }, { merge: true });
+  await db.doc("users/u1").set({ plan: "gold", planSince: new Date("2026-01-01T00:00:00Z"), planUntil: new Date("2027-01-01T00:00:00Z") }, { merge: true });
   await db.doc("config/practiceMedia").set({
     quick_protection: { url: "https://x/q.mp4", kind: "video", durationSec: 60 },
     morning: { url: "https://x/m.mp4", kind: "video", durationSec: 60 },
@@ -92,9 +94,9 @@ test("resuming later keeps the first start of the day", async () => {
   expect((await completePracticeFor(db, "u1", undefined, "blue_light", at("2026-11-08T04:09:30Z"))).awarded).toBe(true);
 });
 
-test("night practice is locked below Level 4 without membership, and counts as the day's practice when open", async () => {
-  await expect(startPracticeFor(db, "u1", undefined, "night", at("2026-11-08T15:00:00Z"))).rejects.toThrow(/Level 4/);
-  await db.doc("users/u1").set({ memberLevel: 1 }, { merge: true });
+test("night practice is closed to free members and open on Gold, and counts as the day's practice when open", async () => {
+  await expect(startPracticeFor(db, "u1", undefined, "night", at("2026-11-08T15:00:00Z"))).rejects.toThrow(/not open/);
+  await db.doc("users/u1").set({ plan: "gold", planSince: new Date("2026-01-01T00:00:00Z"), planUntil: new Date("2027-01-01T00:00:00Z") }, { merge: true });
   await startPracticeFor(db, "u1", undefined, "night", at("2026-11-08T15:00:00Z"));
   await completePracticeFor(db, "u1", undefined, "night", at("2026-11-08T15:05:00Z"));
   expect((await db.doc("users/u1/practiceLog/2026-11-08").get()).get("night")).toBe(true);

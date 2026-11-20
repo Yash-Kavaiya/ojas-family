@@ -51,7 +51,7 @@ import kotlinx.coroutines.launch
 
 /** Who Swamiji and admins may reach out to: members and senior members, never another staff account or themselves. */
 fun reachable(rows: List<MemberRow>, myUid: String): List<MemberRow> =
-    rows.filter { it.uid != myUid && (it.role == Role.Member || it.role == Role.SeniorMember) }
+    rows.filter { it.uid != myUid && (it.role == Role.Member || it.role == Role.Moderator) }
 
 /**
  * Swamiji and admins look a member up by name to start a chat or a call.
@@ -123,7 +123,7 @@ private fun MemberContactRow(m: MemberRow, onChat: (MemberRow) -> Unit, onCall: 
                 Text(name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
                     listOf(
-                        stringResource(if (m.role == Role.SeniorMember) R.string.role_senior_member else R.string.role_member),
+                        stringResource(if (m.role == Role.Moderator) R.string.role_senior_member else R.string.role_member),
                         stringResource(R.string.profile_member_level, m.memberLevel)
                     ).joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant

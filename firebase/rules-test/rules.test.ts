@@ -13,6 +13,10 @@ let env: RulesTestEnvironment;
 
 const ALICE = "alice";
 const BOB = "bob";
+// The plan table (firestore.rules allowed(u, s, g)): time since joining, or on a paid plan
+const daysAgo = (d: number) => new Date(Date.now() - d * 24 * 3600 * 1000);
+const PLAN_RUNS = new Date(Date.now() + 30 * 24 * 3600 * 1000);
+const onPlan = (plan: string, d: number) => ({ plan, planSince: daysAgo(d), planUntil: PLAN_RUNS });
 
 beforeAll(async () => {
   env = await initializeTestEnvironment({
@@ -29,8 +33,9 @@ beforeEach(async () => {
   // Server-created profiles, written with rules disabled like onUserCreate would
   await env.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore();
-    await setDoc(doc(db, "users", ALICE), { displayName: "Alice", mokshaPoints: 5, userLevel: 1, memberLevel: 0, role: "member", hideProfile: false });
-    await setDoc(doc(db, "users", BOB), { displayName: "Bob", mokshaPoints: 9, userLevel: 2, memberLevel: 0, role: "member", hideProfile: false });
+    // Alice joined today (reads only); Bob 10 days ago (also likes)
+    await setDoc(doc(db, "users", ALICE), { displayName: "Alice", mokshaPoints: 5, userLevel: 1, memberLevel: 0, role: "member", hideProfile: false, createdAt: daysAgo(0) });
+    await setDoc(doc(db, "users", BOB), { displayName: "Bob", mokshaPoints: 9, userLevel: 2, memberLevel: 0, role: "member", hideProfile: false, createdAt: daysAgo(10) });
     await setDoc(doc(db, "users", ALICE, "pointEvents", "daily:2026-10-29"), { amount: 1 });
     await setDoc(doc(db, "config", "levels"), { l2: { days: 7, points: 7 } });
   });
@@ -336,7 +341,8 @@ describe("social", () => {
   beforeEach(async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       const db = ctx.firestore();
-      await setDoc(doc(db, "users", L3), { displayName: "Carol", userLevel: 3, memberLevel: 0, role: "member" });
+      // Carol joined 200 days ago: replies and words-only questions are open
+      await setDoc(doc(db, "users", L3), { displayName: "Carol", userLevel: 3, memberLevel: 0, role: "member", createdAt: daysAgo(200) });
       await setDoc(doc(db, "thoughts", "today"), thought(now - HOUR));
       await setDoc(doc(db, "thoughts", "old"), thought(now - 8 * 24 * HOUR));
       await setDoc(doc(db, "thoughts", "future"), thought(now + 24 * HOUR));
@@ -387,10 +393,10 @@ describe("social", () => {
     // Members cannot set a comment's likeCount themselves
     await assertFails(updateDoc(doc(asUser(BOB), "thoughts", "today", "comments", "pending1"), { likeCount: 99 }));
   });
-  test("only paid members can like a daily reply", async () => {
+  test("only members who may see Activity (Silver after 6 months) can like a daily reply", async () => {
     const like = { createdAt: ts(now) };
     await env.withSecurityRulesDisabled(async (ctx) =>
-      setDoc(doc(ctx.firestore(), "users", "payer"), { displayName: "P", userLevel: 1, memberLevel: 1, role: "member" }));
+      setDoc(doc(ctx.firestore(), "users", "payer"), { displayName: "P", userLevel: 1, memberLevel: 1, role: "member", createdAt: daysAgo(200), ...onPlan("silver", 200) }));
     await assertFails(setDoc(doc(asUser(BOB), "dailyPosts", "p1", "replies", "r1", "likes", BOB), like));
     await assertSucceeds(setDoc(doc(asUser("payer"), "dailyPosts", "p1", "replies", "r1", "likes", "payer"), like));
   });
@@ -508,9 +514,11 @@ describe("face photo for the opening animation", () => {
   const ADMIN = () => asUser("root", { role: "admin" });
   const sent = { status: "submitted", photoUrl: "https://x/face.jpg", submittedAt: new Date() };
 
-  test("only Member Level 3 uploads, and never as approved", async () => {
+  test("only Silver after a year or Gold after 6 months uploads, and never as approved", async () => {
     await assertFails(setDoc(doc(asUser(ALICE), "facePhotos", ALICE), sent));
-    await env.withSecurityRulesDisabled(async (ctx) => { await updateDoc(doc(ctx.firestore(), "users", ALICE), { memberLevel: 3 }); });
+    await env.withSecurityRulesDisabled(async (ctx) => { await updateDoc(doc(ctx.firestore(), "users", ALICE), onPlan("silver", 300)); });
+    await assertFails(setDoc(doc(asUser(ALICE), "facePhotos", ALICE), sent));
+    await env.withSecurityRulesDisabled(async (ctx) => { await updateDoc(doc(ctx.firestore(), "users", ALICE), onPlan("gold", 190)); });
     await assertSucceeds(setDoc(doc(asUser(ALICE), "facePhotos", ALICE), sent));
     await assertFails(setDoc(doc(asUser(ALICE), "facePhotos", ALICE), { ...sent, status: "approved" }));
     await assertFails(setDoc(doc(asUser(ALICE), "facePhotos", BOB), sent));

@@ -1,7 +1,8 @@
 import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 
-export const ROLES = ["member", "senior_member", "swamiji", "admin"] as const;
+// "moderator" replaced "senior_member" (owner, 2026-11-20); the old id is still accepted and stored as moderator
+export const ROLES = ["member", "moderator", "swamiji", "admin"] as const;
 export type RoleId = (typeof ROLES)[number];
 
 const SERVER_DEFAULTS = {
@@ -88,6 +89,7 @@ export async function setRoleFor(
   setClaims: (uid: string, claims: Record<string, unknown>) => Promise<void> = async () => {},
 ): Promise<void> {
   if (callerToken?.role !== "admin") throw new HttpsError("permission-denied", "Only admins can assign roles");
+  if (role === "senior_member") role = "moderator";
   if (!ROLES.includes(role as RoleId)) throw new HttpsError("invalid-argument", `Unknown role: ${role}`);
   await setClaims(uid, { role });
   await db.doc(`users/${uid}`).set({ role }, { merge: true });

@@ -9,17 +9,24 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Roles come from a custom claim set by the setRole function
+    // Roles come from a custom claim set by the setRole function; "senior_member" is the old name for a moderator
     function role() {
-      return signedIn() ? request.auth.token.get('role', 'member') : 'member';
+      let r = signedIn() ? request.auth.token.get('role', 'member') : 'member';
+      return r == 'senior_member' ? 'moderator' : r;
     }
 
     function isAdmin() {
       return role() == 'admin';
     }
 
+    // Staff tools (answering chats, seeing profiles); moderators follow their own plan for everything else
     function isStaff() {
-      return role() in ['admin', 'swamiji', 'senior_member'];
+      return role() in ['admin', 'swamiji', 'moderator'];
+    }
+
+    // Swamiji and admins: every feature, no limits
+    function fullAccess() {
+      return role() in ['admin', 'swamiji'];
     }
 
     function viewerMemberLevel() {
@@ -63,12 +70,12 @@ service cloud.firestore {
         && validProfile(request.resource.data)
         && request.resource.data.get('hideProfile', false) != true;
 
-      // Turning hiding on needs User Level 3 (or a staff role); turning it off is always allowed
+      // Turning hiding on needs Gold after a year (or Swamiji or an admin); turning it off is always allowed
       allow update: if signedIn() && request.auth.uid == uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(userEditableFields())
         && validProfile(request.resource.data)
         && (request.resource.data.get('hideProfile', false) != true || resource.data.get('hideProfile', false) == true
-            || isStaff() || resource.data.get('userLevel', 1) >= 3);
+            || allowed(100000, 100000, 365));
 
       allow delete: if false;
 
@@ -203,23 +210,76 @@ service cloud.firestore {
       return viewer().get(field, 0) is int ? viewer().get(field, 0) : 0;
     }
 
-    // Like: User Level 2, or any paid member
-    function canLike() {
-      return signedIn() && (isStaff() || rank('userLevel') >= 2 || rank('memberLevel') >= 1);
+    // ---- Membership plans (owner's plan table, 2026-11-20) ----
+    // Days on each plan before something opens: u for a free member (since joining), s for Silver and
+    // g for Gold (since the paid plan began, while it runs). NEVER means that plan never gets it.
+    // The same table is in the app (domain/PlanAccess.kt) and the server (functions/src/access.ts).
+
+    function reached(ts, days) {
+      return days == 0 || (ts is timestamp && request.time >= ts + duration.value(days, 'd'));
     }
 
-    // Comment, answer, ask: User Level 3, or Member Level 2
-    function canComment() {
-      return signedIn() && (isStaff() || rank('userLevel') >= 3 || rank('memberLevel') >= 2);
+    function onPlan(v, plan) {
+      return v.get('plan', 'user') == plan && v.get('planUntil', null) is timestamp && v.planUntil > request.time;
+    }
+
+    function allowed(u, s, g) {
+      let v = viewer();
+      return fullAccess()
+        || (u < 100000 && reached(v.get('createdAt', null), u))
+        || (s < 100000 && onPlan(v, 'silver') && reached(v.get('planSince', null), s))
+        || (g < 100000 && onPlan(v, 'gold') && reached(v.get('planSince', null), g));
+    }
+
+    // Paying now (Silver, Gold or the older membership): goal photos and pictures in comments
+    function isPaidMember() {
+      let v = viewer();
+      return isStaff() || rank('memberLevel') >= 1 || onPlan(v, 'silver') || onPlan(v, 'gold');
+    }
+
+    // Likes anywhere: Free after 7 days, Silver and Gold from day 1 (NEVER = 100000)
+    function canLike() {
+      return signedIn() && allowed(7, 0, 0);
+    }
+
+    // Replies on the Thought of the Day and answers in Q&A
+    function canReplyThought() {
+      return signedIn() && allowed(182, 7, 7);
+    }
+
+    function canReplyAnnouncement() {
+      return signedIn() && allowed(182, 7, 0);
+    }
+
+    // A question with words only; with a photo, audio or video it needs canAskMedia() too
+    function canAskText() {
+      return signedIn() && allowed(182, 7, 7);
+    }
+
+    function canAskMedia() {
+      return signedIn() && allowed(365, 365, 182);
+    }
+
+    // Activity: reading and liking, replying, posting
+    function canSeeActivity() {
+      return signedIn() && allowed(100000, 182, 7);
+    }
+
+    function canReplyActivity() {
+      return signedIn() && allowed(100000, 365, 182);
+    }
+
+    function canPostActivity() {
+      return signedIn() && allowed(100000, 100000, 365);
     }
 
     function hasLink(text) {
       return text.matches('(?si).*(https?://|www[.]).*');
     }
 
-    // Images in posts: paid members and staff only (spec 1.1, 3)
+    // Images in comments and replies: paying members and staff only (spec 1.1, 3)
     function canAttachImage() {
-      return isStaff() || rank('memberLevel') >= 1;
+      return isPaidMember();
     }
 
     function hasImage(data) {
@@ -231,11 +291,22 @@ service cloud.firestore {
         || (data.imageUrl is string && data.imageUrl.size() < 1000 && (data.imageUrl == '' || canAttachImage()));
     }
 
-    // Audio or video on a question or an Activity post: the same members who may add a photo
+    // Audio or video on an Activity post: the same members who may add a photo
     function validAv(data) {
+      return validAvShape(data) && (!('mediaUrl' in data) || canAttachImage());
+    }
+
+    function validAvShape(data) {
       return (!('mediaUrl' in data) && !('mediaType' in data))
         || (data.mediaUrl is string && data.mediaUrl.size() > 0 && data.mediaUrl.size() < 1000
-          && data.mediaType in ['audio', 'video'] && canAttachImage());
+          && data.mediaType in ['audio', 'video']);
+    }
+
+    // A question's photo, audio or video: allowed by the plan table rather than by paying
+    function validQuestionMedia(data) {
+      return (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() < 1000))
+        && validAvShape(data)
+        && (!(hasImage(data) || hasAv(data)) || canAskMedia());
     }
 
     function hasAv(data) {
@@ -325,7 +396,7 @@ service cloud.firestore {
 
       match /comments/{commentId} {
         allow read: if readablePost();
-        allow create: if canComment() && validPost(request.resource.data, 1000);
+        allow create: if canReplyThought() && validPost(request.resource.data, 1000);
         allow update: if isAdmin() || ownTextEdit(1000, false);
         allow delete: if signedIn() && (resource.data.authorUid == request.auth.uid || isAdmin());
         // Likes on a comment; the server keeps its likeCount
@@ -343,12 +414,13 @@ service cloud.firestore {
         allow create: if validView(uid);
       }
       allow read: if readablePost();
-      allow create: if canComment()
+      // How many a day is checked by the questionWritten function (a count can't be checked here)
+      allow create: if canAskText()
         && request.resource.data.authorUid == request.auth.uid
         && request.resource.data.authorRole == role()
         && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 150
         && request.resource.data.body is string && request.resource.data.body.size() <= 2000
-        && validMedia(request.resource.data) && validAv(request.resource.data)
+        && validQuestionMedia(request.resource.data)
         && validMentions(request.resource.data) && validBadges(request.resource.data)
         && request.resource.data.status == ((hasLink(request.resource.data.title + ' ' + request.resource.data.body)
              || hasImage(request.resource.data) || hasAv(request.resource.data)) ? 'pending' : 'visible');
@@ -363,7 +435,7 @@ service cloud.firestore {
 
       match /answers/{answerId} {
         allow read: if readablePost();
-        allow create: if canComment() && validPost(request.resource.data, 1000);
+        allow create: if canReplyThought() && validPost(request.resource.data, 1000);
         allow update: if isAdmin() || ownTextEdit(1000, false);
         allow delete: if signedIn() && (resource.data.authorUid == request.auth.uid || isAdmin());
         // Likes on a comment; the server keeps its likeCount
@@ -393,7 +465,7 @@ service cloud.firestore {
       match /comments/{commentId} {
         allow read: if readablePost();
         // Replies to an announcement are words only
-        allow create: if canComment() && validPost(request.resource.data, 1000) && !hasImage(request.resource.data);
+        allow create: if canReplyAnnouncement() && validPost(request.resource.data, 1000) && !hasImage(request.resource.data);
         allow update: if isAdmin() || ownTextEdit(1000, false);
         allow delete: if signedIn() && (resource.data.authorUid == request.auth.uid || isAdmin());
         // Likes on a comment; the server keeps its likeCount
@@ -460,7 +532,7 @@ service cloud.firestore {
     // Progress is private to its owner.
     match /users/{uid}/goalProgress/{goalId} {
       allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
-      allow create, update: if (isPaid() && request.auth.uid == uid
+      allow create, update: if (isPaidMember() && request.auth.uid == uid
           && request.resource.data.status == 'submitted'
           && request.resource.data.keys().hasOnly(['status', 'photoUrl', 'note', 'submittedAt'])
           && request.resource.data.photoUrl is string && request.resource.data.photoUrl.size() < 1000
@@ -474,10 +546,10 @@ service cloud.firestore {
       allow read: if isAdmin();
     }
 
-    // ---- Face photo for the opening animation: Member Level 3 uploads, an admin approves ----
+    // ---- Photo for healing (the opening animation): Silver after a year, Gold after 6 months; an admin approves ----
     match /facePhotos/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
-      allow create, update: if (signedIn() && request.auth.uid == uid && (isStaff() || rank('memberLevel') >= 3)
+      allow create, update: if (signedIn() && request.auth.uid == uid && allowed(100000, 365, 182)
           && request.resource.data.status == 'submitted'
           && request.resource.data.keys().hasOnly(['status', 'photoUrl', 'submittedAt'])
           && request.resource.data.photoUrl is string && request.resource.data.photoUrl.size() > 0
@@ -495,15 +567,11 @@ service cloud.firestore {
       allow read: if isAdmin();
     }
 
-    // ---- Daily Activities (spec 1.2): paid members read, like and reply; Member Level 3 posts ----
-
-    function isPaid() {
-      return signedIn() && (isStaff() || rank('memberLevel') >= 1);
-    }
+    // ---- Activity (spec 1.2): who reads, likes, replies and posts comes from the plan table ----
 
     // New Activity posts for the bell: only for those who may see Activity
     match /paidBroadcasts/{id} {
-      allow read: if isPaid();
+      allow read: if canSeeActivity();
       allow write: if false;
     }
 
@@ -512,9 +580,9 @@ service cloud.firestore {
         allow read: if signedIn() && request.auth.uid == uid;
         allow create: if validView(uid);
       }
-      allow read: if isPaid()
+      allow read: if canSeeActivity()
         && (resource.data.status == 'visible' || resource.data.authorUid == request.auth.uid || isAdmin());
-      allow create: if signedIn() && (isStaff() || rank('memberLevel') >= 3)
+      allow create: if canPostActivity()
         && request.resource.data.authorUid == request.auth.uid
         && request.resource.data.authorRole == role()
         && request.resource.data.authorName is string && request.resource.data.authorName.size() <= 80
@@ -530,20 +598,20 @@ service cloud.firestore {
       allow delete: if signedIn() && (resource.data.authorUid == request.auth.uid || isAdmin());
 
       match /likes/{uid} {
-        allow read: if isPaid();
-        allow create: if isPaid() && validLike(uid);
+        allow read: if canSeeActivity();
+        allow create: if canSeeActivity() && validLike(uid);
         allow delete: if signedIn() && request.auth.uid == uid;
       }
 
       match /replies/{replyId} {
-        allow read: if isPaid() && readablePost();
-        allow create: if isPaid() && validPost(request.resource.data, 1000);
+        allow read: if canSeeActivity() && readablePost();
+        allow create: if canReplyActivity() && validPost(request.resource.data, 1000);
         allow update: if isAdmin() || ownTextEdit(1000, false);
         allow delete: if signedIn() && (resource.data.authorUid == request.auth.uid || isAdmin());
         // Likes on a comment; the server keeps its likeCount
         match /likes/{uid} {
           allow read: if signedIn();
-          allow create: if isPaid() && validLike(uid);
+          allow create: if canSeeActivity() && validLike(uid);
           allow delete: if signedIn() && request.auth.uid == uid;
         }
       }
@@ -612,10 +680,10 @@ service cloud.firestore {
           && (d.attachment.mime.matches('image/.*') || d.attachment.mime == 'application/pdf' || d.attachment.mime.matches('audio/.*'))));
     }
 
-    // Swamiji and admins see every chat; a senior member only the chats Swamiji assigned to them
+    // Swamiji and admins see every chat; a moderator only the chats Swamiji assigned to them
     function canStaffChat(memberUid) {
       return role() in ['admin', 'swamiji']
-        || (role() == 'senior_member'
+        || (role() == 'moderator'
             && get(/databases/$(database)/documents/chats/$(memberUid)).data.get('assigneeUid', '') == request.auth.uid);
     }
 
@@ -623,7 +691,7 @@ service cloud.firestore {
       allow read: if signedIn() && (
         request.auth.uid == memberUid
         || role() in ['admin', 'swamiji']
-        || (role() == 'senior_member' && resource.data.get('assigneeUid', '') == request.auth.uid));
+        || (role() == 'moderator' && resource.data.get('assigneeUid', '') == request.auth.uid));
       allow create: if signedIn() && request.auth.uid == memberUid && canChatNow()
         && request.resource.data.keys().hasOnly(['memberUid', 'memberName', 'memberPhoto', 'createdAt'])
         && request.resource.data.memberUid == memberUid;
@@ -706,7 +774,7 @@ service cloud.firestore {
     // ---- Personal call (spec 4.3): WebRTC signalling between the two participants ----
 
     function isStaffUid(uid) {
-      return get(/databases/$(database)/documents/users/$(uid)).data.get('role', 'member') in ['admin', 'swamiji', 'senior_member'];
+      return get(/databases/$(database)/documents/users/$(uid)).data.get('role', 'member') in ['admin', 'swamiji', 'moderator', 'senior_member'];
     }
 
     // An active call entitlement; a weekly pack also needs a call left

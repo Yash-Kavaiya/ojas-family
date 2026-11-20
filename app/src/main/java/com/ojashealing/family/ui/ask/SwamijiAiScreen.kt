@@ -435,7 +435,8 @@ fun SwamijiAiScreen(
                     )
                 }
             }
-            quota?.takeIf { it.limit > 0 && ready }?.let { q ->
+            // No line at all when there is no daily limit (Swamiji, admins, Gold after a year: the server sends 9999)
+            quota?.takeIf { it.limit in 1 until 9999 && ready }?.let { q ->
                 Text(
                     if (q.remaining > 0) pluralStringResource(R.plurals.ai_quota_left_plural, q.remaining, q.remaining) else stringResource(R.string.ai_quota_none),
                     style = MaterialTheme.typography.labelMedium,

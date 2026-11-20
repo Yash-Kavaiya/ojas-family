@@ -91,12 +91,14 @@ test("a photo alone can be the question", async () => {
   await expect(askSwamijiFor(db, deps, "u1", undefined, { question: " " }, now)).rejects.toThrow(/Type a question/);
 });
 
-test("five a day for everyone; a failed answer gives the question back; admins can change it or switch it off", async () => {
+test("a new free member asks five a day; a failed answer gives the question back; admins can switch it off", async () => {
   const failing: AiDeps = { ...fakeDeps(), generate: async () => { throw new Error("model down"); } };
   await expect(askSwamijiFor(db, failing, "u1", undefined, { question: "blue light" }, now)).rejects.toThrow(/could not answer/);
   expect((await remainingToday(db, "u1", undefined, now)).remaining).toBe(5);
-  for (let i = 0; i < 5; i++) await askSwamijiFor(db, fakeDeps(), "u1", "swamiji", { question: "blue light" }, now);
-  await expect(askSwamijiFor(db, fakeDeps(), "u1", "swamiji", { question: "blue light" }, now)).rejects.toThrow(/today's questions/);
+  for (let i = 0; i < 5; i++) await askSwamijiFor(db, fakeDeps(), "u1", undefined, { question: "blue light" }, now);
+  await expect(askSwamijiFor(db, fakeDeps(), "u1", undefined, { question: "blue light" }, now)).rejects.toThrow(/today's questions/);
+  // Swamiji has no limit
+  await askSwamijiFor(db, fakeDeps(), "u1", "swamiji", { question: "blue light" }, now);
   expect((await askSwamijiFor(db, fakeDeps(), "u1", undefined, { question: "blue light" }, new Date("2026-11-13T06:00:00Z"))).remaining).toBe(4);
   await db.doc("config/ai").set({ enabled: false });
   await expect(askSwamijiFor(db, fakeDeps(), "u1", undefined, { question: "blue light" }, now)).rejects.toThrow(/resting/);

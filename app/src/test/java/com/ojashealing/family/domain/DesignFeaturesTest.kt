@@ -68,7 +68,7 @@ class DesignFeaturesTest {
         assertNull(roleBadgeStyle(Role.Member))
         assertNotNull(roleBadgeStyle(Role.Swamiji))
         assertNotNull(roleBadgeStyle(Role.Admin))
-        assertNotNull(roleBadgeStyle(Role.SeniorMember))
+        assertNotNull(roleBadgeStyle(Role.Moderator))
     }
 
     @Test
@@ -96,9 +96,10 @@ class DesignFeaturesTest {
     }
 
     @Test
-    fun hidingTheProfileOpensAtLevelThree() {
-        assertEquals(false, Permissions.canHideProfile(Viewer(UserLevel.L2, MemberLevel.M3, Role.Member)))
-        assertEquals(true, Permissions.canHideProfile(Viewer(UserLevel.L3, MemberLevel.None, Role.Member)))
+    fun hidingTheProfileOpensForGoldAfterAYear() {
+        assertEquals(false, Permissions.canHideProfile(onPlanFor(Plan.Silver, 1000)))
+        assertEquals(false, Permissions.canHideProfile(onPlanFor(Plan.Gold, 300)))
+        assertEquals(true, Permissions.canHideProfile(onPlanFor(Plan.Gold, 365)))
         assertEquals(true, Permissions.canHideProfile(Viewer(UserLevel.L1, MemberLevel.None, Role.Swamiji)))
     }
 

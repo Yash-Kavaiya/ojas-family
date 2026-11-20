@@ -13,6 +13,7 @@ import com.ojashealing.family.data.user.UserProfile
 import com.ojashealing.family.domain.Permissions
 import com.ojashealing.family.domain.Role
 import com.ojashealing.family.domain.Viewer
+import com.ojashealing.family.domain.qaDailyLimit
 import com.ojashealing.family.ui.thought.asAuthor
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -29,8 +30,11 @@ data class CommunityPermissions(
     val canAsk: Boolean,
     val canLike: Boolean,
     val canAnswer: Boolean,
+    val canReplyAnnouncement: Boolean = canAnswer,
     val canAnnounce: Boolean,
     val canAttachImage: Boolean = false,
+    /** Photos, audio and video in a question (plan table), separate from pictures in answers. */
+    val canAskWithMedia: Boolean = false,
     val canSeeDaily: Boolean = false,
     val canPostDaily: Boolean = false
 )
@@ -38,9 +42,11 @@ data class CommunityPermissions(
 fun communityPermissions(viewer: Viewer) = CommunityPermissions(
     canAsk = Permissions.canAskQuestion(viewer),
     canLike = Permissions.canLike(viewer),
-    canAnswer = Permissions.canComment(viewer),
+    canAnswer = Permissions.canReplyQa(viewer),
+    canReplyAnnouncement = Permissions.canReplyAnnouncement(viewer),
     canAnnounce = viewer.role == Role.Admin,
     canAttachImage = Permissions.canAttachImage(viewer),
+    canAskWithMedia = Permissions.canAskWithMedia(viewer),
     canSeeDaily = Permissions.canViewDailyActivities(viewer),
     canPostDaily = Permissions.canPostDailyActivity(viewer)
 )
@@ -82,6 +88,19 @@ class CommunityViewModel(
     private val _sending = kotlinx.coroutines.flow.MutableStateFlow(false)
     val sending: StateFlow<Boolean> = _sending
 
+    private val _askLimit = kotlinx.coroutines.flow.MutableStateFlow<Int?>(null)
+    /** The day's question limit, once the member has reached it (the server would remove another). */
+    val askLimit: StateFlow<Int?> = _askLimit
+
+    /** True when the member may post another question today; otherwise [askLimit] says how many a day. */
+    private suspend fun underAskLimit(p: UserProfile): Boolean {
+        val limit = p.viewer.qaDailyLimit()
+        if (limit == Int.MAX_VALUE) return true
+        val used = runCatching { repo.questionsToday(p.uid) }.getOrDefault(0)
+        _askLimit.value = limit.takeIf { used >= limit }
+        return used < limit
+    }
+
     private val _postFailed = kotlinx.coroutines.flow.MutableStateFlow(false)
     /** True after a question, answer or comment did not go (upload or send), until the next try. */
     val postFailed: StateFlow<Boolean> = _postFailed
@@ -101,7 +120,7 @@ class CommunityViewModel(
 
     /** A question with an optional photo, audio clip or video; the file uploads first. */
     fun ask(title: String, body: String, media: Uri?, kind: MediaKind?, onDone: () -> Unit, mentions: List<String> = emptyList()) = withMe { p ->
-        if (_sending.value) return@withMe
+        if (_sending.value || !underAskLimit(p)) return@withMe
         _sending.value = true
         _postFailed.value = false
         val sent = runCatching { if (media != null && kind != null) uploadMedia(p.uid, media, kind) else "" }.mapCatching { url ->
@@ -160,7 +179,7 @@ class CommunityViewModel(
     }
 
     fun setLiked(questionId: String, liked: Boolean) = withMe { repo.setLiked(questionId, it.uid, liked) }
-    fun ask(title: String, body: String, onDone: () -> Unit, mentions: List<String> = emptyList()) = withMe { p -> repo.ask(p.asAuthor(), title, body, mentions = mentions).onSuccess { onDone() } }
+    fun ask(title: String, body: String, onDone: () -> Unit, mentions: List<String> = emptyList()) = withMe { p -> if (underAskLimit(p)) repo.ask(p.asAuthor(), title, body, mentions = mentions).onSuccess { onDone() } }
     fun answer(questionId: String, text: String, onDone: () -> Unit) = withMe { p -> repo.answer(questionId, p.asAuthor(), text).onSuccess { onDone() } }
     fun announce(title: String, body: String, onDone: () -> Unit) = withMe { repo.postAnnouncement(title, body).onSuccess { onDone() } }
     fun report(path: String, reason: String, onDone: () -> Unit) = withMe { p -> repo.report(p.uid, path, reason).onSuccess { onDone() } }

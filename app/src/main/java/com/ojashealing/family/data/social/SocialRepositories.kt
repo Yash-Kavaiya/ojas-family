@@ -217,6 +217,11 @@ class CommunityRepository(private val db: FirebaseFirestore) {
         Unit
     }
 
+    /** Questions the member posted today (IST), counted by the server's questionWritten function. */
+    suspend fun questionsToday(uid: String): Int =
+        db.document("users/$uid/counters/${com.ojashealing.family.data.points.istDayKey(System.currentTimeMillis())}").get().await()
+            .getLong("questions")?.toInt() ?: 0
+
     suspend fun ask(author: Author, title: String, body: String, imageUrl: String = "", media: MediaKind? = null, mediaUrl: String = "", mentions: List<String> = emptyList()): Result<Unit> = runCatching {
         db.collection("questions").add(
             buildMap<String, Any> {

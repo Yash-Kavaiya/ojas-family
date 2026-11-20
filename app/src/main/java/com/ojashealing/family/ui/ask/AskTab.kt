@@ -188,7 +188,7 @@ private fun AskPart(
                 }
                 // Members (and senior members, who Swamiji or an admin may reach out to) contact only Swamiji and
                 // the Admin team; there is no way to reach another member
-                if (!staff || p.viewer.role == com.ojashealing.family.domain.Role.SeniorMember) {
+                if (!staff || p.viewer.role == com.ojashealing.family.domain.Role.Moderator) {
                     val chatOk = Permissions.canChat(p.viewer, entitlements.active(PaidAccess.Chat))
                     val audioOk = Permissions.canAudioCall(p.viewer, entitlements[PaidAccess.Call]?.canCall() == true)
                     val videoOk = Permissions.canVideoCall(p.viewer)

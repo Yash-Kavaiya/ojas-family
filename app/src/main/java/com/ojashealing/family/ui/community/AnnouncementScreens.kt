@@ -182,7 +182,7 @@ fun AnnouncementDetailScreen(vm: CommunityViewModel, id: String, onBack: () -> U
             }
             commentThreads(
                 comments, openThreads,
-                onReply = if (p.canAnswer) ({ c: Post -> replyId = c.id }) else null,
+                onReply = if (p.canReplyAnnouncement) ({ c: Post -> replyId = c.id }) else null,
                 trailing = { c: Post -> ReportMenu(c.author, "announcements/$id/comments/${c.id}", c.text) },
                 pathOf = { c: Post -> "announcements/$id/comments/${c.id}" },
                 canLike = p.canLike
@@ -190,7 +190,7 @@ fun AnnouncementDetailScreen(vm: CommunityViewModel, id: String, onBack: () -> U
         }
         if (n != null && p != null) {
             com.ojashealing.family.ui.thought.CommentBar {
-                if (p.canAnswer) {
+                if (p.canReplyAnnouncement) {
                     PostComposer(
                         hint = stringResource(R.string.home_comment_hint),
                         // Replies to an announcement are words only
@@ -201,7 +201,7 @@ fun AnnouncementDetailScreen(vm: CommunityViewModel, id: String, onBack: () -> U
                         replyingTo = replyingTo,
                         onCancelReply = { replyId = null }
                     )
-                } else LockHint(stringResource(R.string.home_comment_locked))
+                } else LockHint(stringResource(R.string.home_comment_locked, com.ojashealing.family.ui.components.accessRuleText(com.ojashealing.family.domain.AccessRules.ReplyAnnouncement)))
             }
         }
       }

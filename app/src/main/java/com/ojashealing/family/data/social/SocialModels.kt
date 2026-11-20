@@ -172,7 +172,7 @@ fun istMidnightMillis(date: LocalDateLike): Long =
 
 fun Role.toId(): String = when (this) {
     Role.Member -> "member"
-    Role.SeniorMember -> "senior_member"
+    Role.Moderator -> "moderator"
     Role.Swamiji -> "swamiji"
     Role.Admin -> "admin"
 }

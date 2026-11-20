@@ -112,11 +112,11 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit) {
 
                 // Privacy comes after all the notification cards
                 Section(stringResource(R.string.settings_privacy), tint = 3) {
-                    // Turning hiding off always works; turning it on waits for User Level 3
+                    // Turning hiding off always works; turning it on waits for the plan table (Gold after a year)
                     SwitchRow(stringResource(R.string.settings_hide_profile), state.hideProfile,
                         enabled = state.canHideProfile || state.hideProfile, onChange = vm::setHideProfile)
                     if (!state.canHideProfile && !state.hideProfile) {
-                        Text(stringResource(R.string.settings_hide_profile_locked), style = MaterialTheme.typography.bodySmall,
+                        Text(stringResource(R.string.settings_hide_profile_locked, com.ojashealing.family.ui.components.accessRuleText(com.ojashealing.family.domain.AccessRules.HideProfile)), style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     SwitchRow(stringResource(R.string.settings_hide_goals), state.hideGoals, onChange = vm::setHideGoals)

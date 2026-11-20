@@ -1,4 +1,5 @@
 import { initializeApp } from "firebase-admin/app";
+import { enforceQuestionLimit } from "./questionLimit";
 import { defineSecret } from "firebase-functions/params";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
@@ -197,6 +198,8 @@ export const thoughtCommentWritten = onDocumentWritten("thoughts/{thoughtId}/com
 export const questionWritten = onDocumentWritten("questions/{questionId}", async (e) => {
   const before = e.data?.before.data();
   const after = e.data?.after.data();
+  // A new question past the member's daily limit is removed before it earns anything
+  if (!before && after && !(await enforceQuestionLimit(db, e.params.questionId, after, new Date()))) return;
   await onQuestionWritten(db, e.params.questionId, before, after, new Date());
   await onQuestionNotify(db, messenger, e.params.questionId, before, after);
 });

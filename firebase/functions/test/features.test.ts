@@ -39,12 +39,12 @@ describe("practice streaks", () => {
     expect(streak(logs, "2026-11-07", (l) => l.morning === true)).toBe(2);
   });
 
-  test("free Level 1 user cannot log a practice", async () => {
-    await expect(logPracticeFor(db, "m1", "member", "morning", NOW)).rejects.toThrow(/Level 4/);
+  test("a free member cannot log Morning or Night practice", async () => {
+    await expect(logPracticeFor(db, "m1", "member", "morning", NOW)).rejects.toThrow(/Silver/);
   });
 
   test("21 mornings in a row complete the morning goal and award it once", async () => {
-    await db.doc("users/m1").set({ memberLevel: 1 }, { merge: true });
+    await db.doc("users/m1").set({ plan: "gold", planSince: new Date("2026-01-01T00:00:00Z"), planUntil: new Date("2027-01-01T00:00:00Z") }, { merge: true });
     await db.doc("goals/morning_21").set({ kind: "practice_morning_21", reward: 50 });
     for (let i = 20; i >= 1; i--) {
       await db.doc(`users/m1/practiceLog/${dayBefore("2026-11-07", i)}`).set({ morning: true });

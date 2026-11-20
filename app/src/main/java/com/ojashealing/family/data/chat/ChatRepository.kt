@@ -123,7 +123,7 @@ class ChatRepository(private val db: FirebaseFirestore, private val channel: Cha
 
     private fun inboxQuery(viewer: Viewer, uid: String): Query {
         val base = db.collection(col)
-        return if (viewer.role == Role.SeniorMember && this@ChatRepository.channel == ChatChannel.Swamiji) base.whereEqualTo("assigneeUid", uid).orderBy("lastAt", Query.Direction.DESCENDING)
+        return if (viewer.role == Role.Moderator && this@ChatRepository.channel == ChatChannel.Swamiji) base.whereEqualTo("assigneeUid", uid).orderBy("lastAt", Query.Direction.DESCENDING)
         else base.orderBy("lastAt", Query.Direction.DESCENDING)
     }
 
@@ -239,8 +239,8 @@ class ChatRepository(private val db: FirebaseFirestore, private val channel: Cha
     }
 
     suspend fun seniorMembers(): Result<List<StaffMember>> = runCatching {
-        db.collection("users").whereEqualTo("role", "senior_member").get().await().documents
-            .map { StaffMember(it.id, it.getString("displayName").orEmpty(), Role.SeniorMember) }
+        db.collection("users").whereIn("role", listOf("moderator", "senior_member")).get().await().documents
+            .map { StaffMember(it.id, it.getString("displayName").orEmpty(), Role.Moderator) }
     }
 
     private companion object {

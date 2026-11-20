@@ -73,7 +73,11 @@ internal fun DocumentSnapshot.toUserProfile(): UserProfile {
         viewer = Viewer(
             userLevel = UserLevel.fromRank(getLong("userLevel")?.toInt() ?: 1),
             memberLevel = MemberLevel.fromRank(getLong("memberLevel")?.toInt() ?: 0),
-            role = Role.fromId(getString("role"))
+            role = Role.fromId(getString("role")),
+            plan = com.ojashealing.family.domain.Plan.fromId(getString("plan")),
+            joinedAtMs = getTimestamp("createdAt")?.toDate()?.time,
+            planSinceMs = getTimestamp("planSince")?.toDate()?.time,
+            planUntilMs = getTimestamp("planUntil")?.toDate()?.time,
         ),
         about = getString("about").orEmpty(),
         village = getString("village").orEmpty(),

@@ -28,16 +28,29 @@ class ContentTest {
 
     private fun viewer(u: UserLevel, m: MemberLevel = MemberLevel.None, r: Role = Role.Member) = Viewer(u, m, r)
 
-    @Test fun openSectionsAreOpenForEveryone() =
-        assertEquals(Access.Open, accessFor(item(ContentSection.QuickProtection), viewer(UserLevel.L1)))
+    private val day = 86_400_000L
+    private fun onPlan(plan: Plan, days: Int) = viewer(UserLevel.L1).copy(
+        plan = plan, joinedAtMs = System.currentTimeMillis() - days * day,
+        planSinceMs = System.currentTimeMillis() - days * day, planUntilMs = System.currentTimeMillis() + 30 * day,
+    )
 
-    @Test fun morningNeedsLevel4OrMember1() {
-        assertEquals(Access.Locked(needsUserLevel = 4, needsMemberLevel = 1), accessFor(item(ContentSection.Morning), viewer(UserLevel.L1)))
-        assertEquals(Access.Open, accessFor(item(ContentSection.Morning), viewer(UserLevel.L2, MemberLevel.M1)))
+    @Test fun openSectionsAreOpenForEveryone() {
+        assertEquals(Access.Open, accessFor(item(ContentSection.BlueLight), viewer(UserLevel.L1)))
+        assertEquals(Access.Open, accessFor(item(ContentSection.Yoga), viewer(UserLevel.L1)))
+        assertEquals(Access.Open, accessFor(item(ContentSection.Understanding), viewer(UserLevel.L1)))
     }
 
-    @Test fun understandingNeedsLevel2() =
-        assertEquals(Access.Locked(needsUserLevel = 2, needsMemberLevel = 1), accessFor(item(ContentSection.Understanding), viewer(UserLevel.L1)))
+    @Test fun quickProtectionWaitsSixMonthsForFreeMembers() {
+        assertEquals(Access.Locked(null, null, AccessRules.QuickProtection), accessFor(item(ContentSection.QuickProtection), viewer(UserLevel.L1)))
+        assertEquals(Access.Open, accessFor(item(ContentSection.QuickProtection), onPlan(Plan.Silver, 0)))
+    }
+
+    @Test fun morningIsForSilverAfterAWeekAndGold() {
+        assertEquals(Access.Locked(null, null, AccessRules.DailyPractice), accessFor(item(ContentSection.Morning), viewer(UserLevel.L4)))
+        assertEquals(Access.Locked(null, null, AccessRules.DailyPractice), accessFor(item(ContentSection.Morning), onPlan(Plan.Silver, 3)))
+        assertEquals(Access.Open, accessFor(item(ContentSection.Morning), onPlan(Plan.Silver, 8)))
+        assertEquals(Access.Open, accessFor(item(ContentSection.Night), onPlan(Plan.Gold, 0)))
+    }
 
     @Test fun itemLevelCanOnlyRaiseTheBar() =
         assertEquals(Access.Locked(needsUserLevel = 3, needsMemberLevel = null), accessFor(item(ContentSection.Yoga, minUser = 3), viewer(UserLevel.L2)))
@@ -48,15 +61,12 @@ class ContentTest {
     private fun book(minUser: Int = 1, minMember: Int = 0) =
         Book(id = "b", title = "t", url = "https://example.com/a.pdf", minUserLevel = minUser, minMemberLevel = minMember)
 
-    @Test fun booksOpenLikeUnderstanding() {
-        assertEquals(Access.Locked(needsUserLevel = 2, needsMemberLevel = 1), accessFor(book(), viewer(UserLevel.L1)))
-        assertEquals(Access.Open, accessFor(book(), viewer(UserLevel.L2)))
-        assertEquals(Access.Open, accessFor(book(), viewer(UserLevel.L1, MemberLevel.M1)))
-    }
+    @Test fun booksAreOpenForEveryone() =
+        assertEquals(Access.Open, accessFor(book(), viewer(UserLevel.L1)))
 
     @Test fun bookLevelCanOnlyRaiseTheBar() {
         assertEquals(Access.Locked(needsUserLevel = 3, needsMemberLevel = null), accessFor(book(minUser = 3), viewer(UserLevel.L2)))
-        assertEquals(Access.Locked(needsUserLevel = 3, needsMemberLevel = 1), accessFor(book(minUser = 3), viewer(UserLevel.L1)))
+        assertEquals(Access.Locked(needsUserLevel = 3, needsMemberLevel = null), accessFor(book(minUser = 3), viewer(UserLevel.L1)))
     }
 
     @Test fun staffOpensEveryBook() =

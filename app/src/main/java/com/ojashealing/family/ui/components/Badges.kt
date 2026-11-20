@@ -48,7 +48,7 @@ data class RoleBadgeStyle(val icon: ImageVector, val color: Color, val label: In
 fun roleBadgeStyle(role: Role): RoleBadgeStyle? = when (role) {
     Role.Swamiji -> RoleBadgeStyle(Icons.Filled.Verified, SwamijiGold, R.string.badge_swamiji)
     Role.Admin -> RoleBadgeStyle(Icons.Filled.Verified, VerifiedBlue, R.string.badge_admin)
-    Role.SeniorMember -> RoleBadgeStyle(Icons.Filled.Shield, SeniorTeal, R.string.badge_senior)
+    Role.Moderator -> RoleBadgeStyle(Icons.Filled.Shield, SeniorTeal, R.string.badge_senior)
     Role.Member -> null
 }
 

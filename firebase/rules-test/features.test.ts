@@ -6,6 +6,10 @@ import { collection, deleteDoc, doc, getDoc, getDocs, limit, query, serverTimest
 let env: RulesTestEnvironment;
 const FUTURE = Timestamp.fromDate(new Date(Date.now() + 7 * 24 * 3600 * 1000));
 const PAST = Timestamp.fromDate(new Date(Date.now() - 1000));
+const daysAgo = (d: number) => Timestamp.fromDate(new Date(Date.now() - d * 24 * 3600 * 1000));
+// The plan table (firestore.rules allowed(u, s, g)): time since joining, or on a paid plan
+const joined = (d: number) => ({ createdAt: daysAgo(d) });
+const onPlan = (plan: string, d: number) => ({ createdAt: daysAgo(d), plan, planSince: daysAgo(d), planUntil: FUTURE });
 
 beforeAll(async () => {
   env = await initializeTestEnvironment({
@@ -17,13 +21,16 @@ beforeAll(async () => {
 afterAll(async () => env.cleanup());
 
 const users: Record<string, Record<string, unknown>> = {
-  free: { displayName: "Free", userLevel: 3, memberLevel: 0, role: "member" },
-  paid: { displayName: "Paid", userLevel: 2, memberLevel: 1, role: "member" },
-  m3: { displayName: "M3", userLevel: 2, memberLevel: 3, role: "member" },
+  // Free for 200 days: likes, replies and words-only questions, but no Activity, media questions or hiding
+  free: { displayName: "Free", userLevel: 3, memberLevel: 0, role: "member", ...joined(200) },
+  // Silver for 400 days: reads, likes and replies on Activity, but never posts there or hides a profile
+  paid: { displayName: "Paid", userLevel: 2, memberLevel: 1, role: "member", ...onPlan("silver", 400) },
+  // Gold for 400 days: everything a member can have, including posting on Activity and hiding a profile
+  m3: { displayName: "M3", userLevel: 2, memberLevel: 3, role: "member", ...onPlan("gold", 400) },
   sw: { displayName: "Swamiji", role: "swamiji" },
   senior: { displayName: "Senior", role: "senior_member" },
   adm: { displayName: "Admin", role: "admin" },
-  m1only: { displayName: "M1", userLevel: 1, memberLevel: 1, role: "member" },
+  m1only: { displayName: "M1", userLevel: 1, memberLevel: 1, role: "member", ...onPlan("silver", 0) },
 };
 
 beforeEach(async () => {
@@ -49,7 +56,7 @@ describe("daily activities", () => {
     await assertSucceeds(getDoc(doc(as("paid"), "dailyPosts", "p1")));
   });
 
-  test("only Member Level 3 posts: a photo, words or both, never an empty post", async () => {
+  test("only Gold after a year posts: a photo, words or both, never an empty post", async () => {
     await assertFails(setDoc(doc(as("paid"), "dailyPosts", "x"), post("paid", { imageUrl: "https://img" })));
     await assertFails(setDoc(doc(as("m3"), "dailyPosts", "x"), post("m3", { imageUrl: "", text: "" })));
     await assertSucceeds(setDoc(doc(as("m3"), "dailyPosts", "x"), post("m3", { imageUrl: "https://img" })));
@@ -242,7 +249,7 @@ describe("level badges on posts", () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), "questions", "q1"), { status: "visible", authorUid: "sw" });
     });
-    // "free" is User Level 3, Member Level 0
+    // "free" is User Level 3, Member Level 0 (and may answer after 200 days)
     await assertSucceeds(setDoc(doc(as("free"), "questions", "q1", "answers", "a1"), post("free", { authorLevel: 3 })));
     await assertFails(setDoc(doc(as("free"), "questions", "q1", "answers", "a2"), post("free", { authorLevel: 4 })));
     await assertFails(setDoc(doc(as("free"), "questions", "q1", "answers", "a3"), post("free", { authorMember: 1 })));
@@ -268,13 +275,15 @@ describe("announcement likes and comments", () => {
 });
 
 describe("hiding a profile", () => {
-  test("opens at User Level 3; turning it off always works", async () => {
+  test("opens for Gold after a year; turning it off always works", async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), "users", "low"), { displayName: "Low", userLevel: 2, memberLevel: 3, role: "member", hideProfile: false });
+      await setDoc(doc(ctx.firestore(), "users", "low"), { displayName: "Low", userLevel: 2, memberLevel: 3, role: "member", hideProfile: false, ...onPlan("gold", 300) });
       await setDoc(doc(ctx.firestore(), "users", "was"), { displayName: "Was", userLevel: 1, role: "member", hideProfile: true });
     });
     await assertFails(updateDoc(doc(as("low"), "users", "low"), { hideProfile: true }));
-    await assertSucceeds(updateDoc(doc(as("free"), "users", "free"), { hideProfile: true })); // "free" is Level 3
+    await assertFails(updateDoc(doc(as("free"), "users", "free"), { hideProfile: true })); // free members never hide
+    await assertFails(updateDoc(doc(as("paid"), "users", "paid"), { hideProfile: true })); // nor Silver
+    await assertSucceeds(updateDoc(doc(as("m3"), "users", "m3"), { hideProfile: true })); // Gold for 400 days
     await assertSucceeds(updateDoc(doc(as("was"), "users", "was"), { displayName: "Was 2" })); // already hidden stays allowed
     await assertSucceeds(updateDoc(doc(as("was"), "users", "was"), { hideProfile: false }));
   });
@@ -461,5 +470,60 @@ describe("book covers", () => {
     await assertSucceeds(setDoc(doc(as("adm"), "books/b3"), { ...book, coverUrl: "" }));
     await assertFails(setDoc(doc(as("adm"), "books/b4"), { ...book, coverUrl: "javascript:alert(1)" }));
     await assertFails(setDoc(doc(as("paid"), "books/b5"), { ...book, coverUrl: "https://x/c.jpg" }));
+  });
+});
+
+describe("membership plans (owner's table, 2026-11-20)", () => {
+  const setUser = (uid: string, data: Record<string, unknown>) =>
+    env.withSecurityRulesDisabled(async (ctx) => { await setDoc(doc(ctx.firestore(), "users", uid), { displayName: uid, role: "member", ...data }); });
+  const like = (uid: string) => setDoc(doc(as(uid), "thoughts", "t1", "likes", uid), { createdAt: serverTimestamp() });
+
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "thoughts", "t1"), { title: "T", text: "x", publishAt: Timestamp.now() });
+    });
+  });
+
+  test("free members like after 7 days; Silver and Gold from the first day", async () => {
+    await setUser("new", joined(3));
+    await setUser("week", joined(8));
+    await setUser("silver0", onPlan("silver", 0));
+    await assertFails(like("new"));
+    await assertSucceeds(like("week"));
+    await assertSucceeds(like("silver0"));
+  });
+
+  test("a plan that ran out counts for nothing; the member keeps what their own time gives", async () => {
+    await setUser("lapsed", { ...joined(3), plan: "gold", planSince: daysAgo(400), planUntil: PAST });
+    await assertFails(like("lapsed"));
+    await assertFails(getDoc(doc(as("lapsed"), "dailyPosts", "p1")));
+  });
+
+  test("Activity: Gold reads after 7 days, Silver after 6 months, free members never", async () => {
+    await setUser("gold8", onPlan("gold", 8));
+    await setUser("silver100", onPlan("silver", 100));
+    await setUser("free900", joined(900));
+    await assertSucceeds(getDoc(doc(as("gold8"), "dailyPosts", "p1")));
+    await assertFails(getDoc(doc(as("silver100"), "dailyPosts", "p1")));
+    await assertFails(getDoc(doc(as("free900"), "dailyPosts", "p1")));
+  });
+
+  test("announcement replies: Gold from the first day, Silver after 7 days", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => { await setDoc(doc(ctx.firestore(), "announcements", "n1"), { title: "Hi", body: "" }); });
+    await setUser("gold0", onPlan("gold", 0));
+    await setUser("silver0", onPlan("silver", 0));
+    const reply = (uid: string) => ({ authorUid: uid, authorName: uid, authorRole: "member", text: "Hari Om", status: "visible" });
+    await assertSucceeds(setDoc(doc(as("gold0"), "announcements", "n1", "comments", "c1"), reply("gold0")));
+    await assertFails(setDoc(doc(as("silver0"), "announcements", "n1", "comments", "c2"), reply("silver0")));
+  });
+
+  test("moderators follow their own plan; Swamiji and admins have everything", async () => {
+    const mod = (uid: string) => env.authenticatedContext(uid, { role: "moderator" }).firestore();
+    const oldName = (uid: string) => env.authenticatedContext(uid, { role: "senior_member" }).firestore();
+    await setUser("mod", { ...joined(1), role: "moderator" });
+    await assertFails(setDoc(doc(mod("mod"), "thoughts", "t1", "likes", "mod"), { createdAt: serverTimestamp() }));
+    await assertFails(setDoc(doc(oldName("mod"), "thoughts", "t1", "likes", "mod"), { createdAt: serverTimestamp() }));
+    await assertSucceeds(getDoc(doc(as("sw"), "dailyPosts", "p1")));
+    await assertSucceeds(setDoc(doc(as("adm"), "thoughts", "t1", "likes", "adm"), { createdAt: serverTimestamp() }));
   });
 });

@@ -19,12 +19,12 @@ enum class MemberLevel(val rank: Int) {
 }
 
 enum class Role {
-    Member, SeniorMember, Swamiji, Admin;
+    Member, Moderator, Swamiji, Admin;
 
     companion object {
-        // Firestore stores the role as a lowercase id, e.g. "senior_member"
+        // Firestore stores the role as a lowercase id; "senior_member" is the old name for a moderator
         fun fromId(id: String?): Role = when (id) {
-            "senior_member" -> SeniorMember
+            "moderator", "senior_member" -> Moderator
             "swamiji" -> Swamiji
             "admin" -> Admin
             else -> Member
@@ -32,4 +32,15 @@ enum class Role {
     }
 }
 
-data class Viewer(val userLevel: UserLevel, val memberLevel: MemberLevel, val role: Role)
+data class Viewer(
+    val userLevel: UserLevel,
+    val memberLevel: MemberLevel,
+    val role: Role,
+    /** Paid plan on the profile; see [activePlan] for whether it is running now. */
+    val plan: Plan = Plan.User,
+    /** When the member joined (server-owned users/{uid}.createdAt). */
+    val joinedAtMs: Long? = null,
+    /** When the current paid plan began, and when it runs out. */
+    val planSinceMs: Long? = null,
+    val planUntilMs: Long? = null,
+)

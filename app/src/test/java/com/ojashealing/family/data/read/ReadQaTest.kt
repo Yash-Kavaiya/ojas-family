@@ -43,7 +43,7 @@ class ReadQaTest {
         fun v(r: Role) = Viewer(UserLevel.L1, MemberLevel.None, r)
         assertTrue(canEditRead(v(Role.Admin)))
         assertTrue(canEditRead(v(Role.Swamiji)))
-        assertFalse(canEditRead(v(Role.SeniorMember)))
+        assertFalse(canEditRead(v(Role.Moderator)))
         assertFalse(canEditRead(v(Role.Member)))
         assertFalse(canEditRead(null))
     }

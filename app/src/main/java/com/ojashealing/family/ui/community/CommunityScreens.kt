@@ -142,7 +142,7 @@ fun CommunityScreen(
                             val qaState = rememberLazyListState()
                             LoadOlderWhenEnd(qaState, questionsMore, list.size) { vm.loadOlderQuestions() }
                             LazyColumn(state = qaState, contentPadding = PaddingValues(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
-                                if (!p.canAsk) item(key = "lock", contentType = "lock") { LockHint(stringResource(R.string.community_ask_locked)) }
+                                if (!p.canAsk) item(key = "lock", contentType = "lock") { LockHint(stringResource(R.string.community_ask_locked, com.ojashealing.family.ui.components.accessRuleText(com.ojashealing.family.domain.AccessRules.AskText))) }
                                 items(list, key = { it.id }, contentType = { "question" }) { q -> Box(Modifier.animateItem()) { QuestionCard(q) { onOpenQuestion(q.id) } } }
                                 loadOlderRow(questionsMore) { vm.loadOlderQuestions() }
                             }
@@ -287,7 +287,7 @@ fun QuestionDetailScreen(
                         replyingTo = replyingTo,
                         onCancelReply = { replyId = null }
                     )
-                } else LockHint(stringResource(R.string.community_answer_locked))
+                } else LockHint(stringResource(R.string.community_answer_locked, com.ojashealing.family.ui.components.accessRuleText(com.ojashealing.family.domain.AccessRules.ReplyQa)))
             }
         }
       }
@@ -470,7 +470,11 @@ fun ComposePostScreen(
     onSubmitWithMedia: ((String, String, Uri?, com.ojashealing.family.data.social.MediaKind?, () -> Unit) -> Unit)? = null,
     /** Whether the post is on its way, and whether the last try failed; the text stays so it can be sent again. */
     sending: Boolean = false,
-    failed: Boolean = false
+    failed: Boolean = false,
+    /** Why the post can't go (e.g. the day's question limit), shown above the fields. */
+    note: String? = null,
+    /** Shown instead of the attach button when attaching is not open yet. */
+    attachLockedNote: String? = null
 ) {
     var first by rememberSaveable { mutableStateOf("") }
     var second by rememberSaveable { mutableStateOf("") }
@@ -491,6 +495,8 @@ fun ComposePostScreen(
         OutlinedTextField(value = first, onValueChange = { first = it.take(150) }, label = { Text(firstLabel) }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(value = second, onValueChange = { second = it.take(2000) }, label = { Text(secondLabel) }, modifier = Modifier.fillMaxWidth().heightIn(min = 160.dp))
         if (failed) Text(stringResource(R.string.error_generic), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        note?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
+        if (!canAttachImage) attachLockedNote?.let { LockHint(it) }
         if (canAttachImage) {
             com.ojashealing.family.ui.components.MediaAttachPicker(mediaUri, kind, onChange = { u, k -> mediaUri = u; kindId = k?.id })
             if (mediaUri != null) Text(stringResource(R.string.post_media_review), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

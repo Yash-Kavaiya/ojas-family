@@ -52,7 +52,7 @@ class FeaturesTest {
     @Test
     fun planGates() {
         assertEquals(PlanGate.Open, gateFor(Product.Membership, viewer(UserLevel.L1)))
-        assertEquals(PlanGate.NeedsLevel(2), gateFor(Product.ChatWeek, viewer(UserLevel.L1)))
+        assertEquals(PlanGate.Open, gateFor(Product.ChatWeek, viewer(UserLevel.L1)))
         assertEquals(PlanGate.Open, gateFor(Product.CallWeek, viewer(UserLevel.L2)))
         assertEquals(PlanGate.NeedsMember(2), gateFor(Product.ChatMonth, viewer(UserLevel.L4, MemberLevel.M1)))
         assertEquals(PlanGate.NeedsMember(3), gateFor(Product.CallMonth, viewer(UserLevel.L4, MemberLevel.M2)))
@@ -61,10 +61,10 @@ class FeaturesTest {
 
     @Test
     fun paidAccessRules() {
-        assertFalse(Permissions.canViewDailyActivities(viewer(UserLevel.L4)))
-        assertTrue(Permissions.canViewDailyActivities(viewer(UserLevel.L1, MemberLevel.M1)))
-        assertFalse(Permissions.canPostDailyActivity(viewer(UserLevel.L4, MemberLevel.M2)))
-        assertTrue(Permissions.canPostDailyActivity(viewer(UserLevel.L1, MemberLevel.M3)))
+        assertFalse(Permissions.canViewDailyActivities(com.ojashealing.family.domain.freeFor(1000)))
+        assertTrue(Permissions.canViewDailyActivities(com.ojashealing.family.domain.onPlanFor(com.ojashealing.family.domain.Plan.Gold, 7)))
+        assertFalse(Permissions.canPostDailyActivity(com.ojashealing.family.domain.onPlanFor(com.ojashealing.family.domain.Plan.Silver, 1000)))
+        assertTrue(Permissions.canPostDailyActivity(com.ojashealing.family.domain.onPlanFor(com.ojashealing.family.domain.Plan.Gold, 365)))
         assertFalse(Permissions.canAttachImage(viewer(UserLevel.L4)))
         assertTrue(Permissions.canAttachImage(viewer(UserLevel.L1, MemberLevel.M1)))
     }

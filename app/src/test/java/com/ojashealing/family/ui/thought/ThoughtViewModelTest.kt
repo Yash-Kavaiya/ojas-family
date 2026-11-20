@@ -26,13 +26,13 @@ class ThoughtViewModelTest {
         assertEquals("2026-11-02", buildThoughtUi(thoughts.drop(1).take(0) + listOf(t("2026-11-02")), null, v(UserLevel.L1), "2026-11-03").selected?.id)
 
     @Test fun likeHiddenWhenViewerCannotLike() {
-        assertFalse(buildThoughtUi(thoughts, null, v(UserLevel.L1), "2026-11-03").canLike)
-        assertTrue(buildThoughtUi(thoughts, null, v(UserLevel.L2), "2026-11-03").canLike)
+        assertFalse(buildThoughtUi(thoughts, null, com.ojashealing.family.domain.freeFor(3), "2026-11-03").canLike)
+        assertTrue(buildThoughtUi(thoughts, null, com.ojashealing.family.domain.freeFor(7), "2026-11-03").canLike)
     }
 
-    @Test fun commentBoxHiddenBelowLevel3() {
-        assertFalse(buildThoughtUi(thoughts, null, v(UserLevel.L2), "2026-11-03").canComment)
-        assertTrue(buildThoughtUi(thoughts, null, v(UserLevel.L2, MemberLevel.M2), "2026-11-03").canComment)
+    @Test fun commentBoxHiddenUntilThePlanTableOpensIt() {
+        assertFalse(buildThoughtUi(thoughts, null, com.ojashealing.family.domain.freeFor(100), "2026-11-03").canComment)
+        assertTrue(buildThoughtUi(thoughts, null, com.ojashealing.family.domain.onPlanFor(com.ojashealing.family.domain.Plan.Silver, 7), "2026-11-03").canComment)
     }
 
     @Test fun onlyAdminsSchedule() {

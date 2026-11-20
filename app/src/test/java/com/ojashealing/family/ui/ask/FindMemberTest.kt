@@ -14,7 +14,7 @@ class FindMemberTest {
         val rows = listOf(
             row("me", Role.Swamiji),
             row("m1", Role.Member),
-            row("s1", Role.SeniorMember),
+            row("s1", Role.Moderator),
             row("a1", Role.Admin),
             row("sw2", Role.Swamiji),
         )

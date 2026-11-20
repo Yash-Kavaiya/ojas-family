@@ -1,8 +1,9 @@
 import { FieldValue, Timestamp, type Firestore } from "firebase-admin/firestore";
+import { allows, RULES } from "./access";
 import { HttpsError } from "firebase-functions/v2/https";
 import { cached } from "./configCache";
 import { awardPoints } from "./points";
-import { canPractise, dayBefore, logPracticeFor, streak, type DayLog } from "./practice";
+import { dayBefore, logPracticeFor, streak, type DayLog } from "./practice";
 import { loadPointsConfig } from "./pointsConfig";
 import { istDay } from "./time";
 
@@ -39,11 +40,13 @@ async function mediaSeconds(db: Firestore, section: PracticeSection): Promise<nu
   return secs;
 }
 
-/** Morning and night are the daily practices: Level 4, membership or staff (same as logPractice). */
-async function checkAccess(db: Firestore, uid: string, role: unknown, section: PracticeSection): Promise<void> {
-  if (section !== "morning" && section !== "night") return;
+/** Quick Protection, Morning and Night open by the plan table (access.ts); Blue Light is open to everyone. */
+async function checkAccess(db: Firestore, uid: string, role: unknown, section: PracticeSection, now: Date): Promise<void> {
+  const rule = section === "quick_protection" ? RULES.quickProtection
+    : section === "morning" || section === "night" ? RULES.dailyPractice : null;
+  if (!rule) return;
   const user = (await db.doc(`users/${uid}`).get()).data() ?? {};
-  if (!canPractise(user, role)) throw new HttpsError("permission-denied", "Daily practices unlock at Level 4 or with membership");
+  if (!allows(user, role, rule, now)) throw new HttpsError("permission-denied", "This practice is not open for your plan yet");
 }
 
 /**
@@ -52,7 +55,7 @@ async function checkAccess(db: Firestore, uid: string, role: unknown, section: P
  */
 export async function startPracticeFor(db: Firestore, uid: string, role: unknown, rawSection: unknown, now: Date): Promise<{ startedAt: number }> {
   const section = sectionOf(rawSection);
-  await checkAccess(db, uid, role, section);
+  await checkAccess(db, uid, role, section, now);
   await mediaSeconds(db, section);
   const ref = db.doc(`users/${uid}/practiceSessions/${section}_${istDay(now)}`);
   const startedAt = await db.runTransaction(async (tx) => {
@@ -74,7 +77,7 @@ export async function completePracticeFor(
   db: Firestore, uid: string, role: unknown, rawSection: unknown, now: Date,
 ): Promise<{ awarded: boolean; points: number; streak: number; completedGoals: string[] }> {
   const section = sectionOf(rawSection);
-  await checkAccess(db, uid, role, section);
+  await checkAccess(db, uid, role, section, now);
   const secs = await mediaSeconds(db, section);
   const day = istDay(now);
   const ref = db.doc(`users/${uid}/practiceSessions/${section}_${day}`);

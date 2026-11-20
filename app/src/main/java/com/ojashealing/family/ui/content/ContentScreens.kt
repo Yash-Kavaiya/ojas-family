@@ -118,6 +118,7 @@ fun LockedDialog(locked: Access.Locked, onDismiss: () -> Unit) {
         title = { Text(stringResource(R.string.locked_title), style = MaterialTheme.typography.titleLarge) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
+                locked.rule?.let { Text(com.ojashealing.family.ui.components.accessRuleText(it), style = MaterialTheme.typography.bodyLarge) }
                 locked.needsUserLevel?.let { Text(stringResource(R.string.locked_user_level, it), style = MaterialTheme.typography.bodyLarge) }
                 locked.needsMemberLevel?.let { Text(stringResource(R.string.locked_member_level, it), style = MaterialTheme.typography.bodyLarge) }
                 Text(stringResource(R.string.locked_body), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

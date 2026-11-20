@@ -27,7 +27,12 @@ const SECTIONS = {
   blue_light: "Blue Healing Light", quick_protection: "Quick Protection", morning: "Morning practice",
   night: "Night practice", yoga: "Yoga & Pranayama", other: "Other", understanding: "Understanding",
 };
-const ROLES = { member: "Member", senior_member: "Senior member", swamiji: "Swamiji", admin: "Admin" };
+// "senior_member" is the old id of a moderator (owner, 2026-11-20); the server stores it as moderator now
+const ROLES = { member: "Member", moderator: "Moderator", swamiji: "Swamiji", admin: "Admin" };
+const roleName = (r) => ROLES[r === "senior_member" ? "moderator" : r] || "Member";
+// The plan running now (Silver or Gold until planUntil), or Free
+const planOf = (m) => (m.plan === "silver" || m.plan === "gold") && m.planUntil?.toMillis?.() > Date.now() ? m.plan : "user";
+const PLAN_NAMES = { user: "Free", silver: "Silver", gold: "Gold" };
 
 // ---------- helpers ----------
 const $ = (s, root = document) => root.querySelector(s);
@@ -349,7 +354,7 @@ function drawTodo(s) {
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr));margin-top:16px">
       <div class="card"><h3>Free levels</h3>${bars(["Level 1", "Level 2", "Level 3", "Level 4"], u.byLevel)}</div>
       <div class="card"><h3>Member levels</h3>${bars(["Member 1", "Member 2", "Member 3"], u.byMemberLevel)}
-        <p class="muted">Staff: ${u.admins} admins, ${u.swamiji} Swamiji, ${u.seniors} senior members</p>
+        <p class="muted">Staff: ${u.admins} admins, ${u.swamiji} Swamiji, ${u.seniors} moderators</p>
         <p class="muted">Paid now: ${s.paid.membership} memberships, ${s.paid.chat} chat packs, ${s.paid.call} call packs</p></div>
       <div class="card"><h3>Thought of the Day</h3>
         <p>${s.thoughts.scheduledAhead} scheduled from today. ${s.thoughts.missingNext30.length ? `<b>${s.thoughts.missingNext30.length}</b> of the next 30 days have none:` : "The next 30 days are all scheduled."}</p>
@@ -376,7 +381,7 @@ async function members() {
         <button class="primary" id="g-give-points">Give points</button>
       </div>
       <div class="row">
-        <label>Access<select id="g-access"><option value="membership">Membership</option><option value="chat">Chat</option><option value="call">Calls</option></select></label>
+        <label>Access<select id="g-access"><option value="silver">Silver plan</option><option value="gold">Gold plan</option><option value="chat">Chat</option><option value="call">Calls</option></select></label>
         <label>Days<input id="g-days" type="number" min="1" max="366" value="30" style="width:90px"></label>
         <label>Calls (empty = unlimited)<input id="g-credits" type="number" min="1" max="99" style="width:110px"></label>
         <button class="primary" id="g-give-access">Give access</button><button class="danger" id="g-revoke">End access now</button>
@@ -393,16 +398,16 @@ async function members() {
   };
   const filtered = () => {
     const f = $("#m-filter").value;
-    return memberRows.filter((m) => !f || (f === "paid" && (m.memberLevel ?? 0) > 0) || (f === "free" && !(m.memberLevel > 0)) || (f === "staff" && (m.role ?? "member") !== "member"));
+    return memberRows.filter((m) => !f || (f === "paid" && planOf(m) !== "user") || (f === "free" && planOf(m) === "user") || (f === "staff" && (m.role ?? "member") !== "member"));
   };
   const selected = () => $$("#m-table input[type=checkbox]:checked").map((c) => c.value);
   const updateCount = () => ($("#m-count").textContent = `${selected().length} selected`);
   const draw = () => {
     const rows = filtered();
-    $("#m-table").innerHTML = `<table><thead><tr><th></th><th>Member</th><th>Points</th><th>Earned</th><th>Level</th><th>Member level</th><th>Role</th><th>Last open</th></tr></thead><tbody>${
+    $("#m-table").innerHTML = `<table><thead><tr><th></th><th>Member</th><th>Points</th><th>Earned</th><th>Plan</th><th>Joined</th><th>Role</th><th>Last open</th></tr></thead><tbody>${
       rows.map((m) => `<tr><td><input type="checkbox" value="${esc(m.uid)}"></td>
         <td title="${esc(m.uid)}"><div class="row">${m.photoUrl ? `<img class="avatar" src="${esc(m.photoUrl)}" alt="">` : ""}<div>${esc(m.displayName || "(no name)")}<br><span class="muted" style="font-size:12px">${esc([m.city, m.country].filter(Boolean).join(", "))}</span></div></div></td>
-        <td>${esc(m.mokshaPoints ?? 0)}</td><td>${esc(m.earnedPoints ?? m.mokshaPoints ?? 0)}</td><td>${esc(m.userLevel ?? 1)}</td><td>${esc(m.memberLevel ?? 0)}</td><td>${esc(ROLES[m.role] || "Member")}</td><td>${esc(m.lastDailyOpen || "")}</td></tr>`).join("")
+        <td>${esc(m.mokshaPoints ?? 0)}</td><td>${esc(m.earnedPoints ?? m.mokshaPoints ?? 0)}</td><td>${esc(PLAN_NAMES[planOf(m)])}${planOf(m) !== "user" ? `<br><span class="muted" style="font-size:12px">until ${esc(m.planUntil.toDate().toLocaleDateString())}</span>` : ""}</td><td>${esc(m.createdAt?.toDate?.().toLocaleDateString() ?? "")}</td><td>${esc(roleName(m.role))}</td><td>${esc(m.lastDailyOpen || "")}</td></tr>`).join("")
     }</tbody></table><p class="muted">${rows.length} shown</p>`;
     $$("#m-table input[type=checkbox]").forEach((c) => (c.onchange = updateCount));
     updateCount();
@@ -421,13 +426,17 @@ async function members() {
   };
   const grant = (e, revoke) => {
     const uids = need(1); if (!uids) return;
-    const entitlement = $("#g-access").value;
+    const access = $("#g-access").value;
+    // Silver and Gold are both the membership; tier says which (ending it ends either)
+    const tier = access === "silver" || access === "gold" ? access : undefined;
+    const entitlement = tier ? "membership" : access;
     const days = Number($("#g-days").value);
     const credits = $("#g-credits").value ? Number($("#g-credits").value) : undefined;
-    const what = revoke ? `End ${entitlement} now for` : `Give ${days} days of ${entitlement} to`;
+    const label = tier ? `the ${PLAN_NAMES[tier]} plan` : entitlement;
+    const what = revoke ? `End ${tier ? "the paid plan" : entitlement} now for` : `Give ${days} days of ${label} to`;
     if (!confirm(`${what} ${uids.length} member(s)?`)) return;
     run(e.target, async () => {
-      for (const uid of uids) await call("adminGrant", { uid, entitlement, days: revoke ? 1 : days, credits, revoke });
+      for (const uid of uids) await call("adminGrant", { uid, entitlement, days: revoke ? 1 : days, credits, revoke, tier });
       return uids.length;
     }, (n) => `Done for ${n} member(s)`).then(load);
   };
@@ -438,7 +447,7 @@ async function members() {
     if (uids.length !== 1) return toast("Select exactly one member to change a role", true);
     const role = $("#g-role").value;
     const who = memberRows.find((m) => m.uid === uids[0])?.displayName || "this member";
-    if (!confirm(`Make ${who} ${ROLES[role]}?${role === "admin" ? " Admins can change everything, including other admins." : ""}`)) return;
+    if (!confirm(`Make ${who} ${roleName(role)}?${role === "admin" ? " Admins can change everything, including other admins." : ""}`)) return;
     run(e.target, () => call("setRole", { uid: uids[0], role: $("#g-role").value }), "Role saved. They see it after reopening the app.").then(load);
   };
   await load();
@@ -534,7 +543,7 @@ async function content() {
   const sectionOpts = (sel) => Object.entries(SECTIONS).map(([k, v]) => `<option value="${k}" ${k === sel ? "selected" : ""}>${v}</option>`).join("");
   view().innerHTML = `
     <h1>Videos</h1>
-    <p class="muted">Videos from youtube.com/@OjasHealing. Morning and Night open at Level 4 or with membership; Understanding at Level 2.</p>
+    <p class="muted">Videos from youtube.com/@OjasHealing. Videos are open to everyone. Quick Protection opens for free members after 6 months (Silver and Gold from day 1); Morning and Night for Silver after 7 days and Gold from day 1.</p>
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(340px,1fr))">
       <div class="card stack"><h3>Add one video</h3>
         <label>YouTube link<input id="v-url" placeholder="https://youtu.be/..."></label>
@@ -622,7 +631,7 @@ async function books() {
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || String(a.title).localeCompare(String(b.title)));
   view().innerHTML = `
     <h1>Books</h1>
-    <p class="muted">PDF books on the Ask tab's Books section. Members read them inside the app (scroll, page by page or two pages; day, sepia or night paper; read aloud) and can download them to read offline. Upload the PDF file (up to ${MAX_PDF_MB} MB), or paste a link anyone can open (for a Google Drive file: Share → "Anyone with the link"). Like Understanding videos, books open at Level 2 or with membership; raise "Min level" for a single book.</p>
+    <p class="muted">PDF books on the Ask tab's Books section. Members read them inside the app (scroll, page by page or two pages; day, sepia or night paper; read aloud) and can download them to read offline. Upload the PDF file (up to ${MAX_PDF_MB} MB), or paste a link anyone can open (for a Google Drive file: Share → "Anyone with the link"). Books are open to everyone from the first day; raise "Min level" to hold back a single book.</p>
     <div class="card stack" style="max-width:560px"><h3>Add a book</h3>
       <label>Title<input id="b-title" maxlength="200"></label>
       <label>Author (optional)<input id="b-author" maxlength="120"></label>
@@ -1091,11 +1100,10 @@ async function ai() {
     <div class="card stack"><h3>Settings</h3>
       <div class="row">
         <label><input type="checkbox" id="ai-enabled" ${cfg.enabled === false ? "" : "checked"}> AI is on</label>
-        <label>Questions a day (free)<input type="number" id="ai-free" min="0" value="${esc(cfg.dailyFree ?? 5)}" style="width:90px"></label>
-        <label>Questions a day (members, staff)<input type="number" id="ai-member" min="0" value="${esc(cfg.dailyMember ?? 5)}" style="width:90px"></label>
         <label>Passages per answer<input type="number" id="ai-topk" min="1" max="8" value="${esc(cfg.topK ?? 5)}" style="width:70px"></label>
         <label>Model<input id="ai-model" value="${esc(cfg.model || "nvidia/nemotron-3-ultra-550b-a55b")}" style="width:300px"></label>
       </div>
+      <p class="muted">Questions a day come from the membership plans: Free 5 (50 after 6 months, 100 after a year), Silver 50 (100 after 6 months), Gold 50 (100 after 6 months, no limit after a year). Swamiji and admins have no limit.</p>
       <button class="primary" id="ai-save">Save</button></div>
     ${failed.length ? `<div class="card" style="margin-top:12px"><h3>Videos that could not be read (${failed.length})</h3><ul>${failed.slice(0, 30).map((d) => `<li>${esc(d.get("title"))} <span class="muted">${esc(d.get("error") || "")}</span></li>`).join("")}</ul></div>` : ""}
     <div class="card" style="margin-top:12px"><h3>Members' feedback on answers</h3>
@@ -1104,8 +1112,6 @@ async function ai() {
       }</tbody></table></div>`;
   $("#ai-save").onclick = (e) => run(e.target, () => setDoc(doc(db, "config", "ai"), {
     enabled: $("#ai-enabled").checked,
-    dailyFree: Math.max(0, Math.floor(Number($("#ai-free").value) || 0)),
-    dailyMember: Math.max(0, Math.floor(Number($("#ai-member").value) || 0)),
     topK: Math.min(8, Math.max(1, Math.floor(Number($("#ai-topk").value) || 5))),
     model: $("#ai-model").value.trim() || "nvidia/nemotron-3-ultra-550b-a55b",
   }, { merge: true }), "AI settings saved");

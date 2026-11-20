@@ -75,7 +75,7 @@ service firebase.storage {
     }
 
     function staffRole() {
-      return request.auth != null && request.auth.token.get('role', 'member') in ['admin', 'swamiji', 'senior_member'];
+      return request.auth != null && request.auth.token.get('role', 'member') in ['admin', 'swamiji', 'moderator', 'senior_member'];
     }
 
     match /chats/{memberUid}/{file} {

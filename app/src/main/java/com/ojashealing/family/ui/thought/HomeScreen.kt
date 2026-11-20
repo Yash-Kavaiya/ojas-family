@@ -415,7 +415,7 @@ fun ThoughtCard(
                 )
             }
         }
-        if (!canLike) LockHint(stringResource(R.string.home_like_locked))
+        if (!canLike) LockHint(stringResource(R.string.home_like_locked, com.ojashealing.family.ui.components.accessRuleText(com.ojashealing.family.domain.AccessRules.Like)))
     }
 }
 
@@ -520,7 +520,7 @@ fun ThoughtDetailScreen(vm: ThoughtViewModel, thoughtId: String, onBack: () -> U
                             replyingTo = replyingTo,
                             onCancelReply = { replyId = null }
                         )
-                    } else LockHint(stringResource(R.string.home_comment_locked))
+                    } else LockHint(stringResource(R.string.home_comment_locked, com.ojashealing.family.ui.components.accessRuleText(com.ojashealing.family.domain.AccessRules.ReplyThought)))
                 }
             }
         }

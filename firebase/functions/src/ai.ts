@@ -1,3 +1,4 @@
+import { aiDailyLimit } from "./access";
 import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import { cached } from "./configCache";
@@ -128,15 +129,15 @@ export function soundsLikeCrisis(text: string): boolean {
   return CRISIS.some((w) => t.includes(w));
 }
 
-function isPaidOrStaff(user: Record<string, unknown>, role: unknown): boolean {
-  return role === "admin" || role === "swamiji" || role === "senior_member" || Number(user.memberLevel ?? 0) >= 1;
-}
+// Shown to the app as the daily allowance when there is no limit (JSON has no Infinity)
+const UNLIMITED = 9999;
 
 /** How many questions [uid] may still ask today. */
 export async function remainingToday(db: Firestore, uid: string, role: unknown, now: Date): Promise<{ enabled: boolean; remaining: number; limit: number }> {
   const cfg = await loadAiConfig(db);
   const user = (await db.doc(`users/${uid}`).get()).data() ?? {};
-  const limit = isPaidOrStaff(user, role) ? cfg.dailyMember : cfg.dailyFree;
+  // How many a day comes from the plan table (access.ts), not from config/ai
+  const limit = Math.min(aiDailyLimit(user, role, now), UNLIMITED);
   const used = Number((await db.doc(`users/${uid}/counters/${istDay(now)}`).get()).get("ai") ?? 0);
   return { enabled: cfg.enabled, remaining: Math.max(0, limit - used), limit };
 }
@@ -191,7 +192,7 @@ export async function askSwamijiFor(
   const userRef = db.doc(`users/${uid}`);
   const counterRef = userRef.collection("counters").doc(day);
   const user = (await userRef.get()).data() ?? {};
-  const limit = isPaidOrStaff(user, role) ? cfg.dailyMember : cfg.dailyFree;
+  const limit = aiDailyLimit(user, role, now);
   const used = await db.runTransaction(async (tx) => {
     const n = Number((await tx.get(counterRef)).get("ai") ?? 0);
     if (n >= limit) throw new HttpsError("resource-exhausted", "You have asked today's questions. Come back tomorrow, or ask Swamiji personally.");
@@ -219,7 +220,7 @@ export async function askSwamijiFor(
   if (pointsCfg.aiDaily > 0 && await awardPoints(db, uid, { eventKey: `ai:${day}`, amount: pointsCfg.aiDaily, reason: "ai_question", milestone: false })) {
     pointsAwarded = pointsCfg.aiDaily;
   }
-  return { kind: "answer", answer, sources: citedSources(answer, passages), followUps, remaining: Math.max(0, limit - used), pointsAwarded };
+  return { kind: "answer", answer, sources: citedSources(answer, passages), followUps, remaining: Math.max(0, Math.min(limit, UNLIMITED) - used), pointsAwarded };
 }
 
 const MESSAGE_ID = /^[A-Za-z0-9_-]{4,60}$/;

@@ -3,7 +3,7 @@ import { notifyUser, type Messenger } from "./notify";
 
 type Data = Record<string, unknown> | undefined;
 const str = (v: unknown) => (typeof v === "string" ? v : "");
-const STAFF = ["admin", "swamiji", "senior_member"];
+const STAFF = ["admin", "swamiji", "moderator", "senior_member"];
 
 /** The member's two conversations: with Swamiji (chats/) and with the Admin team (adminChats/). */
 export type Channel = "swamiji" | "admin";

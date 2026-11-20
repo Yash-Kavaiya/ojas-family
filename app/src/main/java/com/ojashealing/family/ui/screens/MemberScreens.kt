@@ -267,7 +267,7 @@ fun MembersScreen(vm: MembersViewModel, onBack: () -> Unit) {
 
 private fun Role.label() = when (this) {
     Role.Member -> R.string.role_member
-    Role.SeniorMember -> R.string.role_senior_member
+    Role.Moderator -> R.string.role_senior_member
     Role.Swamiji -> R.string.role_swamiji
     Role.Admin -> R.string.role_admin
 }

@@ -124,6 +124,9 @@ class DailyViewModel(
 
     val canAttachImage: StateFlow<Boolean> = combine(me, flowOf(Unit)) { p, _ -> Permissions.canAttachImage(p.viewer) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    /** Replying on Activity opens later than reading (plan table). */
+    val canReply: StateFlow<Boolean> = combine(me, flowOf(Unit)) { p, _ -> Permissions.canReplyDailyActivity(p.viewer) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     fun replies(postId: String): Flow<List<Post>> = me.flatMapLatest { p ->
         combine(repo.observeReplies(postId, p.viewer, p.uid), blocked) { r, b -> r.filter { it.author.uid !in b } }
@@ -189,7 +192,7 @@ fun DailyFeed(vm: DailyViewModel, canPost: Boolean, onOpen: (String) -> Unit, on
         ) {
             Icon(Icons.Outlined.WorkspacePremium, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(Spacing.s))
             Text(stringResource(R.string.daily_locked_title), style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
-            Text(stringResource(R.string.daily_locked_body), style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center,
+            Text(stringResource(R.string.daily_locked_body, com.ojashealing.family.ui.components.accessRuleText(com.ojashealing.family.domain.AccessRules.ActivityRead)), style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             Button(onClick = onJoin) { Text(stringResource(R.string.membership_join)) }
         }
@@ -199,13 +202,13 @@ fun DailyFeed(vm: DailyViewModel, canPost: Boolean, onOpen: (String) -> Unit, on
             if (list.isEmpty()) {
                 Column(Modifier.fillMaxSize()) {
                     EmptyState(Icons.Outlined.PhotoLibrary, stringResource(R.string.daily_empty_title), stringResource(R.string.daily_empty_body), Modifier.weight(1f))
-                    if (!canPost) Box(Modifier.padding(Spacing.l)) { LockHint(stringResource(R.string.daily_post_locked)) }
+                    if (!canPost) Box(Modifier.padding(Spacing.l)) { LockHint(stringResource(R.string.daily_post_locked, com.ojashealing.family.ui.components.accessRuleText(com.ojashealing.family.domain.AccessRules.ActivityPost))) }
                 }
             } else {
                 val dailyState = rememberLazyListState()
                 LoadOlderWhenEnd(dailyState, postsMore, list.size) { vm.loadOlderPosts() }
                 LazyColumn(state = dailyState, contentPadding = PaddingValues(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
-                    if (!canPost) item(key = "lock", contentType = "lock") { LockHint(stringResource(R.string.daily_post_locked)) }
+                    if (!canPost) item(key = "lock", contentType = "lock") { LockHint(stringResource(R.string.daily_post_locked, com.ojashealing.family.ui.components.accessRuleText(com.ojashealing.family.domain.AccessRules.ActivityPost))) }
                     items(list, key = { it.id }, contentType = { "daily" }) { post -> DailyCard(post) { onOpen(post.id) } }
                     loadOlderRow(postsMore) { vm.loadOlderPosts() }
                 }
@@ -270,6 +273,7 @@ fun DailyPostScreen(vm: DailyViewModel, postId: String, onBack: () -> Unit, show
     val liked by remember(postId) { vm.liked(postId) }.collectAsStateWithLifecycle(false)
     val busy by vm.busy.collectAsStateWithLifecycle()
     val canAttach by vm.canAttachImage.collectAsStateWithLifecycle()
+    val canReply by vm.canReply.collectAsStateWithLifecycle()
     val post = posts?.firstOrNull { it.id == postId }
     val openThreads = com.ojashealing.family.ui.components.rememberOpenThreads()
     var replyId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -313,13 +317,17 @@ fun DailyPostScreen(vm: DailyViewModel, postId: String, onBack: () -> Unit, show
                     modifier = Modifier.padding(horizontal = Spacing.l))
             }
             commentThreads(
-                replies, openThreads, onReply = { r: Post -> replyId = r.id },
+                replies, openThreads, onReply = if (canReply) ({ r: Post -> replyId = r.id }) else null,
                 trailing = { r: Post -> ReportMenu(r.author, "dailyPosts/${post.id}/replies/${r.id}", r.text) },
                 // Only paid members reach Daily Activities, and they may all like
                 pathOf = { r: Post -> "dailyPosts/${post.id}/replies/${r.id}" }, canLike = true
             )
         }
-        if (post != null) {
+        if (post != null && !canReply) {
+            com.ojashealing.family.ui.thought.CommentBar {
+                Box(Modifier.padding(Spacing.m)) { LockHint(stringResource(R.string.activity_reply_locked, com.ojashealing.family.ui.components.accessRuleText(com.ojashealing.family.domain.AccessRules.ActivityReply))) }
+            }
+        } else if (post != null) {
             com.ojashealing.family.ui.thought.CommentBar {
                 PostComposer(
                     hint = stringResource(R.string.daily_reply_hint),

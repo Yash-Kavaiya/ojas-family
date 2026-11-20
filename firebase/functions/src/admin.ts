@@ -70,7 +70,7 @@ export async function statsFor(db: Firestore, token: Claims, now: Date): Promise
     count(users), count(users.where("lastDailyOpen", "==", today)), count(users.where("createdAt", ">=", dayStart)),
     ...[1, 2, 3, 4].map((l) => count(users.where("userLevel", "==", l))),
     ...[1, 2, 3].map((l) => count(users.where("memberLevel", "==", l))),
-    ...["admin", "swamiji", "senior_member"].map((r) => count(users.where("role", "==", r))),
+    ...["admin", "swamiji", ["moderator", "senior_member"]].map((r) => count(Array.isArray(r) ? users.where("role", "in", r) : users.where("role", "==", r))),
   ]);
 
   const ents = await db.collectionGroup("entitlements").where("expiresAt", ">", nowTs).select().get();
