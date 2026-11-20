@@ -984,8 +984,8 @@ fun MainShell(container: AppContainer) {
                         callMember(c.memberUid, if (c.callerUid == me.uid) c.calleeName else c.callerName, c.video, c.channel, "")
                     } else {
                         val ch = com.ojashealing.family.data.chat.ChatChannel.fromId(c.channel)
-                        val ok = if (c.video) Permissions.canVideoCall(me.viewer) else Permissions.canAudioCall(me.viewer, entitlements[PaidAccess.Call]?.canCall() == true)
-                        if (ok) callStaff(ch, c.video, "") else openPlans(PaidAccess.Membership)
+                        val ok = Permissions.canCall(me.viewer, entitlements[PaidAccess.Call]?.canCall() == true, withSwamiji = ch == com.ojashealing.family.data.chat.ChatChannel.Swamiji)
+                        if (ok) callStaff(ch, c.video, "") else openPlans(PaidAccess.Call)
                     }
                 })
             }
@@ -1000,8 +1000,8 @@ fun MainShell(container: AppContainer) {
                 com.ojashealing.family.ui.ask.ScheduleCallScreen(
                     callsVm,
                     channel = entry.toRoute<ScheduleCallRoute>().channel,
-                    canAudio = Permissions.canAudioCall(me.viewer, entitlements[PaidAccess.Call]?.canCall() == true),
-                    canVideo = Permissions.canVideoCall(me.viewer),
+                    canAudio = Permissions.canCall(me.viewer, entitlements[PaidAccess.Call]?.canCall() == true, withSwamiji = entry.toRoute<ScheduleCallRoute>().channel == com.ojashealing.family.data.chat.ChatChannel.Swamiji.id),
+                    canVideo = Permissions.canCall(me.viewer, entitlements[PaidAccess.Call]?.canCall() == true, withSwamiji = entry.toRoute<ScheduleCallRoute>().channel == com.ojashealing.family.data.chat.ChatChannel.Swamiji.id),
                     onBack = { nav.popBackStack() },
                     onMyCalls = { nav.popBackStack(); nav.navigate(MyCallsRoute) }
                 )
@@ -1308,8 +1308,8 @@ private fun ChatDestination(
         me == null -> null
         iAmStaff -> { member, video -> callMember(member, chatVm.ui.value?.thread?.memberName.orEmpty(), video, channel.id, "") }
         else -> {
-            val audioOk = Permissions.canAudioCall(me.viewer, entitlements[PaidAccess.Call]?.canCall() == true)
-            val videoOk = Permissions.canVideoCall(me.viewer)
+            val audioOk = Permissions.canCall(me.viewer, entitlements[PaidAccess.Call]?.canCall() == true, withSwamiji = channel == com.ojashealing.family.data.chat.ChatChannel.Swamiji)
+            val videoOk = audioOk
             val ready = channel == com.ojashealing.family.data.chat.ChatChannel.Swamiji || staffContact?.supportUid?.isNotEmpty() == true
             if (!ready) null else { _, video -> if (if (video) videoOk else audioOk) callStaff(channel, video, "") else onRenew() }
         }

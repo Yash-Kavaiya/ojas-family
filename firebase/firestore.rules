@@ -628,18 +628,18 @@ service cloud.firestore {
       return exists(path) && get(path).data.expiresAt > request.time;
     }
 
-    // Access by member level (owner 2026-11-07): Level 1 chat, Level 2 audio calls, Level 3 video calls.
-    // memberLevel is 0 while membership is inactive, so a level means "paying now". Packs still work.
-    function canChatNow() {
-      return isStaff() || rank('memberLevel') >= 1 || hasEntitlement('chat');
+    // Paid chat and calls (plan table, 2026-11-20): bought separately on any plan; with the team
+    // ('admin') from day 1, with Swamiji after 6 months. A call pack covers audio and video.
+    function withSwamijiOpen(channel) {
+      return channel != 'swamiji' || allowed(182, 182, 182);
     }
 
-    function canAudioNow() {
-      return isStaff() || rank('memberLevel') >= 2 || canCall();
+    function canChatNow(channel) {
+      return isStaff() || (hasEntitlement('chat') && withSwamijiOpen(channel));
     }
 
-    function canVideoNow() {
-      return isStaff() || rank('memberLevel') >= 3;
+    function canCallNow(channel) {
+      return isStaff() || (canCall() && withSwamijiOpen(channel));
     }
 
     // A chat message: text and/or one photo, PDF or audio file
@@ -692,7 +692,7 @@ service cloud.firestore {
         request.auth.uid == memberUid
         || role() in ['admin', 'swamiji']
         || (role() == 'moderator' && resource.data.get('assigneeUid', '') == request.auth.uid));
-      allow create: if signedIn() && request.auth.uid == memberUid && canChatNow()
+      allow create: if signedIn() && request.auth.uid == memberUid && canChatNow('swamiji')
         && request.resource.data.keys().hasOnly(['memberUid', 'memberName', 'memberPhoto', 'createdAt'])
         && request.resource.data.memberUid == memberUid;
       allow update: if signedIn() && (
@@ -709,7 +709,7 @@ service cloud.firestore {
       match /messages/{messageId} {
         allow read: if signedIn() && (request.auth.uid == memberUid || canStaffChat(memberUid));
         allow create: if signedIn() && validMessage(request.resource.data)
-          && ((request.auth.uid == memberUid && canChatNow()) || canStaffChat(memberUid));
+          && ((request.auth.uid == memberUid && canChatNow('swamiji')) || canStaffChat(memberUid));
         allow update, delete: if false;
       }
     }
@@ -718,7 +718,7 @@ service cloud.firestore {
 
     match /adminChats/{memberUid} {
       allow read: if signedIn() && (request.auth.uid == memberUid || isAdmin());
-      allow create: if signedIn() && request.auth.uid == memberUid && canChatNow()
+      allow create: if signedIn() && request.auth.uid == memberUid && canChatNow('admin')
         && request.resource.data.keys().hasOnly(['memberUid', 'memberName', 'memberPhoto', 'createdAt'])
         && request.resource.data.memberUid == memberUid;
       allow update: if signedIn() && (
@@ -731,7 +731,7 @@ service cloud.firestore {
       match /messages/{messageId} {
         allow read: if signedIn() && (request.auth.uid == memberUid || isAdmin());
         allow create: if signedIn() && validMessage(request.resource.data)
-          && ((request.auth.uid == memberUid && canChatNow()) || isAdmin());
+          && ((request.auth.uid == memberUid && canChatNow('admin')) || isAdmin());
         allow update, delete: if false;
       }
     }
@@ -755,7 +755,7 @@ service cloud.firestore {
         && request.resource.data.at is timestamp && request.resource.data.at > request.time
         && request.resource.data.note is string && request.resource.data.note.size() <= 500
         && request.resource.data.status == 'pending'
-        && (request.resource.data.video ? canVideoNow() : canAudioNow());
+        && canCallNow(request.resource.data.channel);
       allow update: if signedIn() && (
         // Staff: confirm, decline or propose a new time
         (staffForChannel(resource.data.channel, resource.data.memberUid)
@@ -806,7 +806,7 @@ service cloud.firestore {
           || (request.resource.data.memberUid == request.auth.uid
               && request.resource.data.staffUid == request.resource.data.calleeUid
               && isStaffUid(request.resource.data.calleeUid)
-              && (request.resource.data.get('video', false) ? canVideoNow() : canAudioNow())));
+              && canCallNow(request.resource.data.get('channel', 'swamiji'))));
       // Either side: status and answer; the callee's phone marks it delivered (ringing); restart fields
       // carry a new offer/answer when the connection is repaired after a network change
       allow update: if inCall(resource.data)

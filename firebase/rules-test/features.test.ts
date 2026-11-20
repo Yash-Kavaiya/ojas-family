@@ -345,22 +345,39 @@ describe("rich chat", () => {
   });
 });
 
-describe("chat and calls by member level", () => {
+describe("paid chat and calls (plan table): team from day 1, Swamiji after 6 months", () => {
   const call = (caller: string, callee: string, member: string, staff: string, extra: Record<string, unknown> = {}) =>
     ({ callerUid: caller, calleeUid: callee, memberUid: member, staffUid: staff, status: "ringing", offer: { sdp: "x", type: "offer" }, ...extra });
+  // "newbie" joined 10 days ago, "elder" 200 days ago; both bought a chat pack and a call pack
+  const pack = (credits?: number) => ({ expiresAt: FUTURE, ...(credits !== undefined ? { credits } : {}) });
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      for (const [uid, days] of [["newbie", 10], ["elder", 200]] as const) {
+        await setDoc(doc(db, "users", uid), { displayName: uid, role: "member", ...joined(days) });
+        await setDoc(doc(db, "users", uid, "entitlements", "chat"), pack());
+        await setDoc(doc(db, "users", uid, "entitlements", "call"), pack(2));
+      }
+      await setDoc(doc(db, "users", "nopack"), { displayName: "nopack", role: "member", ...onPlan("gold", 400) });
+    });
+  });
 
-  test("Member Level 1 chats without a pack; a free user without a pack cannot", async () => {
-    await assertSucceeds(setDoc(doc(as("m1only"), "chats", "m1only"), { memberUid: "m1only", memberName: "M1" }));
-    await assertSucceeds(setDoc(doc(as("m1only"), "adminChats", "m1only"), { memberUid: "m1only", memberName: "M1" }));
-    await assertFails(setDoc(doc(as("free"), "adminChats", "free"), { memberUid: "free", memberName: "Free" }));
+  test("chat needs a chat pack: with the team at once, with Swamiji after 6 months", async () => {
+    await assertSucceeds(setDoc(doc(as("newbie"), "adminChats", "newbie"), { memberUid: "newbie", memberName: "N" }));
+    await assertFails(setDoc(doc(as("newbie"), "chats", "newbie"), { memberUid: "newbie", memberName: "N" }));
+    await assertSucceeds(setDoc(doc(as("elder"), "chats", "elder"), { memberUid: "elder", memberName: "E" }));
+    // Gold for a year, but no chat bought
+    await assertFails(setDoc(doc(as("nopack"), "adminChats", "nopack"), { memberUid: "nopack", memberName: "G" }));
+    await assertFails(setDoc(doc(as("nopack"), "chats", "nopack"), { memberUid: "nopack", memberName: "G" }));
   });
 
   test("files in chat: photo, PDF or audio only", async () => {
-    const att = (mime: string) => ({ senderUid: "m1only", text: "", attachment: { url: "https://x/y", name: "f", mime, size: 10 } });
-    await assertSucceeds(setDoc(doc(as("m1only"), "chats", "m1only", "messages", "a"), att("application/pdf")));
-    await assertSucceeds(setDoc(doc(as("m1only"), "adminChats", "m1only", "messages", "b"), att("image/jpeg")));
-    await assertFails(setDoc(doc(as("m1only"), "chats", "m1only", "messages", "c"), att("application/zip")));
-    await assertFails(setDoc(doc(as("m1only"), "chats", "m1only", "messages", "d"), { senderUid: "m1only", text: "" }));
+    const att = (mime: string) => ({ senderUid: "elder", text: "", attachment: { url: "https://x/y", name: "f", mime, size: 10 } });
+    await assertSucceeds(setDoc(doc(as("elder"), "chats", "elder", "messages", "a"), att("application/pdf")));
+    await assertSucceeds(setDoc(doc(as("elder"), "adminChats", "elder", "messages", "b"), att("image/jpeg")));
+    await assertFails(setDoc(doc(as("elder"), "chats", "elder", "messages", "c"), att("application/zip")));
+    await assertFails(setDoc(doc(as("elder"), "chats", "elder", "messages", "d"), { senderUid: "elder", text: "" }));
+    await assertFails(setDoc(doc(as("newbie"), "chats", "newbie", "messages", "e"), { senderUid: "newbie", text: "hi" }));
   });
 
   test("the Admin-team thread is for admins, not Swamiji", async () => {
@@ -373,13 +390,13 @@ describe("chat and calls by member level", () => {
     await assertSucceeds(setDoc(doc(as("adm"), "adminChats", "m1only", "messages", "y"), { senderUid: "adm", text: "Namaste" }));
   });
 
-  test("audio calls open at Member Level 2, video at Level 3", async () => {
-    await assertFails(setDoc(doc(as("m1only"), "calls", "a1"), call("m1only", "sw", "m1only", "sw")));
-    await env.withSecurityRulesDisabled(async (ctx) => updateDoc(doc(ctx.firestore(), "users", "m1only"), { memberLevel: 2 }));
-    await assertSucceeds(setDoc(doc(as("m1only"), "calls", "a2"), call("m1only", "sw", "m1only", "sw")));
-    await assertFails(setDoc(doc(as("m1only"), "calls", "a3"), call("m1only", "sw", "m1only", "sw", { video: true })));
-    await assertSucceeds(setDoc(doc(as("m3"), "calls", "v1"), call("m3", "sw", "m3", "sw", { video: true, channel: "swamiji" })));
-    await assertSucceeds(setDoc(doc(as("m3"), "calls", "v2"), call("m3", "adm", "m3", "adm", { video: true, channel: "admin" })));
+  test("calls need a call pack with calls left; audio or video; Swamiji after 6 months", async () => {
+    await assertSucceeds(setDoc(doc(as("newbie"), "calls", "a1"), call("newbie", "adm", "newbie", "adm", { channel: "admin", video: true })));
+    await assertFails(setDoc(doc(as("newbie"), "calls", "a2"), call("newbie", "sw", "newbie", "sw", { channel: "swamiji" })));
+    await assertSucceeds(setDoc(doc(as("elder"), "calls", "a3"), call("elder", "sw", "elder", "sw", { channel: "swamiji", video: true })));
+    await assertFails(setDoc(doc(as("nopack"), "calls", "a4"), call("nopack", "adm", "nopack", "adm", { channel: "admin" })));
+    await env.withSecurityRulesDisabled(async (ctx) => updateDoc(doc(ctx.firestore(), "users", "elder", "entitlements", "call"), { credits: 0 }));
+    await assertFails(setDoc(doc(as("elder"), "calls", "a5"), call("elder", "sw", "elder", "sw", { channel: "swamiji" })));
   });
 
   test("members read their own call history; admins read all", async () => {
@@ -390,13 +407,14 @@ describe("chat and calls by member level", () => {
   });
 
   test("scheduled calls: member requests, staff confirm, member cannot confirm", async () => {
-    const req = { memberUid: "m3", memberName: "M3", channel: "swamiji", video: true, at: FUTURE, note: "", status: "pending" };
-    await assertSucceeds(setDoc(doc(as("m3"), "callRequests", "r1"), req));
-    await assertFails(setDoc(doc(as("m1only"), "callRequests", "r2"), { ...req, memberUid: "m1only", video: false })); // Level 1: no calls
-    await assertFails(setDoc(doc(as("m3"), "callRequests", "r3"), { ...req, at: PAST }));
-    await assertFails(updateDoc(doc(as("m3"), "callRequests", "r1"), { status: "confirmed" }));
+    const req = { memberUid: "elder", memberName: "E", channel: "swamiji", video: true, at: FUTURE, note: "", status: "pending" };
+    await assertSucceeds(setDoc(doc(as("elder"), "callRequests", "r1"), req));
+    await assertFails(setDoc(doc(as("newbie"), "callRequests", "r2"), { ...req, memberUid: "newbie" })); // Swamiji: not 6 months yet
+    await assertSucceeds(setDoc(doc(as("newbie"), "callRequests", "r4"), { ...req, memberUid: "newbie", channel: "admin" }));
+    await assertFails(setDoc(doc(as("elder"), "callRequests", "r3"), { ...req, at: PAST }));
+    await assertFails(updateDoc(doc(as("elder"), "callRequests", "r1"), { status: "confirmed" }));
     await assertSucceeds(updateDoc(doc(as("sw"), "callRequests", "r1"), { status: "proposed", proposedAt: FUTURE, staffUid: "sw", staffName: "Swamiji" }));
-    await assertSucceeds(updateDoc(doc(as("m3"), "callRequests", "r1"), { status: "confirmed", at: FUTURE }));
+    await assertSucceeds(updateDoc(doc(as("elder"), "callRequests", "r1"), { status: "confirmed", at: FUTURE }));
     await assertFails(updateDoc(doc(as("adm"), "callRequests", "r1"), { reminded15: true }));
   });
 });

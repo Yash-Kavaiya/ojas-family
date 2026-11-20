@@ -203,7 +203,7 @@ class ChatViewModel(
         val base = combine(repo.observeThread(memberUid), repo.observeMessages(memberUid), if (staff) flowOf(Entitlements()) else entitlements) { t, m, e ->
             ChatUi(
                 me = p, channel = channel, thread = t, messages = m, iAmStaff = staff,
-                canWrite = staff || Permissions.canChat(p.viewer, e.active(PaidAccess.Chat)),
+                canWrite = staff || Permissions.canChat(p.viewer, e.active(PaidAccess.Chat), withSwamiji = channel == ChatChannel.Swamiji),
                 canAssign = staff && channel == ChatChannel.Swamiji && (p.viewer.role == Role.Swamiji || p.viewer.role == Role.Admin)
             )
         }

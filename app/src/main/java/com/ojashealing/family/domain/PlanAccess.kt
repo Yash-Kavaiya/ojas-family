@@ -52,6 +52,9 @@ object AccessRules {
     // Profile
     val HealingPhoto = AccessRule(null, YEAR, HALF_YEAR)
     val HideProfile = AccessRule(null, null, YEAR)
+
+    // Paid chat and calls (bought separately, on any plan): with the team from day 1, with Swamiji after 6 months
+    val WithSwamiji = AccessRule(HALF_YEAR, HALF_YEAR, HALF_YEAR)
 }
 
 private const val DAY_MS = 86_400_000L

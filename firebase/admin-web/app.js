@@ -726,7 +726,7 @@ async function moderation() {
       <b>${esc(names[uid])}</b> · ${esc(goalDefs[g.id]?.title?.en || g.id)}<p>${esc(x.note || "")}</p>${x.photoUrl ? `<img src="${esc(x.photoUrl)}" alt="">` : ""}
       <div class="row"><button class="primary g-ok">Approve</button><button class="danger g-no">Reject</button></div></div>`; }).join("") || '<p class="muted">No goal photos to review.</p>'}</div>
     <h2>Face photos for the opening animation (${faces.length})</h2>
-    <p class="muted">Member Level 3 members upload a photo of their face. Once approved it shows in that member's own opening animation.</p>
+    <p class="muted">Silver members (after 12 months) and Gold members (after 6 months) upload a photo of their face. Once approved it shows in that member's own opening animation.</p>
     <div class="stack">${faces.map((f) => { const x = f.data(); return `<div class="card pending" data-path="${esc(f.ref.path)}">
       <b>${esc(names[f.id])}</b>${x.photoUrl ? `<img src="${esc(x.photoUrl)}" alt="">` : ""}
       <div class="row"><button class="primary f-ok">Approve</button><button class="danger f-no">Reject</button></div></div>`; }).join("") || '<p class="muted">No face photos to review.</p>'}</div>

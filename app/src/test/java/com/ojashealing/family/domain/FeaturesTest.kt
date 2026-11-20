@@ -12,8 +12,10 @@ import com.ojashealing.family.push.CallReminderPlan
 import com.ojashealing.family.push.callAlarmInstants
 import com.ojashealing.family.push.callRemindersToKeep
 import com.ojashealing.family.push.nextOccurrence
-import com.ojashealing.family.ui.paid.PlanGate
-import com.ojashealing.family.ui.paid.gateFor
+import com.ojashealing.family.data.paid.Entitlement
+import com.ojashealing.family.data.paid.Entitlements
+import com.ojashealing.family.data.paid.PaidAccess
+import com.ojashealing.family.ui.paid.activeUntil
 import java.util.Calendar
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -50,13 +52,15 @@ class FeaturesTest {
     }
 
     @Test
-    fun planGates() {
-        assertEquals(PlanGate.Open, gateFor(Product.Membership, viewer(UserLevel.L1)))
-        assertEquals(PlanGate.Open, gateFor(Product.ChatWeek, viewer(UserLevel.L1)))
-        assertEquals(PlanGate.Open, gateFor(Product.CallWeek, viewer(UserLevel.L2)))
-        assertEquals(PlanGate.NeedsMember(2), gateFor(Product.ChatMonth, viewer(UserLevel.L4, MemberLevel.M1)))
-        assertEquals(PlanGate.NeedsMember(3), gateFor(Product.CallMonth, viewer(UserLevel.L4, MemberLevel.M2)))
-        assertEquals(PlanGate.Open, gateFor(Product.CallMonth, viewer(UserLevel.L1, role = Role.Admin)))
+    fun silverAndGoldShareTheMembershipToldApartByPlan() {
+        val now = System.currentTimeMillis()
+        val e = Entitlements(mapOf(PaidAccess.Membership to Entitlement(PaidAccess.Membership, now + 1000, null)))
+        val gold = onPlanFor(Plan.Gold, 3)
+        assertEquals(null, activeUntil(Product.Silver, gold, e, now))
+        assertEquals(now + 1000, activeUntil(Product.Gold, gold, e, now))
+        assertEquals(now + 1000, activeUntil(Product.Silver, onPlanFor(Plan.Silver, 3), e, now))
+        assertEquals(null, activeUntil(Product.ChatWeek, gold, e, now))
+        assertEquals("membership_gold_monthly", Product.Gold.id)
     }
 
     @Test

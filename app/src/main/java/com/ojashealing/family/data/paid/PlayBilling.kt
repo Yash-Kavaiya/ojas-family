@@ -110,15 +110,32 @@ class PlayBilling(context: Context, private val paid: PaidRepository) {
 
     fun buy(activity: Activity, offer: Offer, uid: String) {
         _state.value = PurchaseState.Working
-        val params = BillingFlowParams.ProductDetailsParams.newBuilder().setProductDetails(offer.details)
-            .apply { offer.offerToken?.let { setOfferToken(it) } }.build()
-        val flow = BillingFlowParams.newBuilder()
-            .setProductDetailsParamsList(listOf(params))
-            // Lets Google flag a purchase made for a different account than the one signed in
-            .setObfuscatedAccountId(sha256(uid))
-            .build()
-        val result = client.launchBillingFlow(activity, flow)
-        if (result.responseCode != BillingClient.BillingResponseCode.OK) _state.value = PurchaseState.Failed(result.responseCode)
+        scope.launch {
+            val params = BillingFlowParams.ProductDetailsParams.newBuilder().setProductDetails(offer.details)
+                .apply { offer.offerToken?.let { setOfferToken(it) } }.build()
+            // Silver to Gold replaces the Silver subscription (Google charges the difference), so the
+            // member never pays for both
+            val silver = if (offer.product == Product.Gold) {
+                ownedPurchases(BillingClient.ProductType.SUBS).firstOrNull { Product.Silver.id in it.products }
+            } else null
+            val flow = BillingFlowParams.newBuilder()
+                .setProductDetailsParamsList(listOf(params))
+                // Lets Google flag a purchase made for a different account than the one signed in
+                .setObfuscatedAccountId(sha256(uid))
+                .apply {
+                    silver?.let {
+                        setSubscriptionUpdateParams(
+                            BillingFlowParams.SubscriptionUpdateParams.newBuilder()
+                                .setOldPurchaseToken(it.purchaseToken)
+                                .setSubscriptionReplacementMode(BillingFlowParams.SubscriptionUpdateParams.ReplacementMode.CHARGE_PRORATED_PRICE)
+                                .build()
+                        )
+                    }
+                }
+                .build()
+            val result = client.launchBillingFlow(activity, flow)
+            if (result.responseCode != BillingClient.BillingResponseCode.OK) _state.value = PurchaseState.Failed(result.responseCode)
+        }
     }
 
     private fun onPurchases(result: BillingResult, purchases: List<Purchase>) {

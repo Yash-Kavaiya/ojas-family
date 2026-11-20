@@ -189,31 +189,41 @@ private fun AskPart(
                 // Members (and senior members, who Swamiji or an admin may reach out to) contact only Swamiji and
                 // the Admin team; there is no way to reach another member
                 if (!staff || p.viewer.role == com.ojashealing.family.domain.Role.Moderator) {
-                    val chatOk = Permissions.canChat(p.viewer, entitlements.active(PaidAccess.Chat))
-                    val audioOk = Permissions.canAudioCall(p.viewer, entitlements[PaidAccess.Call]?.canCall() == true)
-                    val videoOk = Permissions.canVideoCall(p.viewer)
-                    if (!staff) LevelStrip(p.viewer.memberLevel.rank)
+                    // Chat and calls are bought separately: with the team from day 1, with Swamiji after 6 months
+                    val chatPack = entitlements.active(PaidAccess.Chat)
+                    val callPack = entitlements[PaidAccess.Call]?.canCall() == true
+                    val swamijiOpen = Permissions.withSwamijiOpen(p.viewer)
+                    val context = androidx.compose.ui.platform.LocalContext.current
+                    val swamijiLocked = stringResource(R.string.ask_swamiji_locked, Permissions.daysUntilSwamiji(p.viewer))
+                    val notYet = { android.widget.Toast.makeText(context, swamijiLocked, android.widget.Toast.LENGTH_LONG).show() }
+                    if (!staff) Text(stringResource(R.string.ask_paid_contact_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    val swChat = Permissions.canChat(p.viewer, chatPack, withSwamiji = true)
+                    val swCall = Permissions.canCall(p.viewer, callPack, withSwamiji = true)
+                    // Without a pack: to the plans; with one but too soon for Swamiji: say when it opens
+                    val swamijiMiss: (PaidAccess) -> Unit = { a -> if (!swamijiOpen && (if (a == PaidAccess.Chat) chatPack else callPack)) notYet() else onPlans(a) }
                     ContactCard(
                         title = stringResource(R.string.role_swamiji),
                         subtitle = stringResource(R.string.ask_contact_swamiji_desc),
                         icon = Icons.Outlined.SelfImprovement,
-                        chatOk = chatOk, audioOk = audioOk, videoOk = videoOk, callsReady = true,
-                        onChat = { if (chatOk) onOpenChat(com.ojashealing.family.data.chat.ChatChannel.Swamiji) else onPlans(PaidAccess.Membership) },
-                        onAudio = { if (audioOk) onCall(com.ojashealing.family.data.chat.ChatChannel.Swamiji, false) else onPlans(PaidAccess.Membership) },
-                        onVideo = { if (videoOk) onCall(com.ojashealing.family.data.chat.ChatChannel.Swamiji, true) else onPlans(PaidAccess.Membership) },
-                        onSchedule = { if (audioOk || videoOk) onSchedule(com.ojashealing.family.data.chat.ChatChannel.Swamiji) else onPlans(PaidAccess.Membership) }
+                        chatOk = swChat, audioOk = swCall, videoOk = swCall, callsReady = true,
+                        onChat = { if (swChat) onOpenChat(com.ojashealing.family.data.chat.ChatChannel.Swamiji) else swamijiMiss(PaidAccess.Chat) },
+                        onAudio = { if (swCall) onCall(com.ojashealing.family.data.chat.ChatChannel.Swamiji, false) else swamijiMiss(PaidAccess.Call) },
+                        onVideo = { if (swCall) onCall(com.ojashealing.family.data.chat.ChatChannel.Swamiji, true) else swamijiMiss(PaidAccess.Call) },
+                        onSchedule = { if (swCall) onSchedule(com.ojashealing.family.data.chat.ChatChannel.Swamiji) else swamijiMiss(PaidAccess.Call) }
                     )
+                    val teamChat = Permissions.canChat(p.viewer, chatPack)
+                    val teamCall = Permissions.canCall(p.viewer, callPack)
                     ContactCard(
                         title = stringResource(R.string.chat_tab_admin),
                         subtitle = stringResource(R.string.ask_contact_admin_desc),
                         icon = Icons.Outlined.SupportAgent,
-                        chatOk = chatOk, audioOk = audioOk, videoOk = videoOk, callsReady = adminCallsReady,
-                        onChat = { if (chatOk) onOpenChat(com.ojashealing.family.data.chat.ChatChannel.Admin) else onPlans(PaidAccess.Membership) },
-                        onAudio = { if (audioOk) onCall(com.ojashealing.family.data.chat.ChatChannel.Admin, false) else onPlans(PaidAccess.Membership) },
-                        onVideo = { if (videoOk) onCall(com.ojashealing.family.data.chat.ChatChannel.Admin, true) else onPlans(PaidAccess.Membership) },
-                        onSchedule = { if (audioOk || videoOk) onSchedule(com.ojashealing.family.data.chat.ChatChannel.Admin) else onPlans(PaidAccess.Membership) }
+                        chatOk = teamChat, audioOk = teamCall, videoOk = teamCall, callsReady = adminCallsReady,
+                        onChat = { if (teamChat) onOpenChat(com.ojashealing.family.data.chat.ChatChannel.Admin) else onPlans(PaidAccess.Chat) },
+                        onAudio = { if (teamCall) onCall(com.ojashealing.family.data.chat.ChatChannel.Admin, false) else onPlans(PaidAccess.Call) },
+                        onVideo = { if (teamCall) onCall(com.ojashealing.family.data.chat.ChatChannel.Admin, true) else onPlans(PaidAccess.Call) },
+                        onSchedule = { if (teamCall) onSchedule(com.ojashealing.family.data.chat.ChatChannel.Admin) else onPlans(PaidAccess.Call) }
                     )
-                    entitlements[PaidAccess.Call]?.takeIf { it.isActive() && it.credits != null && p.viewer.memberLevel.rank < 2 }?.let { c ->
+                    entitlements[PaidAccess.Call]?.takeIf { it.isActive() && it.credits != null }?.let { c ->
                         Text(stringResource(R.string.ask_calls_left, c.credits ?: 0), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -561,32 +571,7 @@ private fun SwamijiAiCard(onOpen: () -> Unit, modifier: Modifier = Modifier) {
 }
 
 /** "Level 1: chat · Level 2: + audio · Level 3: + video", with the member's level highlighted. */
-@Composable
-private fun LevelStrip(level: Int) {
-    val items = listOf(
-        1 to stringResource(R.string.ask_level_chat),
-        2 to stringResource(R.string.ask_level_audio),
-        3 to stringResource(R.string.ask_level_video)
-    )
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-        items.forEach { (n, label) ->
-            val on = level >= n
-            Column(
-                Modifier.weight(1f).clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
-                    .background(if (on) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant)
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(stringResource(R.string.badge_member_level, n), style = MaterialTheme.typography.labelSmall,
-                    color = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-                Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    color = if (on) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-    }
-}
-
-/** Swamiji or the Admin team: chat, audio call, video call and schedule, each locked until the level allows it. */
+/** Swamiji or the Admin team: chat, audio call, video call and schedule, each locked until bought (and, for Swamiji, 6 months). */
 @Composable
 private fun ContactCard(
     title: String,

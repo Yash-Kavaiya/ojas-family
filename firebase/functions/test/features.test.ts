@@ -1,7 +1,7 @@
 import { Timestamp } from "firebase-admin/firestore";
 import { onViewAdded } from "../src/views";
 import { ensureUserDoc } from "../src/auth";
-import { adminGrantFor, countPaidDay, memberLevelFor, verifyPurchaseFor, type PlayApi } from "../src/billing";
+import { adminGrantFor, countPaidDay, memberLevelFor, onSubscriptionNotice, verifyPurchaseFor, type PlayApi } from "../src/billing";
 import { onCallUpdated, onChatMessage, sweepRingingCalls } from "../src/chat";
 import { onAnnouncementCommentNotify, onAnswerNotify, onCommentLikeChanged, onDailyPostWritten, onDailyReplyWritten, onLikeNotify, onQuestionNotify, onThoughtCommentNotify } from "../src/community";
 import { onFaceDecisionNotify, onGoalDecisionNotify, onGoalProgressWritten } from "../src/goals";
@@ -136,6 +136,27 @@ describe("Play purchases", () => {
     await verifyPurchaseFor(db, api(), "m1", { productId: "chat_week", purchaseToken: "token-abcdef-2" }, NOW);
     await expect(verifyPurchaseFor(db, api(), "m2", { productId: "chat_week", purchaseToken: "token-abcdef-2" }, NOW))
       .rejects.toThrow(/another account/);
+  });
+
+  test("the Gold subscription gives the Gold plan", async () => {
+    const gold = api({ async getSubscription() { return { productId: "membership_gold_monthly", expiry: new Date(NOW.getTime() + 30 * DAY), active: true, acknowledged: false }; } });
+    await verifyPurchaseFor(db, gold, "m1", { productId: "membership_gold_monthly", purchaseToken: "token-gold-0001" }, NOW);
+    expect((await db.doc("users/m1/entitlements/membership").get()).get("tier")).toBe("gold");
+    expect((await db.doc("users/m1").get()).get("plan")).toBe("gold");
+  });
+
+  test("upgrading Silver to Gold: the replaced Silver subscription's end notice leaves Gold running", async () => {
+    await verifyPurchaseFor(db, api(), "m1", { productId: "membership_monthly", purchaseToken: "token-silver-01" }, NOW);
+    const gold = api({ async getSubscription() { return { productId: "membership_gold_monthly", expiry: new Date(NOW.getTime() + 30 * DAY), active: true, acknowledged: false }; } });
+    await verifyPurchaseFor(db, gold, "m1", { productId: "membership_gold_monthly", purchaseToken: "token-gold-0002" }, NOW);
+    const ended = api({ async getSubscription() { return { productId: "membership_monthly", expiry: NOW, active: false, acknowledged: true }; } });
+    await onSubscriptionNotice(db, ended, "token-silver-01", NOW);
+    const ent = (await db.doc("users/m1/entitlements/membership").get()).data()!;
+    expect(ent.tier).toBe("gold");
+    expect((ent.expiresAt as Timestamp).toMillis()).toBe(NOW.getTime() + 30 * DAY);
+    // The current subscription's own notice still ends it
+    await onSubscriptionNotice(db, ended, "token-gold-0002", NOW);
+    expect((await db.doc("users/m1").get()).get("plan")).toBe("user");
   });
 
   test("retrying a weekly pack grants it once and consumes it once", async () => {
@@ -499,12 +520,12 @@ describe("admin team chat, call log and scheduled calls", () => {
     expect((await db.doc("adminChats/m1").get()).get("lastMessage")).toBe("📄 report.pdf");
   });
 
-  test("Member Level 2 calls without using a pack; the end writes a call log", async () => {
+  test("a call uses one from the pack, whatever the member's level; the end writes a call log", async () => {
     await db.doc("users/m1").set({ memberLevel: 2 }, { merge: true });
     await db.doc("users/m1/entitlements/call").set({ expiresAt: Timestamp.fromMillis(NOW.getTime() + DAY), credits: 3 });
     await db.doc("calls/c9").set({ memberUid: "m1", callerUid: "m1", channel: "admin", video: true, status: "active" });
     await onCallUpdated(db, "c9", { status: "ringing" }, { status: "active", memberUid: "m1" });
-    expect((await db.doc("users/m1/entitlements/call").get()).get("credits")).toBe(3);
+    expect((await db.doc("users/m1/entitlements/call").get()).get("credits")).toBe(2);
     await db.doc("calls/c9").set({ status: "ended", startedAt: Timestamp.fromMillis(1000), endedAt: Timestamp.fromMillis(61_000) }, { merge: true });
     await onCallUpdated(db, "c9", { status: "active" }, { status: "ended", memberUid: "m1" });
     const logs = await db.collection("adminChats/m1/messages").get();

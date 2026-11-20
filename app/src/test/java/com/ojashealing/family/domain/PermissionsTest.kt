@@ -113,11 +113,10 @@ class PermissionsTest {
         assertFalse(Permissions.canSeeUserCounts(onPlanFor(Plan.Gold, 400)))
     }
 
-    @Test fun chatAndCallPacksAsBefore() {
-        // Booking with the team is open to everyone; monthly chat and anytime calls still follow member level (part 2)
-        assertTrue(Permissions.canBuyWeeklyChat(freeFor(0)))
-        assertTrue(Permissions.canBuyMonthlyChat(Viewer(UserLevel.L2, MemberLevel.M2, Role.Member)))
-        assertFalse(Permissions.canBuyMonthlyChat(Viewer(UserLevel.L2, MemberLevel.M1, Role.Member)))
-        assertTrue(Permissions.canBuyAnytimeCalls(Viewer(UserLevel.L2, MemberLevel.M3, Role.Member)))
+    @Test fun swamijiOpensAfterSixMonthsOnEveryPlan() {
+        assertFalse(Permissions.withSwamijiOpen(freeFor(181)))
+        assertTrue(Permissions.withSwamijiOpen(freeFor(182)))
+        assertFalse(Permissions.withSwamijiOpen(onPlanFor(Plan.Gold, 100)))
+        assertTrue(Permissions.withSwamijiOpen(freeFor(0, Role.Swamiji)))
     }
 }

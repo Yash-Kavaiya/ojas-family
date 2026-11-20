@@ -30,6 +30,8 @@ export const RULES = {
   dailyPractice: { user: null, silver: WEEK, gold: 0 },
   healingPhoto: { user: null, silver: YEAR, gold: HALF_YEAR },
   hideProfile: { user: null, silver: null, gold: YEAR },
+  // Paid chat and calls (bought separately): with the team from day 1, with Swamiji after 6 months
+  withSwamiji: { user: HALF_YEAR, silver: HALF_YEAR, gold: HALF_YEAR },
 } satisfies Record<string, AccessRule>;
 
 const DAY_MS = 86_400_000;

@@ -40,16 +40,21 @@ object Permissions {
 
     fun canPostDailyActivity(v: Viewer): Boolean = v.allows(AccessRules.ActivityPost)
 
-    // ---- Chat and calls by member level (owner 2026-11-07); packs still work for non-members ----
+    // ---- Paid chat and calls (plan table): bought separately on any plan ----
+    // With the team from day 1, with Swamiji after 6 months. A call pack covers audio and video.
 
-    /** Chat with files: Member Level 1, or a chat pack. */
-    fun canChat(v: Viewer, chatPack: Boolean): Boolean = isStaff(v) || v.memberLevel >= MemberLevel.M1 || chatPack
+    /** Swamiji's chat and calls have opened for this member (time since joining, or on their plan). */
+    fun withSwamijiOpen(v: Viewer): Boolean = isStaff(v) || v.allows(AccessRules.WithSwamiji)
 
-    /** Audio calls: Member Level 2, or a call pack with calls left. */
-    fun canAudioCall(v: Viewer, callPack: Boolean): Boolean = isStaff(v) || v.memberLevel >= MemberLevel.M2 || callPack
+    fun canChat(v: Viewer, chatPack: Boolean, withSwamiji: Boolean = false): Boolean =
+        isStaff(v) || (chatPack && (!withSwamiji || withSwamijiOpen(v)))
 
-    /** Video calls: Member Level 3. */
-    fun canVideoCall(v: Viewer): Boolean = isStaff(v) || v.memberLevel >= MemberLevel.M3
+    /** Audio or video: a call pack with calls left, or the monthly calls. */
+    fun canCall(v: Viewer, callPack: Boolean, withSwamiji: Boolean = false): Boolean =
+        isStaff(v) || (callPack && (!withSwamiji || withSwamijiOpen(v)))
+
+    /** Days until Swamiji's chat and calls open (0 when open). */
+    fun daysUntilSwamiji(v: Viewer): Int = if (isStaff(v)) 0 else v.daysUntil(AccessRules.WithSwamiji) ?: 0
 
     /** Hiding your profile: Gold after a year. firestore.rules checks the same. */
     fun canHideProfile(v: Viewer): Boolean = v.allows(AccessRules.HideProfile)
@@ -58,16 +63,6 @@ object Permissions {
     fun canUploadFacePhoto(v: Viewer): Boolean = v.allows(AccessRules.HealingPhoto)
 
     fun canViewOtherProfiles(v: Viewer): Boolean = isStaff(v) || v.memberLevel >= MemberLevel.M3
-
-    // Booking a chat or call with the team (extra payment) is open to everyone from the first day (plan table)
-    fun canBuyWeeklyChat(v: Viewer): Boolean = true
-
-    fun canBuyMonthlyChat(v: Viewer): Boolean = isStaff(v) || v.memberLevel >= MemberLevel.M2
-
-    fun canBuyAnytimeCalls(v: Viewer): Boolean = isStaff(v) || v.memberLevel >= MemberLevel.M3
-
-    // A one-week pack of 3–4 calls, open from Level 2 like the weekly chat (design §9)
-    fun canBuyWeeklyCalls(v: Viewer): Boolean = canBuyWeeklyChat(v)
 
     // Activity: reading and liking, then replying, then posting open by plan and time
     fun canViewDailyActivities(v: Viewer): Boolean = v.allows(AccessRules.ActivityRead)

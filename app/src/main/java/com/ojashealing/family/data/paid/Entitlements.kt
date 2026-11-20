@@ -23,7 +23,9 @@ data class Entitlements(val byAccess: Map<PaidAccess, Entitlement> = emptyMap())
 
 /** Products on sale; ids must match Play Console and PRODUCTS in functions/src/billing.ts. */
 enum class Product(val id: String, val subscription: Boolean, val access: PaidAccess) {
-    Membership("membership_monthly", true, PaidAccess.Membership),
+    // The Silver plan has always been membership_monthly
+    Silver("membership_monthly", true, PaidAccess.Membership),
+    Gold("membership_gold_monthly", true, PaidAccess.Membership),
     ChatWeek("chat_week", false, PaidAccess.Chat),
     ChatMonth("chat_monthly", true, PaidAccess.Chat),
     CallWeek("call_week", false, PaidAccess.Call),
@@ -64,7 +66,7 @@ class PaidRepository(private val db: FirebaseFirestore, private val functions: F
         Unit
     }
 
-    /** Admin: change a member's role (member, senior_member, swamiji, admin). */
+    /** Admin: change a member's role (member, moderator, swamiji, admin). */
     suspend fun setRole(uid: String, role: String): Result<Unit> = runCatching {
         functions.getHttpsCallable("setRole").call(mapOf("uid" to uid, "role" to role)).await()
         Unit

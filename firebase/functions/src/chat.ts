@@ -106,8 +106,7 @@ export function callSeconds(startedAt: unknown, endedAt: unknown): number {
 }
 
 /**
- * When a call connects, a weekly call pack loses one call; members at Member Level 2 or higher
- * call as part of membership and never use a pack. When the call ends, a call-log line is added
+ * When a call connects, a weekly call pack loses one call (staff never use one). When the call ends, a call-log line is added
  * to that conversation and a scheduled request becomes "done".
  */
 export async function onCallUpdated(db: Firestore, callId: string, before: Data, after: Data, m?: Messenger): Promise<void> {
@@ -116,13 +115,12 @@ export async function onCallUpdated(db: Firestore, callId: string, before: Data,
     const ent = db.doc(`users/${memberUid}/entitlements/call`);
     const member = (await db.doc(`users/${memberUid}`).get()).data() ?? {};
     const role = str(member.role);
-    const level = Number(member.memberLevel ?? 0);
     await db.runTransaction(async (tx) => {
       const call = await tx.get(db.doc(`calls/${callId}`));
       if (call.get("creditUsed") === true) return;
       const e = await tx.get(ent);
       const credits = e.get("credits");
-      if (!STAFF.includes(role) && level < 2 && typeof credits === "number") tx.set(ent, { credits: Math.max(0, credits - 1) }, { merge: true });
+      if (!STAFF.includes(role) && typeof credits === "number") tx.set(ent, { credits: Math.max(0, credits - 1) }, { merge: true });
       tx.set(call.ref, { creditUsed: true, startedAt: FieldValue.serverTimestamp() }, { merge: true });
     });
     return;

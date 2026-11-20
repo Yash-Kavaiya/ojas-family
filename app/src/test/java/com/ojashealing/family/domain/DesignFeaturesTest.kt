@@ -115,16 +115,24 @@ class DesignFeaturesTest {
     private fun v(m: MemberLevel, r: Role = Role.Member) = Viewer(UserLevel.L1, m, r)
 
     @Test
-    fun chatAndCallsOpenByMemberLevel() {
-        assertEquals(false, Permissions.canChat(v(MemberLevel.None), chatPack = false))
-        assertEquals(true, Permissions.canChat(v(MemberLevel.None), chatPack = true))
-        assertEquals(true, Permissions.canChat(v(MemberLevel.M1), chatPack = false))
-        assertEquals(false, Permissions.canAudioCall(v(MemberLevel.M1), callPack = false))
-        assertEquals(true, Permissions.canAudioCall(v(MemberLevel.M1), callPack = true))
-        assertEquals(true, Permissions.canAudioCall(v(MemberLevel.M2), callPack = false))
-        assertEquals(false, Permissions.canVideoCall(v(MemberLevel.M2)))
-        assertEquals(true, Permissions.canVideoCall(v(MemberLevel.M3)))
-        assertEquals(true, Permissions.canVideoCall(v(MemberLevel.None, Role.Admin)))
+    fun chatAndCallsAreBoughtSeparately() {
+        // A pack is needed whatever the plan or member level
+        assertEquals(false, Permissions.canChat(v(MemberLevel.M3), chatPack = false))
+        assertEquals(false, Permissions.canChat(onPlanFor(Plan.Gold, 400), chatPack = false))
+        assertEquals(true, Permissions.canChat(freeFor(0), chatPack = true))
+        assertEquals(true, Permissions.canCall(freeFor(0), callPack = true))
+        assertEquals(false, Permissions.canCall(onPlanFor(Plan.Gold, 400), callPack = false))
+        assertEquals(true, Permissions.canCall(v(MemberLevel.None, Role.Admin), callPack = false))
+    }
+
+    @Test
+    fun withTheTeamFromDayOneWithSwamijiAfterSixMonths() {
+        assertEquals(false, Permissions.canChat(freeFor(100), chatPack = true, withSwamiji = true))
+        assertEquals(true, Permissions.canChat(freeFor(182), chatPack = true, withSwamiji = true))
+        assertEquals(false, Permissions.canCall(onPlanFor(Plan.Gold, 30), callPack = true, withSwamiji = true))
+        assertEquals(true, Permissions.canCall(onPlanFor(Plan.Silver, 182), callPack = true, withSwamiji = true))
+        assertEquals(82, Permissions.daysUntilSwamiji(freeFor(100)))
+        assertEquals(true, Permissions.canChat(freeFor(0, Role.Moderator), chatPack = false, withSwamiji = true))
     }
 
     @Test

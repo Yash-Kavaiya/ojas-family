@@ -27,7 +27,7 @@ import com.ojashealing.family.data.paid.PlayBilling
 import com.ojashealing.family.data.paid.Product
 import com.ojashealing.family.data.paid.PurchaseState
 import com.ojashealing.family.data.user.UserProfile
-import com.ojashealing.family.domain.Permissions
+import com.ojashealing.family.domain.Plan
 import com.ojashealing.family.domain.Viewer
 import com.ojashealing.family.ui.components.LoadingState
 import com.ojashealing.family.ui.components.OjasCard
@@ -41,23 +41,18 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 
-/** Why a plan can't be bought yet, if it can't. */
-sealed interface PlanGate {
-    data object Open : PlanGate
-    data class NeedsLevel(val level: Int) : PlanGate
-    data class NeedsMember(val level: Int) : PlanGate
-}
+/** Everything is on sale to everyone (plan table, 2026-11-20); [activeUntil] is set while it runs. */
+data class PlanUi(val product: Product, val offer: Offer?, val activeUntil: Long?)
 
-// Spec 4.2 / 4.3 and design §9: weekly packs from Level 2, monthly chat Member 2, anytime calls Member 3
-fun gateFor(product: Product, v: Viewer): PlanGate = when (product) {
-    Product.Membership -> PlanGate.Open
-    Product.ChatWeek -> if (Permissions.canBuyWeeklyChat(v)) PlanGate.Open else PlanGate.NeedsLevel(2)
-    Product.CallWeek -> if (Permissions.canBuyWeeklyCalls(v)) PlanGate.Open else PlanGate.NeedsLevel(2)
-    Product.ChatMonth -> if (Permissions.canBuyMonthlyChat(v)) PlanGate.Open else PlanGate.NeedsMember(2)
-    Product.CallMonth -> if (Permissions.canBuyAnytimeCalls(v)) PlanGate.Open else PlanGate.NeedsMember(3)
+/** Until when [product] is running for this member: Silver and Gold share the membership, told apart by plan. */
+fun activeUntil(product: Product, v: Viewer, e: Entitlements, now: Long): Long? {
+    val until = e[product.access]?.takeIf { it.isActive(now) }?.expiresAt ?: return null
+    return when (product) {
+        Product.Silver -> until.takeIf { v.plan != Plan.Gold }
+        Product.Gold -> until.takeIf { v.plan == Plan.Gold }
+        else -> until
+    }
 }
-
-data class PlanUi(val product: Product, val offer: Offer?, val gate: PlanGate, val activeUntil: Long?)
 
 data class PaidUi(
     val profile: UserProfile,
@@ -85,7 +80,7 @@ class PaidViewModel(
             profile = p,
             entitlements = e,
             plans = Product.entries.map { prod ->
-                PlanUi(prod, offers?.firstOrNull { it.product == prod }, gateFor(prod, p.viewer), e[prod.access]?.takeIf { it.isActive(now) }?.expiresAt)
+                PlanUi(prod, offers?.firstOrNull { it.product == prod }, activeUntil(prod, p.viewer, e, now))
             },
             storeReady = !offers.isNullOrEmpty(),
             purchase = state
@@ -109,7 +104,8 @@ private tailrec fun Context.activity(): Activity? = when (this) {
 }
 
 @StringRes private fun Product.title() = when (this) {
-    Product.Membership -> R.string.plan_membership
+    Product.Silver -> R.string.plan_membership
+    Product.Gold -> R.string.plan_gold
     Product.ChatWeek -> R.string.plan_chat_week
     Product.ChatMonth -> R.string.plan_chat_month
     Product.CallWeek -> R.string.plan_call_week
@@ -117,7 +113,8 @@ private tailrec fun Context.activity(): Activity? = when (this) {
 }
 
 @StringRes private fun Product.desc() = when (this) {
-    Product.Membership -> R.string.plan_membership_desc
+    Product.Silver -> R.string.plan_membership_desc
+    Product.Gold -> R.string.plan_gold_desc
     Product.ChatWeek -> R.string.plan_chat_week_desc
     Product.ChatMonth -> R.string.plan_chat_month_desc
     Product.CallWeek -> R.string.plan_call_week_desc
@@ -146,16 +143,17 @@ fun PlansScreen(vm: PaidViewModel, onBack: () -> Unit, only: PaidAccess? = null)
                 Text(stringResource(plan.product.title()), style = MaterialTheme.typography.titleLarge)
                 Text(stringResource(plan.product.desc()), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 plan.activeUntil?.let { Text(stringResource(R.string.plan_active, formatDate(it)), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary) }
-                when (val g = plan.gate) {
-                    is PlanGate.NeedsLevel -> Text(stringResource(R.string.plan_requires_level, g.level), style = MaterialTheme.typography.bodySmall)
-                    is PlanGate.NeedsMember -> Text(stringResource(R.string.plan_requires_member, g.level), style = MaterialTheme.typography.bodySmall)
-                    PlanGate.Open -> plan.offer?.let { offer ->
-                        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
-                            Button(
-                                onClick = { context.activity()?.let { vm.buy(it, offer) } },
-                                enabled = u.purchase != PurchaseState.Working,
-                                modifier = Modifier.fillMaxWidth()
-                            ) { Text(stringResource(R.string.plan_buy, offer.price)) }
+                // Gold already running: nothing to buy on the Silver card
+                val goldRunning = plan.product == Product.Silver && u.plans.any { it.product == Product.Gold && it.activeUntil != null }
+                if (!goldRunning) plan.offer?.let { offer ->
+                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
+                        Button(
+                            onClick = { context.activity()?.let { vm.buy(it, offer) } },
+                            enabled = u.purchase != PurchaseState.Working,
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text(stringResource(R.string.plan_buy, offer.price)) }
+                        if (plan.product == Product.Gold && u.plans.any { it.product == Product.Silver && it.activeUntil != null }) {
+                            Text(stringResource(R.string.plan_gold_upgrade_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }

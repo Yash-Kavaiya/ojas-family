@@ -22,7 +22,8 @@ export interface Product {
 
 // Product ids must match the ones created in Play Console
 export const PRODUCTS: Record<string, Product> = {
-  membership_monthly: { kind: "subs", entitlement: "membership" },
+  membership_monthly: { kind: "subs", entitlement: "membership", tier: "silver" },
+  membership_gold_monthly: { kind: "subs", entitlement: "membership", tier: "gold" },
   chat_monthly: { kind: "subs", entitlement: "chat" },
   call_monthly: { kind: "subs", entitlement: "call" },
   chat_week: { kind: "inapp", entitlement: "chat", days: 7 },
@@ -78,7 +79,7 @@ export async function refreshMemberLevel(db: Firestore, uid: string, now: Date):
  */
 export async function grantEntitlement(
   db: Firestore, uid: string, entitlement: Entitlement,
-  opts: { until?: Date; days?: number; credits?: number; source: string; productId?: string; tier?: Tier }, now: Date,
+  opts: { until?: Date; days?: number; credits?: number; source: string; productId?: string; tier?: Tier; token?: string }, now: Date,
 ): Promise<Date> {
   const ref = db.doc(`users/${uid}/entitlements/${entitlement}`);
   const until = await db.runTransaction(async (tx) => {
@@ -90,6 +91,8 @@ export async function grantEntitlement(
       expiresAt: Timestamp.fromDate(expiresAt),
       source: opts.source,
       productId: opts.productId ?? null,
+      // Which Play subscription this access now comes from; notices about a replaced one are ignored
+      tokenKey: opts.token ? tokenKey(opts.token) : null,
       updatedAt: FieldValue.serverTimestamp(),
     };
     // A subscription means unlimited calls; a pack gives a fixed number
@@ -179,7 +182,7 @@ export async function verifyPurchaseFor(
     // The token says what was bought: a cheaper subscription must not be claimed as a dearer one
     if (sub.productId !== input.productId) throw new HttpsError("invalid-argument", "This purchase is for a different product");
     if (!sub.active) throw new HttpsError("failed-precondition", "Subscription is not active");
-    until = await grantEntitlement(db, uid, product.entitlement, { until: sub.expiry, source: "play", productId: input.productId, tier: product.tier }, now);
+    until = await grantEntitlement(db, uid, product.entitlement, { until: sub.expiry, source: "play", productId: input.productId, tier: product.tier, token }, now);
     if (!sub.acknowledged) await api.acknowledgeSubscription(input.productId!, token);
   } else {
     const claim = await claimRef.get();
@@ -205,9 +208,15 @@ export async function onSubscriptionNotice(db: Firestore, api: PlayApi, purchase
   const uid = claim.get("uid") as string;
   const product = PRODUCTS[claim.get("productId") as string];
   if (!product || product.kind !== "subs") return;
-  const sub = await api.getSubscription(purchaseToken);
   const ref = db.doc(`users/${uid}/entitlements/${product.entitlement}`);
-  await ref.set({ expiresAt: Timestamp.fromDate(sub.active ? sub.expiry : now), source: "play", updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  // A Silver subscription replaced by Gold (or any older one) ends with a notice of its own: it must not
+  // end the access the newer subscription now gives
+  const current = (await ref.get()).get("tokenKey");
+  if (typeof current === "string" && current !== tokenKey(purchaseToken)) return;
+  const sub = await api.getSubscription(purchaseToken);
+  const fields: Record<string, unknown> = { expiresAt: Timestamp.fromDate(sub.active ? sub.expiry : now), source: "play", updatedAt: FieldValue.serverTimestamp() };
+  if (product.entitlement === "membership" && sub.active) fields.tier = product.tier ?? "silver";
+  await ref.set(fields, { merge: true });
   if (product.entitlement === "membership") await refreshMemberLevel(db, uid, now);
 }
 
