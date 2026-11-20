@@ -10,7 +10,7 @@ import { cached } from "./configCache";
 export interface PointsConfig {
   dailyOpen: number;
   practice: number; // finishing one guided practice (each of the four, once a day)
-  allPracticesBonus: number; // all four guided practices on the same IST day
+  allPracticesBonus: number; // all four guided practices on the same day (the member's local day)
   streakBonus: number; // every streakBonusEvery days in a row with a practice
   streakBonusEvery: number;
   like: number;

@@ -2,14 +2,17 @@ import { allows, RULES } from "./access";
 import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import { cached } from "./configCache";
-import { istDay } from "./time";
+import { localDay, offsetMinutes } from "./time";
 
 export type PracticeKind = "morning" | "night";
 export type DayLog = { morning?: boolean; night?: boolean };
 
 export const STREAK_GOAL_DAYS = 21;
 
-/** The IST day [offset] days before [day] ("yyyy-MM-dd"). */
+/** How far a logged day may be ahead of the phone's date and still count as "today" (zones span UTC-12 to UTC+14). */
+export const MAX_DAYS_AHEAD = 2;
+
+/** The day [offset] days before [day] ("yyyy-MM-dd"). */
 export function dayBefore(day: string, offset: number): string {
   const [y, m, d] = day.split("-").map(Number);
   const t = new Date(Date.UTC(y, m - 1, d - offset));
@@ -23,25 +26,41 @@ export function streak(logs: Record<string, DayLog>, today: string, done: (l: Da
   return n;
 }
 
+/**
+ * The member's practice day: the date on their phone (from the UTC offset it sends), so practices
+ * and streaks reset at the member's own midnight. It never goes back before a day already
+ * recorded, so changing the phone's time zone can't fill in a missed day; flying west after
+ * practising simply keeps counting the day already reached.
+ */
+export async function practiceDayFor(db: Firestore, uid: string, now: Date, rawOffset: unknown): Promise<string> {
+  const day = localDay(now, offsetMinutes(rawOffset));
+  // Days logged after this one: only possible after a zone change. Real zones are at most two
+  // calendar days apart, so anything further ahead is bad data and must not lock the member out.
+  const col = db.collection(`users/${uid}/practiceLog`);
+  const later = await col.where("__name__", ">", col.doc(day))
+    .where("__name__", "<=", col.doc(dayBefore(day, -MAX_DAYS_AHEAD))).get();
+  return later.docs.reduce((max, d) => (d.id > max ? d.id : max), day);
+}
+
 // Same rule as the app's Permissions.canDoDailyPractices: the plan table's Morning and Night practice
 export function canPractise(user: Record<string, unknown>, role: unknown, now: Date = new Date()): boolean {
   return allows(user, role, RULES.dailyPractice, now);
 }
 
 /**
- * Records today's (IST) morning or night practice, then completes the 21-day goals whose streak is
+ * Records today's (the member's local day) morning or night practice, then completes the 21-day goals whose streak is
  * reached. A goal is completed by writing an approved goalProgress, so the reward goes through the
  * same once-only trigger as photo goals.
  */
 export async function logPracticeFor(
-  db: Firestore, uid: string, role: unknown, kind: string, now: Date,
+  db: Firestore, uid: string, role: unknown, kind: string, now: Date, rawOffset?: unknown, knownDay?: string,
 ): Promise<{ morningStreak: number; bothStreak: number; completed: string[] }> {
   if (kind !== "morning" && kind !== "night") throw new HttpsError("invalid-argument", "kind must be morning or night");
   const userRef = db.doc(`users/${uid}`);
   const user = (await userRef.get()).data() ?? {};
   if (!canPractise(user, role, now)) throw new HttpsError("permission-denied", "Morning and Night practice open with Silver (after 7 days) or Gold");
 
-  const today = istDay(now);
+  const today = knownDay ?? await practiceDayFor(db, uid, now, rawOffset);
   await userRef.collection("practiceLog").doc(today).set({ [kind]: true, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
 
   const since = dayBefore(today, STREAK_GOAL_DAYS + 5);

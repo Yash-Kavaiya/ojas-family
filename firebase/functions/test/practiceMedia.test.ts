@@ -135,3 +135,64 @@ describe("currentStreak reads a month at a time", () => {
     expect(await currentStreak(db, "u1", today)).toBe(400);
   }, 60000);
 });
+
+describe("the member's own day", () => {
+  const NEW_YORK = -300; // UTC-5 in November
+  const logDays = async () => (await db.collection("users/u1/practiceLog").get()).docs.map((d) => d.id).sort();
+
+  test("a practice counts on the phone's date, not India's", async () => {
+    // 2026-11-08 22:00 in New York is already 2026-11-09 in India
+    await startPracticeFor(db, "u1", undefined, "blue_light", at("2026-11-09T03:00:00Z"), NEW_YORK);
+    expect((await completePracticeFor(db, "u1", undefined, "blue_light", at("2026-11-09T03:10:00Z"), NEW_YORK)).awarded).toBe(true);
+    expect(await logDays()).toEqual(["2026-11-08"]);
+    expect((await db.doc("users/u1/pointEvents/practice:blue_light:2026-11-08").get()).exists).toBe(true);
+  });
+
+  test("the practice opens again after the member's midnight, and the streak grows", async () => {
+    await startPracticeFor(db, "u1", undefined, "blue_light", at("2026-11-09T03:00:00Z"), NEW_YORK); // Nov 8, 22:00 NY
+    await completePracticeFor(db, "u1", undefined, "blue_light", at("2026-11-09T03:10:00Z"), NEW_YORK);
+    // Nov 9, 08:00 in New York: a new day there (still Nov 9 in India, where it was already done)
+    await startPracticeFor(db, "u1", undefined, "blue_light", at("2026-11-09T13:00:00Z"), NEW_YORK);
+    const r = await completePracticeFor(db, "u1", undefined, "blue_light", at("2026-11-09T13:10:00Z"), NEW_YORK);
+    expect(r.awarded).toBe(true);
+    expect(r.streak).toBe(2);
+    expect(await logDays()).toEqual(["2026-11-08", "2026-11-09"]);
+  });
+
+  test("changing the phone's zone can't go back to fill a missed day", async () => {
+    // Done on Nov 10 in India (06:00 IST)...
+    await startPracticeFor(db, "u1", undefined, "blue_light", at("2026-11-10T00:30:00Z"), 330);
+    await completePracticeFor(db, "u1", undefined, "blue_light", at("2026-11-10T00:40:00Z"), 330);
+    // ...then the phone says New York, where it is still Nov 9: it stays Nov 10, nothing more is earned
+    await startPracticeFor(db, "u1", undefined, "blue_light", at("2026-11-10T01:00:00Z"), NEW_YORK);
+    expect((await completePracticeFor(db, "u1", undefined, "blue_light", at("2026-11-10T01:10:00Z"), NEW_YORK)).awarded).toBe(false);
+    expect(await logDays()).toEqual(["2026-11-10"]);
+  });
+
+  test("a stray log far in the future does not lock today's practice", async () => {
+    await db.doc("users/u1/practiceLog/2027-01-01").set({ any: true });
+    await startPracticeFor(db, "u1", undefined, "blue_light", at("2026-11-09T03:00:00Z"), 330);
+    expect((await completePracticeFor(db, "u1", undefined, "blue_light", at("2026-11-09T03:10:00Z"), 330)).awarded).toBe(true);
+    expect((await db.doc("users/u1/pointEvents/practice:blue_light:2026-11-09").get()).exists).toBe(true);
+  });
+
+  test("a practice that runs past the member's midnight counts for the day it began", async () => {
+    // 23:55 to 00:06 in India
+    await startPracticeFor(db, "u1", undefined, "blue_light", at("2026-11-08T18:25:00Z"), 330);
+    const r = await completePracticeFor(db, "u1", undefined, "blue_light", at("2026-11-08T18:36:00Z"), 330);
+    expect(r.awarded).toBe(true);
+    expect(await logDays()).toEqual(["2026-11-08"]);
+  });
+
+  test("pressing play yesterday and finishing today does not fill yesterday", async () => {
+    await startPracticeFor(db, "u1", undefined, "blue_light", at("2026-11-08T05:00:00Z"), 330); // Nov 8, 10:30 IST
+    await expect(completePracticeFor(db, "u1", undefined, "blue_light", at("2026-11-09T05:00:00Z"), 330)).rejects.toThrow(/Start the practice/);
+    expect(await logDays()).toEqual([]);
+  });
+
+  test("an app that sends no offset, or a nonsense one, counts in India", async () => {
+    await startPracticeFor(db, "u1", undefined, "blue_light", at("2026-11-09T03:00:00Z"), 99999);
+    await completePracticeFor(db, "u1", undefined, "blue_light", at("2026-11-09T03:10:00Z"), "abc");
+    expect(await logDays()).toEqual(["2026-11-09"]);
+  });
+});

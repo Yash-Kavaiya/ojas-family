@@ -2,12 +2,12 @@ package com.ojashealing.family.data.practice
 
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.functions.FirebaseFunctions
-import com.ojashealing.family.data.social.todayIst
 import com.ojashealing.family.domain.ContentSection
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.tasks.await
 
 /** The four guided practices that each play one video or audio in the Practice tab. */
@@ -54,7 +54,7 @@ fun parsePracticeMedia(section: ContentSection, m: Map<*, *>?): PracticeMedia? {
     )
 }
 
-/** Points for finishing a guided practice; the server gives it once per practice per IST day. */
+/** Points for finishing a guided practice; the server gives it once per practice per day (the member's own day). */
 const val PRACTICE_POINTS = 2
 
 /** Mirrors the server's MIN_WATCHED_SHARE: the share of the media that must really be played. */
@@ -89,9 +89,12 @@ class PracticeMediaRepository(private val db: FirebaseFirestore, private val fun
         awaitClose { reg.remove() }
     }
 
-    /** Which guided practices the member already finished today (their point events say so). */
-    fun observeDoneToday(uid: String): Flow<Set<ContentSection>> {
-        val day = todayIst().iso()
+    /** Which guided practices the member already finished today (their point events say so); empties at local midnight. */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun observeDoneToday(uid: String): Flow<Set<ContentSection>> =
+        practiceDays(db, uid).flatMapLatest { today -> observeDoneOn(uid, today.iso()) }
+
+    private fun observeDoneOn(uid: String, day: String): Flow<Set<ContentSection>> {
         val flows = GuidedSections.map { section ->
             callbackFlow {
                 val reg = db.document("users/$uid/pointEvents/practice:${section.id}:$day")
@@ -103,13 +106,13 @@ class PracticeMediaRepository(private val db: FirebaseFirestore, private val fun
     }
 
     suspend fun start(section: ContentSection): Result<Unit> = runCatching {
-        functions.getHttpsCallable("startPractice").call(mapOf("section" to section.id)).await()
+        functions.getHttpsCallable("startPractice").call(mapOf("section" to section.id, "tzOffsetMin" to utcOffsetMinutes())).await()
         com.ojashealing.family.data.analytics.Analytics.practiceStart(section.id)
         Unit
     }
 
     suspend fun complete(section: ContentSection): Result<PracticeResult> = runCatching {
-        val data = functions.getHttpsCallable("completePractice").call(mapOf("section" to section.id)).await().getData() as? Map<*, *>
+        val data = functions.getHttpsCallable("completePractice").call(mapOf("section" to section.id, "tzOffsetMin" to utcOffsetMinutes())).await().getData() as? Map<*, *>
         com.ojashealing.family.data.analytics.Analytics.practiceComplete(section.id)
         PracticeResult(
             awarded = data?.get("awarded") == true,

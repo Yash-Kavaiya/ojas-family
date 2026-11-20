@@ -3,15 +3,15 @@ import { allows, RULES } from "./access";
 import { HttpsError } from "firebase-functions/v2/https";
 import { cached } from "./configCache";
 import { awardPoints } from "./points";
-import { dayBefore, logPracticeFor, streak, type DayLog } from "./practice";
+import { dayBefore, logPracticeFor, practiceDayFor, streak, type DayLog } from "./practice";
 import { loadPointsConfig } from "./pointsConfig";
-import { istDay } from "./time";
 
 /**
  * The four guided practices in the Practice tab. Each has one video or audio, set by an admin in
  * config/practiceMedia: { blue_light: { url, kind: "video" | "audio", durationSec, title }, ... },
  * or a YouTube video: { kind: "youtube", videoId, durationSec, title }.
- * Listening or watching to the end earns config/points.practice once per practice per IST day.
+ * Listening or watching to the end earns config/points.practice once per practice per day. A day is
+ * the member's own calendar day: the app sends its UTC offset (tzOffsetMin), old apps count in IST.
  */
 export const PRACTICE_SECTIONS = ["blue_light", "quick_protection", "morning", "night"] as const;
 export type PracticeSection = (typeof PRACTICE_SECTIONS)[number];
@@ -53,15 +53,18 @@ async function checkAccess(db: Firestore, uid: string, role: unknown, section: P
  * Marks when the member pressed play today. Only the first start of the day counts, so pausing,
  * leaving and resuming later keeps the original start time.
  */
-export async function startPracticeFor(db: Firestore, uid: string, role: unknown, rawSection: unknown, now: Date): Promise<{ startedAt: number }> {
+export async function startPracticeFor(
+  db: Firestore, uid: string, role: unknown, rawSection: unknown, now: Date, rawOffset?: unknown,
+): Promise<{ startedAt: number }> {
   const section = sectionOf(rawSection);
   await checkAccess(db, uid, role, section, now);
   await mediaSeconds(db, section);
-  const ref = db.doc(`users/${uid}/practiceSessions/${section}_${istDay(now)}`);
+  const day = await practiceDayFor(db, uid, now, rawOffset);
+  const ref = db.doc(`users/${uid}/practiceSessions/${section}_${day}`);
   const startedAt = await db.runTransaction(async (tx) => {
     const s = await tx.get(ref);
     if (s.exists) return (s.get("startedAt") as Timestamp).toMillis();
-    tx.set(ref, { section, day: istDay(now), startedAt: Timestamp.fromDate(now) });
+    tx.set(ref, { section, day, startedAt: Timestamp.fromDate(now) });
     return now.getTime();
   });
   return { startedAt };
@@ -74,14 +77,26 @@ export async function startPracticeFor(db: Firestore, uid: string, role: unknown
  * in a row. Morning and night also count toward the 21-day goals.
  */
 export async function completePracticeFor(
-  db: Firestore, uid: string, role: unknown, rawSection: unknown, now: Date,
+  db: Firestore, uid: string, role: unknown, rawSection: unknown, now: Date, rawOffset?: unknown,
 ): Promise<{ awarded: boolean; points: number; streak: number; completedGoals: string[] }> {
   const section = sectionOf(rawSection);
   await checkAccess(db, uid, role, section, now);
   const secs = await mediaSeconds(db, section);
-  const day = istDay(now);
-  const ref = db.doc(`users/${uid}/practiceSessions/${section}_${day}`);
-  const session = await ref.get();
+  const today = await practiceDayFor(db, uid, now, rawOffset);
+  // A practice started before the member's midnight and finished after it counts for the day it began
+  let day = today;
+  let ref = db.doc(`users/${uid}/practiceSessions/${section}_${day}`);
+  let session = await ref.get();
+  if (!session.exists) {
+    const before = dayBefore(today, 1);
+    const earlier = db.doc(`users/${uid}/practiceSessions/${section}_${before}`);
+    const s = await earlier.get();
+    // Only a session that could really have been playing across midnight: started within about
+    // twice the media's length plus an hour, so a tap on play yesterday can't fill in a missed day
+    const startedMs = s.exists ? (s.get("startedAt") as Timestamp).toMillis() : 0;
+    const recent = now.getTime() - startedMs <= (secs * 2 + 3600) * 1000;
+    if (s.exists && !s.get("completedAt") && recent) { day = before; ref = earlier; session = s; }
+  }
   if (!session.exists) throw new HttpsError("failed-precondition", "Start the practice first");
   const elapsed = (now.getTime() - (session.get("startedAt") as Timestamp).toMillis()) / 1000;
   if (elapsed < secs * MIN_WATCHED_SHARE) throw new HttpsError("failed-precondition", "Finish the practice to earn the point");
@@ -117,7 +132,7 @@ export async function completePracticeFor(
 
   let completedGoals: string[] = [];
   if (section === "morning" || section === "night") {
-    completedGoals = (await logPracticeFor(db, uid, role, section, now)).completed;
+    completedGoals = (await logPracticeFor(db, uid, role, section, now, rawOffset, day)).completed;
   }
   return { awarded, points, streak: anyStreak, completedGoals };
 }

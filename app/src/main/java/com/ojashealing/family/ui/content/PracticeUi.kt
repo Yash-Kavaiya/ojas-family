@@ -22,7 +22,6 @@ import com.ojashealing.family.data.practice.PracticeKind
 import com.ojashealing.family.data.practice.PracticeRepository
 import com.ojashealing.family.data.practice.PracticeStatus
 import com.ojashealing.family.data.practice.practiceStatus
-import com.ojashealing.family.data.social.todayIst
 import com.ojashealing.family.data.user.UserProfile
 import com.ojashealing.family.domain.ContentSection
 import com.ojashealing.family.domain.Permissions
@@ -51,12 +50,15 @@ class PracticeViewModel(private val repo: PracticeRepository, profile: Flow<User
 
     val status: StateFlow<PracticeStatus?> = profile.filterNotNull().flatMapLatest { p ->
         if (!Permissions.canDoDailyPractices(p.viewer)) flowOf(null)
-        else repo.observeLogs(p.uid, todayIst()).map { practiceStatus(it, todayIst()) }
+        else repo.days(p.uid).flatMapLatest { today -> repo.observeLogs(p.uid, today).map { practiceStatus(it, today) } }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     /** Everyone's "any practice" streak for the streak card, including free members. */
     val streak: StateFlow<com.ojashealing.family.data.practice.StreakSummary?> = profile.filterNotNull().flatMapLatest { p ->
-        repo.observeLogs(p.uid, todayIst()).map { com.ojashealing.family.data.practice.streakSummary(it, todayIst()) }
+        // The member's own day: the streak card turns over at their midnight
+        repo.days(p.uid).flatMapLatest { today ->
+            repo.observeLogs(p.uid, today).map { com.ojashealing.family.data.practice.streakSummary(it, today) }
+        }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     private val _message = MutableStateFlow<Int?>(null)

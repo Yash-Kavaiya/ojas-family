@@ -231,18 +231,18 @@ export const tickGoal = onCall({ enforceAppCheck: enforceAppCheck }, async (req)
 
 export const logPractice = onCall({ enforceAppCheck: enforceAppCheck }, async (req) => {
   const uid = requireUid(req);
-  return logPracticeFor(db, uid, req.auth?.token.role, String((req.data ?? {}).kind ?? ""), new Date());
+  return logPracticeFor(db, uid, req.auth?.token.role, String((req.data ?? {}).kind ?? ""), new Date(), (req.data ?? {}).tzOffsetMin);
 });
 
 // Guided practice media: one Moksha Point for finishing each practice once a day
 export const startPractice = onCall({ enforceAppCheck: enforceAppCheck }, async (req) => {
   const uid = requireUid(req);
-  return startPracticeFor(db, uid, req.auth?.token.role, (req.data ?? {}).section, new Date());
+  return startPracticeFor(db, uid, req.auth?.token.role, (req.data ?? {}).section, new Date(), (req.data ?? {}).tzOffsetMin);
 });
 
 export const completePractice = onCall({ enforceAppCheck: enforceAppCheck }, async (req) => {
   const uid = requireUid(req);
-  return completePracticeFor(db, uid, req.auth?.token.role, (req.data ?? {}).section, new Date());
+  return completePracticeFor(db, uid, req.auth?.token.role, (req.data ?? {}).section, new Date(), (req.data ?? {}).tzOffsetMin);
 });
 
 // ---- Profiles visible to others ----

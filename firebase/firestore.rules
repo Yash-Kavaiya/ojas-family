@@ -99,7 +99,7 @@ service cloud.firestore {
         }
       }
 
-      // Written by the logPractice function, which stamps the IST day itself
+      // Written only by Functions (logPractice, completePractice), keyed by the member's own local day
       match /practiceLog/{day} {
         allow read: if signedIn() && request.auth.uid == uid;
         allow write: if false;

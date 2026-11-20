@@ -125,7 +125,6 @@ import com.ojashealing.family.data.practice.PracticeMedia
 import com.ojashealing.family.data.practice.PracticeMediaRepository
 import com.ojashealing.family.data.practice.clockLabel
 import com.ojashealing.family.data.practice.watchedEnough
-import com.ojashealing.family.data.social.todayIst
 import com.ojashealing.family.domain.ContentSection
 import com.ojashealing.family.ui.theme.BackgroundDark
 import com.ojashealing.family.ui.theme.BrandNumberStyle
@@ -196,7 +195,7 @@ sealed interface YouTubeCommand {
 /** Saves where a member stopped in today's practice, so they can come back and carry on. */
 class PracticeProgressStore(context: Context) {
     private val prefs = context.getSharedPreferences("practice_progress", Context.MODE_PRIVATE)
-    private fun key(section: ContentSection) = "${section.id}_${todayIst().iso()}"
+    private fun key(section: ContentSection) = "${section.id}_${com.ojashealing.family.data.practice.practiceToday().iso()}"
 
     /** (position, watched, reached) in ms; zeros when nothing was played today. */
     fun load(section: ContentSection): Triple<Long, Long, Long> {
@@ -207,7 +206,7 @@ class PracticeProgressStore(context: Context) {
     fun save(section: ContentSection, position: Long, watched: Long, reached: Long) {
         // Yesterday's unfinished sessions are of no use; keep the file small
         val edit = prefs.edit()
-        prefs.all.keys.filterNot { it.endsWith(todayIst().iso()) }.forEach(edit::remove)
+        prefs.all.keys.filterNot { it.endsWith(com.ojashealing.family.data.practice.practiceToday().iso()) }.forEach(edit::remove)
         edit.putString(key(section), "$position,$watched,$reached").apply()
     }
 
@@ -242,6 +241,8 @@ class PracticeSessionViewModel(
     private val _ui = MutableStateFlow(SessionUi())
     val ui: StateFlow<SessionUi> = _ui.asStateFlow()
     private var started = false
+    /** The server has today's start time, so finishing can be recorded. */
+    @Volatile private var startRecorded = false
     private var playingFile: File? = null
 
     // YouTube practices play in a view owned by the screen; it reports back here
@@ -325,10 +326,21 @@ class PracticeSessionViewModel(
         }
     }
 
+    /**
+     * Tells the server when play began. Without that record finishing earns nothing, so a failed
+     * call (no signal when pressing play) is tried again while the member listens.
+     */
     private fun markStarted() {
         if (started) return
         started = true
-        viewModelScope.launch { repo.start(section) }
+        viewModelScope.launch {
+            var wait = 5_000L
+            while (isActive && repo.start(section).isFailure) {
+                delay(wait)
+                wait = (wait * 2).coerceAtMost(60_000L)
+            }
+            startRecorded = true
+        }
     }
 
     private fun save() = _ui.value.let { progress.save(section, it.positionMs, it.watchedMs, it.reachedMs) }
@@ -381,8 +393,9 @@ class PracticeSessionViewModel(
     fun finish() {
         _ui.update { it.copy(phase = SessionPhase.Finishing) }
         viewModelScope.launch {
-            // The start call may still be on its way when a short practice ends
-            if (!started) { started = true; repo.start(section) }
+            // The start call may still be on its way, or still failing, when the practice ends
+            if (!startRecorded && repo.start(section).isSuccess) startRecorded = true
+            started = true
             repo.complete(section)
                 .onSuccess { r ->
                     progress.clear(section)
