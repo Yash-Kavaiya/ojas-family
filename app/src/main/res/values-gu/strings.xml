@@ -177,8 +177,8 @@
     <string name="settings_theme_system">સિસ્ટમ</string>
     <string name="settings_theme_light">લાઇટ</string>
     <string name="settings_theme_dark">ડાર્ક</string>
-    <string name="settings_theme_healing_blue">હીલિંગ બ્લૂ લાઇટ</string>
-    <string name="settings_theme_forest_sage">ફોરેસ્ટ સેજ ડાર્ક</string>
+    <string name="settings_theme_light_mode">લાઇટ મોડ</string>
+    <string name="settings_theme_dark_mode">ડાર્ક મોડ</string>
     <string name="settings_language">ભાષા</string>
     <string name="settings_privacy">ગોપનીયતા</string>
     <string name="settings_hide_profile">મારી પ્રોફાઇલ છુપાવો</string>
@@ -778,7 +778,6 @@
     <string name="home_counts_title">અત્યાર સુધીનો ઓજસ પરિવાર</string>
     <string name="home_counts_users">કુલ વપરાશકર્તા</string>
     <string name="home_counts_members">કુલ સભ્યો</string>
-    <string name="home_counts_note">આ ફક્ત સ્વામીજી અને એડમિનને દેખાય છે</string>
     <string name="session_youtube_blocked">આ વિડિયો હજી એપની અંદર ચાલી શકતો નથી. તેને YouTube પર જુઓ; ગુણ ત્યારે મળે છે જ્યારે તે અહીં ચાલે.</string>
     <string name="ai_stage_searching">સ્વામીજીના ઉપદેશમાં જોઈ રહ્યો છું…</string>
     <string name="ai_photo_add">ફોટો ઉમેરો</string>

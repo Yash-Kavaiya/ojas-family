@@ -306,7 +306,6 @@ private fun UserCountsBox(c: com.ojashealing.family.data.social.UserCounts, modi
                 CountTile(Icons.Outlined.Groups, fmt.format(c.users), stringResource(R.string.home_counts_users), Modifier.weight(1f))
                 CountTile(Icons.Outlined.WorkspacePremium, fmt.format(c.members), stringResource(R.string.home_counts_members), Modifier.weight(1f))
             }
-            Text(stringResource(R.string.home_counts_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

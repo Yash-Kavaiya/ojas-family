@@ -7,14 +7,14 @@ import com.ojashealing.family.data.notify.notifKey
 import com.ojashealing.family.data.notify.switchOn
 import com.ojashealing.family.ui.notify.icon
 import com.ojashealing.family.ui.notify.label
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.selected
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -234,21 +234,19 @@ private fun ThemeSelector(current: ThemeMode, onSelect: (ThemeMode) -> Unit) {
     val dark = current.isDark(androidx.compose.foundation.isSystemInDarkTheme())
     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
         ThemeCard(
-            stringResource(R.string.settings_theme_healing_blue), !dark,
-            swatch = listOf(Color(0xFFEAF3FF), Color(0xFF0B5CAD), Color(0xFF00708A)),
+            stringResource(R.string.settings_theme_light_mode), !dark, Icons.Outlined.LightMode,
             onClick = { onSelect(ThemeMode.Light) }, modifier = Modifier.weight(1f)
         )
         ThemeCard(
-            stringResource(R.string.settings_theme_forest_sage), dark,
-            swatch = listOf(Color(0xFF111A15), Color(0xFFA9CFA0), Color(0xFFE2C98A)),
+            stringResource(R.string.settings_theme_dark_mode), dark, Icons.Outlined.DarkMode,
             onClick = { onSelect(ThemeMode.Dark) }, modifier = Modifier.weight(1f)
         )
     }
 }
 
-/** A named colour theme: its colours in small circles and its name; chosen ones get a ring and a tick. */
+/** Light or dark mode: an icon and its name; the chosen one gets a ring and a tick. */
 @Composable
-private fun ThemeCard(label: String, selected: Boolean, swatch: List<Color>, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun ThemeCard(label: String, selected: Boolean, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
     Column(
         modifier = modifier
@@ -260,10 +258,7 @@ private fun ThemeCard(label: String, selected: Boolean, swatch: List<Color>, onC
         verticalArrangement = Arrangement.spacedBy(Spacing.s)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            swatch.forEach { c ->
-                Box(Modifier.size(22.dp).clip(androidx.compose.foundation.shape.CircleShape).background(c)
-                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, androidx.compose.foundation.shape.CircleShape))
-            }
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
             Spacer(Modifier.weight(1f))
             if (selected) Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
         }

@@ -178,8 +178,8 @@
     <string name="settings_theme_system">System</string>
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_dark">Dark</string>
-    <string name="settings_theme_healing_blue">Healing Blue Light</string>
-    <string name="settings_theme_forest_sage">Forest Sage Dark</string>
+    <string name="settings_theme_light_mode">Light mode</string>
+    <string name="settings_theme_dark_mode">Dark mode</string>
     <string name="settings_language">Language</string>
     <string name="settings_privacy">Privacy</string>
     <string name="settings_hide_profile">Hide my profile</string>
@@ -779,7 +779,6 @@
     <string name="home_counts_title">Ojas family so far</string>
     <string name="home_counts_users">Total users</string>
     <string name="home_counts_members">Total members</string>
-    <string name="home_counts_note">Only Swamiji and admins see this</string>
     <string name="session_youtube_blocked">This video can\'t play inside the app yet. Watch it on YouTube; points are earned when it plays here.</string>
     <string name="ai_stage_searching">Looking in Swamiji\'s teachings…</string>
     <string name="ai_photo_add">Add a photo</string>
