@@ -114,7 +114,7 @@ private data class WaveLayer(val freq: Float, val speed: Float, val amp: Float, 
  * as a still glow.
  */
 @Composable
-fun BoxScope.BlueLightSweep(playing: Boolean, level: () -> Float = { 0f }) {
+fun BoxScope.BlueLightSweep(level: () -> Float = { 0f }) {
     val reduced = LocalReducedMotion.current
     val t = rememberInfiniteTransition(label = "sweep")
     val travel by t.animateFloat(
@@ -127,7 +127,8 @@ fun BoxScope.BlueLightSweep(playing: Boolean, level: () -> Float = { 0f }) {
         animationSpec = infiniteRepeatable(tween(4000, easing = LinearEasing), RepeatMode.Reverse),
         label = "breathe",
     )
-    val strength by animateFloatAsState(if (playing) 1f else 0.45f, tween(900), label = "sweepStrength")
+    // The background light stays the same on play and pause, so the whole screen never dims or brightens
+    val strength = 1f
     Canvas(Modifier.matchParentSize().clearAndSetSemantics { }) {
         val h = size.height
         // Always-on glow from above: the source of the light

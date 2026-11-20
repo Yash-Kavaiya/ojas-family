@@ -3,6 +3,8 @@ package com.ojashealing.family.ui.content
 import android.net.Uri
 import com.ojashealing.family.ui.theme.LocalReducedMotion
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.media3.common.C
@@ -438,7 +440,7 @@ class PracticeSessionViewModel(
 }
 
 /** The calm night palette every session uses, tinted by its section. */
-private data class SessionColors(val top: Color, val accent: Color, val soft: Color)
+internal data class SessionColors(val top: Color, val accent: Color, val soft: Color)
 
 @Composable
 private fun sessionColors(section: ContentSection): SessionColors {
@@ -477,7 +479,7 @@ fun PracticeSessionScreen(vm: PracticeSessionViewModel, onClose: () -> Unit) {
             .fillMaxSize()
             .background(Brush.verticalGradient(listOf(Color(0xFF0A1B3D), colors.top, BackgroundDark, Color(0xFF0B0718))))
     ) {
-        BlueLightSweep(playing = ui.playing, level = loudness)
+        BlueLightSweep(level = loudness)
         FloatingLights(colors.accent)
         Column(
             Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(horizontal = Spacing.l),
@@ -760,7 +762,7 @@ private fun TimerRing(progress: Float, ui: SessionUi, colors: SessionColors, mod
  * one clock that stops while paused, so the light rests where it was; with reduced motion it stays still.
  */
 @Composable
-private fun BreathingOrb(playing: Boolean, colors: SessionColors, modifier: Modifier, level: () -> Float = { 0f }) {
+internal fun BreathingOrb(playing: Boolean, colors: SessionColors, modifier: Modifier, level: () -> Float = { 0f }) {
     val reduced = LocalReducedMotion.current
     val clock = remember { androidx.compose.runtime.mutableFloatStateOf(BREATH_MS / 1000f * 0.4f) }
     // The voice, smoothed so the light swells with it instead of flickering
@@ -865,10 +867,13 @@ private fun BreathingOrb(playing: Boolean, colors: SessionColors, modifier: Modi
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Image(
                 painterResource(R.drawable.ojas_lotus), contentDescription = null, contentScale = ContentScale.Crop,
-                modifier = Modifier.size(96.dp).graphicsLayer { val sc = 0.9f + 0.14f * breath(); scaleX = sc; scaleY = sc }.clip(CircleShape)
+                modifier = Modifier.testTag("practice_lotus").size(96.dp).graphicsLayer { val sc = 0.9f + 0.14f * breath(); scaleX = sc; scaleY = sc }.clip(CircleShape)
             )
-            if (playing) {
-                Spacer(Modifier.height(Spacing.s))
+            // The words always keep their space (only fading), so the lotus never jumps on play or pause
+            val wordAlpha by animateFloatAsState(if (playing) 1f else 0f, tween(Durations.Base), label = "breathWordAlpha")
+            Spacer(Modifier.height(Spacing.s))
+            // Hidden words are not read aloud by TalkBack while paused
+            Box(Modifier.graphicsLayer { alpha = wordAlpha }.then(if (playing) Modifier else Modifier.clearAndSetSemantics { }), contentAlignment = Alignment.Center) {
                 AnimatedContent(
                     targetState = breathingIn,
                     transitionSpec = {
@@ -893,15 +898,17 @@ private const val BREATH_MS = 4000
 private const val RIPPLE_S = 6f
 
 @Composable
-private fun Controls(ui: SessionUi, colors: SessionColors, onToggle: () -> Unit, onSeek: (Long) -> Unit) {
+internal fun Controls(ui: SessionUi, colors: SessionColors, onToggle: () -> Unit, onSeek: (Long) -> Unit) {
     val pulse = com.ojashealing.family.ui.theme.loopingFloat(
         1f, 1.18f, infiniteRepeatable(tween(1400, easing = FastOutSlowInEasing), RepeatMode.Reverse), rest = 1f, label = "p", active = !ui.playing,
     )
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.xl)) {
         RoundControl(Icons.Outlined.Replay10, stringResource(R.string.session_rewind), enabled = ui.positionMs > 0) { onSeek(-10_000) }
-        Box(contentAlignment = Alignment.Center) {
+        // Fixed size whether or not the halo shows, so the controls and the screen above never shift
+        Box(Modifier.size(84.dp), contentAlignment = Alignment.Center) {
             // A soft halo breathes around the button while paused, inviting a tap
-            if (!ui.playing) Box(Modifier.size(84.dp).graphicsLayer { scaleX = pulse.value; scaleY = pulse.value }.clip(CircleShape).background(colors.accent.copy(alpha = 0.18f)))
+            val haloAlpha by animateFloatAsState(if (ui.playing) 0f else 1f, tween(Durations.Base), label = "haloAlpha")
+            Box(Modifier.size(84.dp).graphicsLayer { scaleX = pulse.value; scaleY = pulse.value; alpha = haloAlpha }.clip(CircleShape).background(colors.accent.copy(alpha = 0.18f)))
             Box(
                 Modifier.size(76.dp).clip(CircleShape).background(Brush.linearGradient(OjasGradients.saffron))
                     .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onToggle),
