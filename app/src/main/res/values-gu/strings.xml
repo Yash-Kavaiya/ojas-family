@@ -85,6 +85,7 @@
     <string name="section_blue_light">બ્લુ હીલિંગ લાઇટ ધ્યાન</string>
     <string name="section_quick_protection">ઝડપી પ્રોટેક્શન</string>
     <string name="quick_protection_when">ડર કે ગભરાટ લાગે તો તરત કરો.</string>
+    <string name="blue_light_when">આ જનરલ ધ્યાન છે. દિવસમાં ગમે તે સમયે કરી શકાય છે.</string>
     <string name="section_morning">સવારનું પ્રોટેક્શન અને ધ્યાન</string>
     <string name="section_night">રાતનું પ્રોટેક્શન અને ધ્યાન</string>
     <string name="section_yoga">યોગ, પ્રાણાયામ અને અભ્યાસ</string>

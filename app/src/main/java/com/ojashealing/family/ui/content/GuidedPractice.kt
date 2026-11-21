@@ -218,9 +218,12 @@ fun GuidedPracticeCard(card: GuidedCard, streak: PracticeStatus?, onOpen: () -> 
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(stringResource(card.section.label()), style = MaterialTheme.typography.titleMedium, color = accent, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                if (card.section == ContentSection.QuickProtection) {
+                if (card.section == ContentSection.QuickProtection || card.section == ContentSection.BlueLight) {
                     // Says when to use it, in place of the recording's title and length
-                    Text(stringResource(R.string.quick_protection_when), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
+                    Text(
+                        stringResource(if (card.section == ContentSection.BlueLight) R.string.blue_light_when else R.string.quick_protection_when),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface
+                    )
                 } else {
                     if (card.media.title.isNotBlank()) {
                         Text(card.media.title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)

@@ -85,6 +85,7 @@
     <string name="section_blue_light">ब्लू हीलिंग लाइट ध्यान</string>
     <string name="section_quick_protection">क्विक प्रोटेक्शन</string>
     <string name="quick_protection_when">डर या घबराहट लगे तो तुरंत करें।</string>
+    <string name="blue_light_when">यह सामान्य ध्यान है। इसे दिन में किसी भी समय कर सकते हैं।</string>
     <string name="section_morning">सुबह का प्रोटेक्शन और ध्यान</string>
     <string name="section_night">रात का प्रोटेक्शन और ध्यान</string>
     <string name="section_yoga">योग, प्राणायाम और अभ्यास</string>
