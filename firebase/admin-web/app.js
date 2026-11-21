@@ -4,8 +4,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/fireba
 import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 import {
   addDoc, arrayRemove, arrayUnion, collection, collectionGroup, deleteDoc, deleteField, doc, endAt, getDoc, getDocs, getFirestore,
-  limit, orderBy, query, serverTimestamp, setDoc, startAt, Timestamp, updateDoc, where,
+  limit, orderBy, query, runTransaction, serverTimestamp, setDoc, startAt, Timestamp, updateDoc, where,
 } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+import { READ_TRANSLATIONS, readClean, readEditFields, readFormError, readMax } from "./readFields.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-functions.js";
 import { deleteObject, getDownloadURL, getStorage, ref, uploadBytes, uploadBytesResumable } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js";
 
@@ -102,7 +103,7 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 window.addEventListener("hashchange", route);
-const PAGES = { dashboard, members, points, ai, practice, thoughts, content, books, moderation, announcements, calls, admins, settings };
+const PAGES = { dashboard, members, points, ai, practice, read: readPage, thoughts, content, books, moderation, announcements, calls, admins, settings };
 function route() {
   if (!auth.currentUser) return;
   const [page, arg] = (location.hash.slice(1) || "dashboard").split("/");
@@ -688,6 +689,72 @@ async function books() {
       await deleteDoc(doc(db, "books", id));
       await deleteUploadedPdf(old);
     }, "Deleted").then(books);
+  });
+}
+
+// ---------- read ----------
+const READ_LANGUAGES = [["Hindi (original)", "question", "answer"], ["English", "question_en", "answer_en"], ["Gujarati", "question_gu", "answer_gu"]];
+const readBox = (field, label, value, rows) =>
+  `<label>${esc(label)}<textarea name="${field}" maxlength="${readMax(field)}" rows="${rows}" style="min-height:0">${esc(value)}</textarea></label>`;
+const readValues = (root) => Object.fromEntries(["question", "answer", ...READ_TRANSLATIONS].map((f) => [f, $(`[name="${f}"]`, root).value]));
+
+async function readPage(openId) {
+  const snap = await getDocs(query(collection(db, "readQa"), orderBy("createdAt", "desc"), limit(300)));
+  const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  view().innerHTML = `
+    <h1>Read</h1>
+    <p class="muted">Questions and answers in the app's Practice &gt; Read. Write in Hindi; English and Gujarati are translated automatically, usually within a minute. Each member reads their app language and sees the Hindi until a translation is ready. Changing the Hindi translates it again and replaces any corrections.</p>
+    <div class="card stack" style="max-width:720px" id="r-new"><h3>Add a question</h3>
+      <label>Question (Hindi)<textarea id="r-q" maxlength="${readMax("question")}" rows="2" style="min-height:0"></textarea></label>
+      <label>Answer (Hindi)<textarea id="r-a" maxlength="${readMax("answer")}" rows="7"></textarea></label>
+      <div><button class="primary" id="r-add">Add</button></div></div>
+    <div class="row" style="justify-content:space-between"><h2>Questions <span class="muted">(${list.length})</span></h2><button id="r-refresh">Refresh</button></div>
+    <div class="stack">${list.map((q) => {
+      const ready = READ_TRANSLATIONS.every((f) => readClean(q[f]));
+      return `<details class="card read-item" data-id="${esc(q.id)}" ${q.id === openId ? "open" : ""}>
+        <summary><span>${esc(q.question)}</span> <span class="chip ${ready ? "on" : ""}">${ready ? "Translated" : "Hindi only for now"}</span></summary>
+        <div class="read-langs">${READ_LANGUAGES.map(([name, qf, af]) => `<div class="stack"><h3>${name}</h3>
+          ${readBox(qf, "Question", q[qf], 3)}${readBox(af, "Answer", q[af], 10)}</div>`).join("")}</div>
+        <div class="row"><button class="primary r-save">Save</button> <button class="danger r-del">Delete</button></div>
+      </details>`;
+    }).join("") || '<p class="muted">No questions yet.</p>'}</div>`;
+
+  $("#r-refresh").onclick = () => readPage();
+  $("#r-add").onclick = (e) => run(e.target, async () => {
+    const form = { question: $("#r-q").value, answer: $("#r-a").value };
+    const problem = readFormError(form);
+    if (problem) throw new Error(problem);
+    await addDoc(collection(db, "readQa"), {
+      question: readClean(form.question), answer: readClean(form.answer), authorUid: auth.currentUser.uid,
+      createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+    });
+    return true;
+  }, "Added. Translating now").then((ok) => ok && readPage());
+
+  $$(".read-item").forEach((box) => {
+    const id = box.dataset.id;
+    const opened = list.find((q) => q.id === id);
+    $(".r-save", box).onclick = (e) => run(e.target, async () => {
+      const form = readValues(box);
+      const problem = readFormError(form);
+      if (problem) throw new Error(problem);
+      const fields = readEditFields(opened, form, deleteField());
+      if (!Object.keys(fields).length) throw new Error("Nothing has changed");
+      const docRef = doc(db, "readQa", id);
+      await runTransaction(db, async (tx) => {
+        const live = await tx.get(docRef);
+        if (!live.exists()) throw new Error("This question was deleted. Press Refresh.");
+        if (live.get("question") !== opened.question || live.get("answer") !== opened.answer) {
+          throw new Error("Someone else changed the Hindi. Press Refresh and try again.");
+        }
+        tx.update(docRef, { ...fields, updatedAt: serverTimestamp() });
+      });
+      return true;
+    }, "Saved").then((ok) => ok && readPage(id));
+    $(".r-del", box).onclick = (e) => confirm("Delete this question from the app?") && run(e.target, async () => {
+      await deleteDoc(doc(db, "readQa", id));
+      return true;
+    }, "Deleted").then((ok) => ok && readPage());
   });
 }
 
