@@ -14,10 +14,61 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 
 /** A question and its answer in Practice > Read, written by an admin or Swamiji. */
-data class ReadQa(val id: String, val question: String, val answer: String, val createdAt: Timestamp?)
+data class ReadQa(
+    val id: String,
+    /** The Hindi original. */
+    val question: String,
+    val answer: String,
+    val createdAt: Timestamp?,
+    val questionEn: String = "",
+    val answerEn: String = "",
+    val questionGu: String = "",
+    val answerGu: String = "",
+)
 
 const val ReadQuestionMax = 500
 const val ReadAnswerMax = 10_000
+
+/** The question in the app [language]: another phone language gets English; a missing translation shows the Hindi. */
+fun ReadQa.questionIn(language: String): String = pick(language, question, questionEn, questionGu)
+
+fun ReadQa.answerIn(language: String): String = pick(language, answer, answerEn, answerGu)
+
+private fun pick(language: String, hindi: String, english: String, gujarati: String): String = when (language) {
+    "hi" -> hindi
+    "gu" -> gujarati
+    else -> english
+}.ifBlank { hindi }
+
+/** English and Gujarati as corrected by an admin or Swamiji. */
+data class ReadTranslations(val questionEn: String, val answerEn: String, val questionGu: String, val answerGu: String)
+
+/**
+ * What to save when a question is changed; a null value removes the field. Changed Hindi clears the
+ * translations, so members see the new Hindi until the server's new translation arrives.
+ */
+fun readUpdateFields(old: ReadQa, question: String, answer: String, translations: ReadTranslations?): Map<String, Any?> {
+    val q = question.trim()
+    val a = answer.trim()
+    val text = mapOf<String, Any?>("question" to q, "answer" to a)
+    return when {
+        q != old.question || a != old.answer ->
+            text + listOf("question_en", "answer_en", "question_gu", "answer_gu").associateWith { null }
+        translations == null -> text
+        // Only what the editor really changed, so a save never overwrites a newer translation
+        else -> text + listOf(
+            Triple("question_en", translations.questionEn, old.questionEn),
+            Triple("answer_en", translations.answerEn, old.answerEn),
+            Triple("question_gu", translations.questionGu, old.questionGu),
+            Triple("answer_gu", translations.answerGu, old.answerGu),
+        ).filter { (_, new, before) -> new.trim() != before.trim() }
+            .associate { (field, new, _) -> field to new.trim() }
+    }
+}
+
+/** True when someone else changed the Hindi after this editor opened it. */
+fun readEditConflict(opened: ReadQa, live: ReadQa?): Boolean =
+    live != null && (live.question != opened.question || live.answer != opened.answer)
 
 /** The language a phone voice should read [text] in: Gujarati or Devanagari script, else Indian English. */
 fun ttsLanguageFor(text: String): String {
@@ -54,7 +105,11 @@ class ReadQaRepository(private val db: FirebaseFirestore) {
             }
             trySend(snap.documents.mapNotNull { d ->
                 val q = d.getString("question")?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-                ReadQa(d.id, q, d.getString("answer").orEmpty(), d.getTimestamp("createdAt"))
+                ReadQa(
+                    d.id, q, d.getString("answer").orEmpty(), d.getTimestamp("createdAt"),
+                    d.getString("question_en").orEmpty(), d.getString("answer_en").orEmpty(),
+                    d.getString("question_gu").orEmpty(), d.getString("answer_gu").orEmpty(),
+                )
             })
         }
         awaitClose { reg.remove() }
@@ -70,10 +125,9 @@ class ReadQaRepository(private val db: FirebaseFirestore) {
         ).await()
     }
 
-    suspend fun update(id: String, question: String, answer: String): Result<Unit> = runCatching {
-        col.document(id).update(
-            mapOf("question" to question.trim(), "answer" to answer.trim(), "updatedAt" to FieldValue.serverTimestamp())
-        ).await()
+    suspend fun update(old: ReadQa, question: String, answer: String, translations: ReadTranslations?): Result<Unit> = runCatching {
+        val fields = readUpdateFields(old, question, answer, translations).mapValues { it.value ?: FieldValue.delete() }
+        col.document(old.id).update(fields + ("updatedAt" to FieldValue.serverTimestamp())).await()
     }
 
     suspend fun delete(id: String): Result<Unit> = runCatching { col.document(id).delete().await() }

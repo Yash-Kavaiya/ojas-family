@@ -218,18 +218,23 @@ fun GuidedPracticeCard(card: GuidedCard, streak: PracticeStatus?, onOpen: () -> 
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(stringResource(card.section.label()), style = MaterialTheme.typography.titleMedium, color = accent, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                if (card.media.title.isNotBlank()) {
-                    Text(card.media.title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Icon(if (card.media.type == MediaType.Audio) Icons.Outlined.Headphones else Icons.Outlined.Videocam, null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
-                    val (n, minutes) = minutesLabel(card.media.durationSec)
-                    Text(
-                        stringResource(if (minutes) R.string.guided_minutes else R.string.guided_seconds, n) + " · " +
-                            stringResource(if (card.media.type == MediaType.Audio) R.string.media_audio else R.string.media_video),
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                if (card.section == ContentSection.QuickProtection) {
+                    // Says when to use it, in place of the recording's title and length
+                    Text(stringResource(R.string.quick_protection_when), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
+                } else {
+                    if (card.media.title.isNotBlank()) {
+                        Text(card.media.title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Icon(if (card.media.type == MediaType.Audio) Icons.Outlined.Headphones else Icons.Outlined.Videocam, null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
+                        val (n, minutes) = minutesLabel(card.media.durationSec)
+                        Text(
+                            stringResource(if (minutes) R.string.guided_minutes else R.string.guided_seconds, n) + " · " +
+                                stringResource(if (card.media.type == MediaType.Audio) R.string.media_audio else R.string.media_video),
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
                 // Morning and night also build the 21-day streak
                 val streakDays = when (card.section) {

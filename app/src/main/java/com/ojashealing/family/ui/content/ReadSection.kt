@@ -52,6 +52,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -68,6 +69,10 @@ import com.ojashealing.family.data.read.ReadQa
 import com.ojashealing.family.data.read.ReadQaRepository
 import com.ojashealing.family.data.read.ReadQuestionMax
 import com.ojashealing.family.data.read.ReadTicks
+import com.ojashealing.family.data.read.ReadTranslations
+import com.ojashealing.family.data.read.answerIn
+import com.ojashealing.family.data.read.questionIn
+import com.ojashealing.family.data.read.readEditConflict
 import com.ojashealing.family.data.read.ttsLanguageFor
 import com.ojashealing.family.data.read.validReadQa
 import com.ojashealing.family.domain.Role as UserRole
@@ -100,12 +105,12 @@ class ReadQaViewModel(private val repo: ReadQaRepository, private val ticks: Rea
 
     fun setDone(id: String, done: Boolean) = ticks.set(id, done)
 
-    /** Adds a new one when [id] is null. [done] gets null on success, else a message to show. */
-    fun save(id: String?, question: String, answer: String, done: (Int?) -> Unit) {
+    /** Adds a new one when [existing] is null. [done] gets null on success, else a message to show. */
+    fun save(existing: ReadQa?, question: String, answer: String, translations: ReadTranslations?, done: (Int?) -> Unit) {
         if (_saving.value) return
         _saving.value = true
         viewModelScope.launch {
-            val r = if (id == null) repo.add(question, answer, uid()) else repo.update(id, question, answer)
+            val r = if (existing == null) repo.add(question, answer, uid()) else repo.update(existing, question, answer, translations)
             _saving.value = false
             done(r.exceptionOrNull()?.let { if (it is FirebaseNetworkException) R.string.error_offline else R.string.read_save_failed })
         }
@@ -127,7 +132,7 @@ class ReadUi(
     val canEdit: Boolean,
     val saving: Boolean,
     val onSetDone: (id: String, done: Boolean) -> Unit,
-    val onSave: (id: String?, question: String, answer: String, done: (Int?) -> Unit) -> Unit,
+    val onSave: (existing: ReadQa?, question: String, answer: String, translations: ReadTranslations?, done: (Int?) -> Unit) -> Unit,
     val onDelete: (id: String, done: (Int?) -> Unit) -> Unit,
 )
 
@@ -210,6 +215,7 @@ private fun LazyListScope.readSection(ui: ReadUi, state: ReadState, items: List<
 @Composable
 private fun ReadRow(qa: ReadQa, read: Boolean, first: Boolean, onOpen: () -> Unit, modifier: Modifier = Modifier) {
     val readLabel = stringResource(if (read) R.string.read_done else R.string.read_not_done)
+    val language = LocalConfiguration.current.locales[0].language
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = if (first) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
@@ -231,7 +237,7 @@ private fun ReadRow(qa: ReadQa, read: Boolean, first: Boolean, onOpen: () -> Uni
                     modifier = Modifier.size(24.dp)
                 )
                 Text(
-                    qa.question,
+                    qa.questionIn(language),
                     style = MaterialTheme.typography.bodyLarge,
                     color = textColor,
                     maxLines = 3,
@@ -258,10 +264,13 @@ fun ReadOverlays(ui: ReadUi, state: ReadState) {
         )
     }
     state.editingId?.let { id ->
-        ReadEditor(
-            existing = items.firstOrNull { it.id == id },
+        val existing = items.firstOrNull { it.id == id }
+        // Deleted by someone else while open: close, so saving can't bring it back as a new question
+        if (id.isNotEmpty() && existing == null) androidx.compose.runtime.LaunchedEffect(id) { state.editingId = null }
+        else ReadEditor(
+            existing = existing,
             saving = ui.saving,
-            onSave = { q, a, done -> ui.onSave(id.ifEmpty { null }, q, a, done) },
+            onSave = ui.onSave,
             onClose = { state.editingId = null }
         )
     }
@@ -271,6 +280,9 @@ fun ReadOverlays(ui: ReadUi, state: ReadState) {
 @Composable
 private fun ReadAnswerSheet(qa: ReadQa, ui: ReadUi, onEdit: () -> Unit, onDeleted: () -> Unit, onClose: () -> Unit) {
     val done = qa.id in ui.read
+    val language = LocalConfiguration.current.locales[0].language
+    val question = qa.questionIn(language)
+    val answer = qa.answerIn(language)
     val voice = rememberReadAloud()
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var confirmDelete by remember { mutableStateOf(false) }
@@ -285,11 +297,11 @@ private fun ReadAnswerSheet(qa: ReadQa, ui: ReadUi, onEdit: () -> Unit, onDelete
                 .navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(Spacing.l)
         ) {
-            Text(qa.question, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
+            Text(question, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s), verticalAlignment = Alignment.CenterVertically) {
                 val speaking = voice.speaking
                 FilledTonalButton(
-                    onClick = { if (speaking) voice.stop() else voice.speak(qa.question + ".\n" + qa.answer) },
+                    onClick = { if (speaking) voice.stop() else voice.speak(question + ".\n" + answer) },
                     enabled = voice.ready,
                 ) {
                     Icon(if (speaking) Icons.Outlined.StopCircle else Icons.AutoMirrored.Outlined.VolumeUp, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -306,7 +318,7 @@ private fun ReadAnswerSheet(qa: ReadQa, ui: ReadUi, onEdit: () -> Unit, onDelete
                 )
             }
             SelectionContainer {
-                Text(qa.answer, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+                Text(answer, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
             }
             if (ui.canEdit) {
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
@@ -327,7 +339,7 @@ private fun ReadAnswerSheet(qa: ReadQa, ui: ReadUi, onEdit: () -> Unit, onDelete
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             title = { Text(stringResource(R.string.read_delete_title)) },
-            text = { Text(qa.question, maxLines = 4, overflow = TextOverflow.Ellipsis) },
+            text = { Text(question, maxLines = 4, overflow = TextOverflow.Ellipsis) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmDelete = false
@@ -341,9 +353,27 @@ private fun ReadAnswerSheet(qa: ReadQa, ui: ReadUi, onEdit: () -> Unit, onDelete
 }
 
 @Composable
-private fun ReadEditor(existing: ReadQa?, saving: Boolean, onSave: (String, String, (Int?) -> Unit) -> Unit, onClose: () -> Unit) {
+private fun ReadEditor(existing: ReadQa?, saving: Boolean, onSave: (ReadQa?, String, String, ReadTranslations?, (Int?) -> Unit) -> Unit, onClose: () -> Unit) {
     var question by rememberSaveable(existing?.id) { mutableStateOf(existing?.question.orEmpty()) }
     var answer by rememberSaveable(existing?.id) { mutableStateOf(existing?.answer.orEmpty()) }
+    var questionEn by rememberSaveable(existing?.id) { mutableStateOf(existing?.questionEn.orEmpty()) }
+    var answerEn by rememberSaveable(existing?.id) { mutableStateOf(existing?.answerEn.orEmpty()) }
+    var questionGu by rememberSaveable(existing?.id) { mutableStateOf(existing?.questionGu.orEmpty()) }
+    var answerGu by rememberSaveable(existing?.id) { mutableStateOf(existing?.answerGu.orEmpty()) }
+    // What this editor last loaded. New translations fill any field the editor hasn't touched
+    var opened by remember(existing?.id) { mutableStateOf(existing) }
+    androidx.compose.runtime.LaunchedEffect(existing) {
+        val before = opened
+        if (existing != null && before != null && existing != before && !readEditConflict(before, existing)) {
+            if (questionEn == before.questionEn) questionEn = existing.questionEn
+            if (answerEn == before.answerEn) answerEn = existing.answerEn
+            if (questionGu == before.questionGu) questionGu = existing.questionGu
+            if (answerGu == before.answerGu) answerGu = existing.answerGu
+            opened = existing
+        }
+    }
+    val conflict = !saving && opened?.let { readEditConflict(it, existing) } == true
+    val translated = existing != null
     var error by remember { mutableStateOf<Int?>(null) }
     AlertDialog(
         onDismissRequest = { if (!saving) onClose() },
@@ -353,27 +383,53 @@ private fun ReadEditor(existing: ReadQa?, saving: Boolean, onSave: (String, Stri
                 OutlinedTextField(
                     value = question,
                     onValueChange = { question = it.take(ReadQuestionMax) },
-                    label = { Text(stringResource(R.string.read_question)) },
+                    label = { Text(stringResource(R.string.read_question_hi)) },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2,
                 )
                 OutlinedTextField(
                     value = answer,
                     onValueChange = { answer = it.take(ReadAnswerMax) },
-                    label = { Text(stringResource(R.string.read_answer)) },
+                    label = { Text(stringResource(R.string.read_answer_hi)) },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 160.dp),
                     minLines = 6,
                 )
+                if (translated) {
+                    Text(
+                        stringResource(R.string.read_translate_note),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    ReadTextField(questionEn, { questionEn = it.take(ReadQuestionMax) }, R.string.read_question_en, 2)
+                    ReadTextField(answerEn, { answerEn = it.take(ReadAnswerMax) }, R.string.read_answer_en, 4)
+                    ReadTextField(questionGu, { questionGu = it.take(ReadQuestionMax) }, R.string.read_question_gu, 2)
+                    ReadTextField(answerGu, { answerGu = it.take(ReadAnswerMax) }, R.string.read_answer_gu, 4)
+                }
+                if (conflict) Text(stringResource(R.string.read_changed_elsewhere), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
                 error?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
             }
         },
         confirmButton = {
             TextButton(
-                enabled = !saving && validReadQa(question, answer),
-                onClick = { onSave(question, answer) { err -> if (err == null) onClose() else error = err } }
+                enabled = !saving && !conflict && validReadQa(question, answer),
+                onClick = {
+                    val corrected = if (translated) ReadTranslations(questionEn, answerEn, questionGu, answerGu) else null
+                    onSave(opened, question, answer, corrected) { err -> if (err == null) onClose() else error = err }
+                }
             ) { Text(stringResource(R.string.action_save)) }
         },
         dismissButton = { TextButton(enabled = !saving, onClick = onClose) { Text(stringResource(R.string.action_cancel)) } }
+    )
+}
+
+@Composable
+private fun ReadTextField(value: String, onChange: (String) -> Unit, label: Int, minLines: Int) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onChange,
+        label = { Text(stringResource(label)) },
+        modifier = Modifier.fillMaxWidth(),
+        minLines = minLines,
     )
 }
 

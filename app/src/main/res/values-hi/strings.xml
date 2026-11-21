@@ -84,6 +84,7 @@
     <string name="profile_goals_empty">स्वामीजी के सुझाए लक्ष्य यहाँ दिखेंगे।</string>
     <string name="section_blue_light">ब्लू हीलिंग लाइट ध्यान</string>
     <string name="section_quick_protection">क्विक प्रोटेक्शन</string>
+    <string name="quick_protection_when">डर या घबराहट लगे तो तुरंत करें।</string>
     <string name="section_morning">सुबह का प्रोटेक्शन और ध्यान</string>
     <string name="section_night">रात का प्रोटेक्शन और ध्यान</string>
     <string name="section_yoga">योग, प्राणायाम और अभ्यास</string>
@@ -428,7 +429,7 @@
     <string name="points_src_other">मुक्ति पॉइंट</string>
     <string name="ai_title">स्वामीजी AI से पूछें</string>
     <string name="ai_beta_tag">नया</string>
-    <string name="ai_card_desc">ध्यान, हीलिंग, चक्र और सुरक्षा के बारे में पूछें, लिखकर, बोलकर या फोटो भेजकर। जवाब स्वामीजी की शिक्षाओं से आते हैं।</string>
+    <string name="ai_card_desc">अपना सवाल लिखें, AI स्वामीजी की शिक्षा से जवाब देगा।</string>
     <string name="ai_hint">ध्यान, हीलिंग, सुरक्षा के बारे में पूछें…</string>
     <string name="ai_intro_title">🙏 नमस्ते! मैं स्वामीजी AI हूँ</string>
     <string name="ai_intro_body">मैं ओजस हीलिंग चैनल पर स्वामीजी की अपनी शिक्षाओं से जवाब देता हूँ, और वे वीडियो दिखाता हूँ जिनसे जवाब लिया। लिखें, बोलें या फोटो भेजें। मैं एक मार्गदर्शक हूँ, स्वयं स्वामीजी नहीं; निजी बात के लिए सीधे उनसे पूछें।</string>
@@ -815,8 +816,14 @@
     <string name="read_not_done">अभी पूरा नहीं</string>
     <string name="read_add_title">नया प्रश्न</string>
     <string name="read_edit_title">प्रश्न बदलें</string>
-    <string name="read_question">प्रश्न</string>
-    <string name="read_answer">उत्तर</string>
+    <string name="read_question_hi">प्रश्न (हिंदी)</string>
+    <string name="read_answer_hi">उत्तर (हिंदी)</string>
+    <string name="read_question_en">प्रश्न (अंग्रेज़ी)</string>
+    <string name="read_answer_en">उत्तर (अंग्रेज़ी)</string>
+    <string name="read_question_gu">प्रश्न (गुजराती)</string>
+    <string name="read_answer_gu">उत्तर (गुजराती)</string>
+    <string name="read_translate_note">हिंदी बदलने पर दोबारा अनुवाद होगा और ये बदल जाएँगे।</string>
+    <string name="read_changed_elsewhere">किसी और ने हिंदी बदल दी है। रद्द करके फिर से खोलें।</string>
     <string name="read_save_failed">सहेज नहीं सके। फिर से कोशिश करें।</string>
     <string name="read_delete_failed">हटा नहीं सके। फिर से कोशिश करें।</string>
     <string name="read_mark_done">पूरा हुआ चिह्नित करें</string>

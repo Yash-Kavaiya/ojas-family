@@ -327,6 +327,37 @@ describe("readQa", () => {
     await assertFails(addDoc(collection(db, "readQa"), { ...qa(), extra: true }));
     await assertFails(updateDoc(doc(db, "readQa", "q1"), { createdAt: serverTimestamp(), updatedAt: serverTimestamp() }));
   });
+
+  const translated = async () => env.withSecurityRulesDisabled(async (ctx) => {
+    await updateDoc(doc(ctx.firestore(), "readQa", "q1"), { question_en: "Q en", answer_en: "A en", question_gu: "Q gu", answer_gu: "A gu", translatedHash: "h1" });
+  });
+
+  test("staff can save translations", async () => {
+    await assertSucceeds(updateDoc(doc(as("swamiji"), "readQa", "q1"), { question_en: "Q", answer_en: "A", question_gu: "પ્ર", answer_gu: "જ", updatedAt: serverTimestamp() }));
+  });
+
+  test("editing a translated question succeeds", async () => {
+    await translated();
+    await assertSucceeds(updateDoc(doc(as("admin"), "readQa", "q1"), { answer_gu: "સુધારેલું", updatedAt: serverTimestamp() }));
+  });
+
+  test("a translation over the limit is refused", async () => {
+    const db = as("admin");
+    await assertFails(updateDoc(doc(db, "readQa", "q1"), { answer_en: "x".repeat(10001), updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(doc(db, "readQa", "q1"), { question_gu: "x".repeat(501), updatedAt: serverTimestamp() }));
+  });
+
+  test("the app cannot set or change translatedHash", async () => {
+    const db = as("admin");
+    await assertFails(addDoc(collection(db, "readQa"), { ...qa(), translatedHash: "fake" }));
+    await assertFails(updateDoc(doc(db, "readQa", "q1"), { translatedHash: "fake", updatedAt: serverTimestamp() }));
+    await translated();
+    await assertFails(updateDoc(doc(db, "readQa", "q1"), { translatedHash: "fake", updatedAt: serverTimestamp() }));
+  });
+
+  test("members cannot write translations", async () => {
+    await assertFails(updateDoc(doc(asUser(ALICE), "readQa", "q1"), { answer_en: "Hacked", updatedAt: serverTimestamp() }));
+  });
 });
 
 describe("social", () => {

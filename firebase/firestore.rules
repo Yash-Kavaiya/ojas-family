@@ -184,18 +184,28 @@ service cloud.firestore {
     }
 
     function validReadQa(data) {
-      return data.keys().hasOnly(['question', 'answer', 'authorUid', 'createdAt', 'updatedAt'])
+      return data.keys().hasOnly(['question', 'answer', 'authorUid', 'createdAt', 'updatedAt',
+          'question_en', 'answer_en', 'question_gu', 'answer_gu', 'translatedHash'])
         && data.question is string && data.question.size() > 0 && data.question.size() <= 500
         && data.answer is string && data.answer.size() > 0 && data.answer.size() <= 10000
+        && validReadText(data, 'question_en', 500) && validReadText(data, 'answer_en', 10000)
+        && validReadText(data, 'question_gu', 500) && validReadText(data, 'answer_gu', 10000)
         && data.get('authorUid', '') is string && data.get('authorUid', '').size() <= 128
         && data.createdAt is timestamp && data.updatedAt is timestamp;
     }
 
+    function validReadText(data, field, max) {
+      return !(field in data) || (data[field] is string && data[field].size() <= max);
+    }
+
+    // translatedHash is written only by the server, which is not bound by these rules
     match /readQa/{id} {
       allow read: if signedIn();
       allow create: if canWriteRead() && validReadQa(request.resource.data)
+        && !('translatedHash' in request.resource.data)
         && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time;
       allow update: if canWriteRead() && validReadQa(request.resource.data)
+        && request.resource.data.get('translatedHash', '') == resource.data.get('translatedHash', '')
         && request.resource.data.createdAt == resource.data.createdAt && request.resource.data.updatedAt == request.time;
       allow delete: if canWriteRead();
     }

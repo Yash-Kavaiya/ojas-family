@@ -36,7 +36,8 @@ import { fetchPublicPage, linkPreviewFor } from "./linkPreview";
 import { reverseTransferFor, setTransfersFrozenFor, staffAdjustPointsFor, updatePointsConfigFor } from "./transfer";
 import { onProfileWritten } from "./profilePoints";
 import { askSwamijiFor, rateAiAnswerFor, remainingToday } from "./ai";
-import { nvidiaDeps } from "./aiNvidia";
+import { nvidiaDeps, nvidiaTranslator } from "./aiNvidia";
+import { translateReadQa } from "./readTranslate";
 
 initializeApp();
 const db = getFirestore();
@@ -308,6 +309,16 @@ export const aiQuota = onCall(async (req) => {
 export const rateAiAnswer = onCall(async (req) => {
   const uid = requireUid(req);
   return rateAiAnswerFor(db, uid, (req.data ?? {}) as Record<string, unknown>);
+});
+
+// Practice > Read: Hindi is written once; English and Gujarati follow. If this fails, members keep seeing the Hindi
+export const readQaWritten = onDocumentWritten({ document: "readQa/{id}", secrets: [nvidiaKey], timeoutSeconds: 300, memory: "256MiB" }, async (e) => {
+  if (!e.data?.after.exists) return;
+  try {
+    await translateReadQa(db, e.params.id, nvidiaTranslator());
+  } catch (err) {
+    console.error("Read translation failed", e.params.id, err);
+  }
 });
 
 // ---- Notifications ----

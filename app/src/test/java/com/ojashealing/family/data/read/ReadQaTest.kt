@@ -12,6 +12,67 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ReadQaTest {
+    private val qa = ReadQa(
+        "q1", "प्रश्न", "उत्तर", null,
+        questionEn = "Question", answerEn = "Answer", questionGu = "પ્રશ્ન", answerGu = "જવાબ",
+    )
+
+    @Test fun eachMemberReadsTheirLanguage() {
+        assertEquals("प्रश्न", qa.questionIn("hi"))
+        assertEquals("Answer", qa.answerIn("en"))
+        assertEquals("પ્રશ્ન", qa.questionIn("gu"))
+        assertEquals("જવાબ", qa.answerIn("gu"))
+    }
+
+    @Test fun aMissingTranslationShowsTheHindi() {
+        val blank = qa.copy(answerGu = " ", questionEn = "")
+        assertEquals("उत्तर", blank.answerIn("gu"))
+        assertEquals("प्रश्न", blank.questionIn("en"))
+    }
+
+    @Test fun anotherPhoneLanguageShowsEnglish() {
+        assertEquals("Question", qa.questionIn("fr"))
+        assertEquals("प्रश्न", qa.copy(questionEn = "").questionIn("fr"))
+    }
+
+    @Test fun sameHindiKeepsCorrectedTranslations() {
+        val t = ReadTranslations(" Fixed Q ", "Fixed A", "પ્ર", "જ")
+        val f = readUpdateFields(qa, " प्रश्न ", "उत्तर", t)
+        assertEquals("प्रश्न", f["question"])
+        assertEquals("Fixed Q", f["question_en"])
+        assertEquals("Fixed A", f["answer_en"])
+        assertEquals("પ્ર", f["question_gu"])
+        assertEquals("જ", f["answer_gu"])
+    }
+
+    @Test fun untouchedTranslationsAreNotWritten() {
+        val same = ReadTranslations(qa.questionEn, qa.answerEn, qa.questionGu, " Fixed ")
+        val f = readUpdateFields(qa, qa.question, qa.answer, same)
+        for (k in listOf("question_en", "answer_en", "question_gu")) assertFalse(k in f)
+        assertEquals("Fixed", f["answer_gu"])
+    }
+
+    @Test fun emptyFieldsOpenedBeforeTranslationAreNotWritten() {
+        val before = qa.copy(questionEn = "", answerEn = "", questionGu = "", answerGu = "")
+        val f = readUpdateFields(before, before.question, before.answer, ReadTranslations("", "", "", ""))
+        for (k in listOf("question_en", "answer_en", "question_gu", "answer_gu")) assertFalse(k in f)
+    }
+
+    @Test fun hindiChangedByAnotherAdminIsAConflict() {
+        assertTrue(readEditConflict(qa, qa.copy(answer = "दूसरा")))
+        assertFalse(readEditConflict(qa, qa.copy(answerEn = "New translation")))
+        assertFalse(readEditConflict(qa, null))
+    }
+
+    @Test fun changedHindiClearsTranslationsUntilTheNewOnesArrive() {
+        val f = readUpdateFields(qa, "प्रश्न", "नया उत्तर", ReadTranslations("Q", "A", "પ્ર", "જ"))
+        assertEquals("नया उत्तर", f["answer"])
+        for (k in listOf("question_en", "answer_en", "question_gu", "answer_gu")) {
+            assertTrue(k in f)
+            assertEquals(null, f[k])
+        }
+    }
+
     @Test fun voiceLanguageFollowsTheScript() {
         assertEquals("en-IN", ttsLanguageFor("What is protection?"))
         assertEquals("hi-IN", ttsLanguageFor("सुरक्षा क्या है?"))
