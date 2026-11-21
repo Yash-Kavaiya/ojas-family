@@ -902,4 +902,44 @@
         <item quantity="one">Notifications, %1$d new</item>
         <item quantity="other">Notifications, %1$d new</item>
     </plurals>
+    <!-- Screen help: numbers are checked against PlanAccess.kt by ScreenHelpTest -->
+    <string name="help_open">Help for this screen</string>
+    <string name="help_got_it">Got it</string>
+    <string name="help_access">Access level</string>
+    <string name="help_free">Free User</string>
+    <string name="help_silver">Silver</string>
+    <string name="help_gold">Gold</string>
+    <string name="help_silver_gold">Silver and Gold</string>
+    <string name="help_row_photo">Healing photo</string>
+    <string name="help_row_hide">Hide profile</string>
+    <string name="help_thought_body">Read a daily thought written by Swamiji. You can Like and Reply according to your access level. Turn its notification on or off in Profile &gt; Settings. To read an earlier thought, tap its date.</string>
+    <string name="help_thought_free">Can read thoughts. Like after 7 days, Reply after 6 months.</string>
+    <string name="help_thought_paid">Can read and Like thoughts. Reply after 7 days.</string>
+    <string name="help_qa_body">Ask any spiritual question here. Swamiji or other members can answer it. You can post, Like and Reply according to your access level.</string>
+    <string name="help_qa_free">Can read posts. Like after 7 days. Reply after 6 months, with 1 text-only question a day. After 12 months, 5 questions a day with text, photo, audio or video.</string>
+    <string name="help_qa_silver">Can read and Like posts. Reply after 7 days, with 1 text-only question a day. After 12 months, 5 questions a day with text, photo, audio or video.</string>
+    <string name="help_qa_gold">Can read and Like posts. Reply after 7 days, with 1 text-only question a day. After 6 months, 5 questions a day; after 12 months, 10 a day, with text, photo, audio or video.</string>
+    <string name="help_daily_body">Members share their daily seva (cooking, cleaning, exercise, yoga) here with photos.</string>
+    <string name="help_daily_free">Not available.</string>
+    <string name="help_daily_silver">Read after 6 months, Reply after 12 months.</string>
+    <string name="help_daily_gold">Read after 7 days, Reply after 6 months, post your own after 12 months.</string>
+    <string name="help_notices_body">Important announcements from Swamiji and the Ojas team appear here.</string>
+    <string name="help_notices_free">Can read. Like after 7 days, Reply after 6 months.</string>
+    <string name="help_notices_silver">Can read and Like. Reply after 7 days.</string>
+    <string name="help_notices_gold">Can read, Like and Reply.</string>
+    <string name="help_read_body">Read or listen to Swamiji\'s questions and answers in your language. After reading, tap Mark as done. This is open to everyone.</string>
+    <string name="help_practice_body">Audio practices for morning, night, Blue Healing and Quick Protection. Practising daily earns Freedom Points and builds your streak.</string>
+    <string name="help_practice_free">Blue Healing. Quick Protection after 6 months. Morning and Night practice need Silver or Gold.</string>
+    <string name="help_practice_silver">Blue Healing and Quick Protection. Morning and Night practice after 7 days.</string>
+    <string name="help_practice_gold">Everything from the first day.</string>
+    <string name="help_freedom_body">Choose your goals, practise them daily and see your progress.</string>
+    <string name="help_ask_body">Ask Swamiji AI your question. It answers from Swamiji\'s teaching. Chat and calls can be bought separately: with the Ojas team from the first day, with Swamiji after 6 months.</string>
+    <string name="help_ask_free">AI questions a day: 5; after 6 months, 50; after 12 months, 100.</string>
+    <string name="help_ask_silver">AI questions a day: 50; after 6 months, 100.</string>
+    <string name="help_ask_gold">AI questions a day: 50; after 6 months, 100; after 12 months, unlimited.</string>
+    <string name="help_video_body">Watch Ojas Healing videos here.</string>
+    <string name="help_books_body">Read or listen to Swamiji\'s books, and download them to read offline.</string>
+    <string name="help_profile_body">Your details, Freedom Points, membership and Settings (language, theme, notifications) are here.</string>
+    <string name="help_profile_photo">Silver after 12 months, Gold after 6 months.</string>
+    <string name="help_profile_hide">Gold after 12 months.</string>
 </resources>

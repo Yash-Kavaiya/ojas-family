@@ -901,4 +901,44 @@
         <item quantity="one">सूचनाएँ, %1$d नई</item>
         <item quantity="other">सूचनाएँ, %1$d नई</item>
     </plurals>
+    <!-- Screen help: numbers are checked against PlanAccess.kt by ScreenHelpTest -->
+    <string name="help_open">इस स्क्रीन की सहायता</string>
+    <string name="help_got_it">समझ गया</string>
+    <string name="help_access">Access level</string>
+    <string name="help_free">Free User</string>
+    <string name="help_silver">Silver</string>
+    <string name="help_gold">Gold</string>
+    <string name="help_silver_gold">Silver और Gold</string>
+    <string name="help_row_photo">हीलिंग फ़ोटो</string>
+    <string name="help_row_hide">प्रोफ़ाइल छुपाना</string>
+    <string name="help_thought_body">यहाँ आप रोजाना स्वामीजी द्वारा लिखित सुविचार पढ़ सकते हैं। सुविचार पर Like और Reply आप access level के हिसाब से कर सकते हैं। सुविचार का नोटिफिकेशन Profile &gt; Settings में चालू या बंद कर सकते हैं। पिछली तारीख का सुविचार पढ़ने के लिए दी गई तारीख पर टैप करें।</string>
+    <string name="help_thought_free">सुविचार पढ़ सकते हैं। 7 दिन बाद Like, 6 महीने बाद Reply।</string>
+    <string name="help_thought_paid">सुविचार पढ़ और Like कर सकते हैं। 7 दिन बाद Reply।</string>
+    <string name="help_qa_body">यहाँ आप कोई भी आध्यात्मिक प्रश्न पूछ सकते हैं। स्वामीजी या दूसरे सदस्य उसका उत्तर दे सकते हैं। पोस्ट, Like और Reply आप access level के हिसाब से कर सकते हैं।</string>
+    <string name="help_qa_free">पोस्ट पढ़ सकते हैं। 7 दिन बाद Like। 6 महीने बाद Reply और रोज 1 प्रश्न, सिर्फ टेक्स्ट में। 12 महीने बाद रोज 5 प्रश्न text, photo, audio, video के साथ।</string>
+    <string name="help_qa_silver">पोस्ट पढ़ और Like कर सकते हैं। 7 दिन बाद Reply और रोज 1 प्रश्न, सिर्फ टेक्स्ट में। 12 महीने बाद रोज 5 प्रश्न text, photo, audio, video के साथ।</string>
+    <string name="help_qa_gold">पोस्ट पढ़ और Like कर सकते हैं। 7 दिन बाद Reply और रोज 1 प्रश्न, सिर्फ टेक्स्ट में। 6 महीने बाद रोज 5 प्रश्न, 12 महीने बाद रोज 10 प्रश्न, text, photo, audio, video के साथ।</string>
+    <string name="help_daily_body">यहाँ सदस्य अपनी दैनिक सेवा (खाना बनाना, सफ़ाई, व्यायाम, योग) फ़ोटो के साथ साझा करते हैं।</string>
+    <string name="help_daily_free">उपलब्ध नहीं।</string>
+    <string name="help_daily_silver">6 महीने बाद पढ़ सकते हैं, 12 महीने बाद Reply।</string>
+    <string name="help_daily_gold">7 दिन बाद पढ़ सकते हैं, 6 महीने बाद Reply, 12 महीने बाद अपनी पोस्ट।</string>
+    <string name="help_notices_body">यहाँ स्वामीजी और Ojas टीम की ज़रूरी सूचनाएँ मिलती हैं।</string>
+    <string name="help_notices_free">पढ़ सकते हैं। 7 दिन बाद Like, 6 महीने बाद Reply।</string>
+    <string name="help_notices_silver">पढ़ और Like कर सकते हैं। 7 दिन बाद Reply।</string>
+    <string name="help_notices_gold">पढ़, Like और Reply कर सकते हैं।</string>
+    <string name="help_read_body">यहाँ स्वामीजी के प्रश्न और उत्तर आपकी भाषा में पढ़ या सुन सकते हैं। पढ़ने के बाद "Mark as done" पर टैप करें। यह सबके लिए खुला है।</string>
+    <string name="help_practice_body">यहाँ सुबह, रात, ब्लू हीलिंग और क्विक प्रोटेक्शन की ऑडियो साधना है। रोज करने पर Freedom Points और streak मिलते हैं।</string>
+    <string name="help_practice_free">ब्लू हीलिंग। 6 महीने बाद क्विक प्रोटेक्शन। सुबह और रात की साधना के लिए Silver या Gold चाहिए।</string>
+    <string name="help_practice_silver">ब्लू हीलिंग और क्विक प्रोटेक्शन। 7 दिन बाद सुबह और रात की साधना।</string>
+    <string name="help_practice_gold">पहले दिन से सब।</string>
+    <string name="help_freedom_body">यहाँ अपने लक्ष्य चुनकर उनका रोज अभ्यास करें और अपनी प्रगति देखें।</string>
+    <string name="help_ask_body">यहाँ स्वामीजी AI से प्रश्न पूछें। AI स्वामीजी की शिक्षा से उत्तर देता है। स्वामीजी या Ojas टीम से चैट और कॉल अलग से खरीद सकते हैं: टीम से पहले दिन से, स्वामीजी से 6 महीने बाद।</string>
+    <string name="help_ask_free">AI प्रश्न रोज: 5, 6 महीने बाद 50, 12 महीने बाद 100।</string>
+    <string name="help_ask_silver">AI प्रश्न रोज: 50, 6 महीने बाद 100।</string>
+    <string name="help_ask_gold">AI प्रश्न रोज: 50, 6 महीने बाद 100, 12 महीने बाद असीमित।</string>
+    <string name="help_video_body">यहाँ Ojas Healing के वीडियो देख सकते हैं।</string>
+    <string name="help_books_body">यहाँ स्वामीजी की पुस्तकें पढ़ सकते हैं, सुन सकते हैं और offline पढ़ने के लिए डाउनलोड कर सकते हैं।</string>
+    <string name="help_profile_body">यहाँ अपनी जानकारी, Freedom Points, membership और Settings (भाषा, थीम, नोटिफिकेशन) मिलते हैं।</string>
+    <string name="help_profile_photo">Silver को 12 महीने बाद, Gold को 6 महीने बाद।</string>
+    <string name="help_profile_hide">Gold को 12 महीने बाद।</string>
 </resources>

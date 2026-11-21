@@ -371,7 +371,20 @@ fun MainShell(container: AppContainer) {
     // The bell clears by itself: a tab on screen sees its new posts, an opened post reads its lines.
     // Only while the app is in front, so nothing is cleared that the member did not see.
     val resumed = lifecycleOwner.lifecycle.currentStateAsState().value.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
-    val groupShown = if (resumed && screenRoute?.contains("TabsRoute") == true) groupOnScreen(tab, communityTab) else null
+    // Each screen's help opens by itself once; after that only from the ? in the top bar
+    val helpSeen = remember { com.ojashealing.family.ui.help.HelpSeen(context) }
+    var helpOpen by remember { mutableStateOf<com.ojashealing.family.ui.help.HelpTopic?>(null) }
+    val helpTopic = com.ojashealing.family.ui.help.helpTopicFor(tab, communityTab, practicePart, askPart)
+    val helpOnTabs = resumed && screenRoute?.contains("TabsRoute") == true
+    LaunchedEffect(helpTopic, helpOnTabs, profile != null, helpOpen) {
+        if (com.ojashealing.family.ui.help.shouldAutoOpenHelp(helpTopic, helpSeen.seen, helpOnTabs, profile != null, helpOpen != null)) {
+            // A moment for the screen to settle, and so swiping past a tab doesn't open its help
+            kotlinx.coroutines.delay(450)
+            helpSeen.mark(helpTopic)
+            helpOpen = helpTopic
+        }
+    }
+    val groupShown =if (resumed && screenRoute?.contains("TabsRoute") == true) groupOnScreen(tab, communityTab) else null
     val groupNew = groupShown?.let { g -> inboxItems.orEmpty().count { !it.personal && it.unread && it.group == g } } ?: 0
     LaunchedEffect(groupShown, groupNew) { if (groupShown != null && groupNew > 0) markGroupSeen(groupShown) }
     val readPost: (String) -> Unit = { target ->
@@ -675,7 +688,9 @@ fun MainShell(container: AppContainer) {
                         OjasTopBar(
                             profile, onCounterPositioned = { anchors.counterCenter = it }, onOpenPoints = { nav.navigate(PointsHistoryRoute) },
                             unread = unreadByGroup.values.sum(), onOpenBell = { nav.navigate(NotificationsRoute) { launchSingleTop = true } },
+                            onOpenHelp = { helpSeen.mark(helpTopic); helpOpen = helpTopic },
                         )
+                        helpOpen?.let { com.ojashealing.family.ui.help.ScreenHelpSheet(it) { helpOpen = null } }
                         Box(Modifier.weight(1f).fillMaxWidth()) {
                             AnimatedContent(targetState = tab, transitionSpec = { tabTransition(initialState, targetState) }, label = "tab") { shown ->
                                 when (shown) {

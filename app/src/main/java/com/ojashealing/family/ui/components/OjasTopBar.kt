@@ -57,6 +57,7 @@ import com.ojashealing.family.ui.theme.BrandNumberStyle
 import com.ojashealing.family.ui.theme.BrandTitleStyle
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.border
@@ -73,6 +74,8 @@ fun OjasTopBar(
     /** New lines in the bell list; the bell shows only when [onOpenBell] is given. */
     unread: Int = 0,
     onOpenBell: (() -> Unit)? = null,
+    /** Opens the help for the screen on show; the ? icon shows only when given. */
+    onOpenHelp: (() -> Unit)? = null,
 ) {
     val points = profile?.mokshaPoints ?: 0
 
@@ -132,6 +135,16 @@ fun OjasTopBar(
                         )
                         NameBadges(profile.viewer.role, profile.viewer.userLevel.rank, profile.viewer.memberLevel.rank, 14.dp)
                     }
+                }
+            }
+
+            if (onOpenHelp != null) {
+                androidx.compose.material3.IconButton(onClick = onOpenHelp, modifier = Modifier.testTag("help")) {
+                    Icon(
+                        Icons.AutoMirrored.Outlined.HelpOutline,
+                        contentDescription = stringResource(R.string.help_open),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
 
